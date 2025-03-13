@@ -3,4 +3,6 @@ project(untitled22 C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(untitled22 main.c)
+add_executable(untitled22 src/main.c
+        src/lexer/lexer.c
+        src/lexer/lexer.h)
