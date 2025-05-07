@@ -16,6 +16,12 @@ typedef enum {
     TokenPunctuation,
 } TokenType;
 
+struct Input {
+    char ** input;
+    int n;
+};
+
+typedef struct Input * Input;
 
 struct Token {
     TokenType type;
@@ -23,8 +29,10 @@ struct Token {
     struct Token * next;
 };
 
-typedef struct Token * TokenPtr;
+typedef struct Token * Token;
 
-char ** tokenization(char * input);
+Input splitter(char * input);
+
+Token tokenization(Input input);
 
 #endif //LEXER_H

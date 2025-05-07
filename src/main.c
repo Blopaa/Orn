@@ -17,7 +17,13 @@ void printTokens(char** tokens) {
 
 int main(void) {
     char * input = "int x = 5 ;";
-    char ** res = tokenization(input);
-    printTokens(res);
+    Input res = splitter(input);
+    printTokens(res->input);
+    Token t = tokenization(res);
+    for(int i = 0; i < res->n; i++) {
+        t = t->next;
+        printf("Token %d: '%s, tipo: %d'\n", i, t->value, t->type);
+    }
+    t->next == NULL ? printf("nulo") : printf("no nulo");
     return 0;
 }
