@@ -58,11 +58,14 @@ TokenType findTokenType(char *val) {
 char *getStringToken(char **val, int *n, int maxLength) {
     char *str = malloc(100 * sizeof(char));
     str[0] = '\0';
-    while (*n < maxLength && (!strstr(val[*n], QUOTES) || findTokenType(val[*n]) != TokenQuotes)) {
-        if(str[0] != '\0') strcat(str, " ");
+    strcat(str, val[*n]);
+    (*n)++;
+    while (*n < maxLength && (!strstr(val[*n - 1], QUOTES) || !strcmp(val[*n - 1], str))) {
+        strcat(str, " ");
         strcat(str, val[*n]);
         (*n)++;
     }
+    (*n)--;
     return str;
 }
 

@@ -16,7 +16,7 @@ void printTokens(char** tokens) {
 }
 
 int main(void) {
-    char * input = "string x = \"hello world\"";
+    char * input = "string x = \"hello world\" ;";
     Input res = splitter(input);
     printTokens(res->input);
     Token t = tokenization(res);
