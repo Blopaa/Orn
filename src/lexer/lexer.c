@@ -46,6 +46,26 @@ Input splitter(char *input) {
     return in;
 }
 
+TokenType findTokenType(char *val) {
+    for (int i = 0; tokenMapping[i].value != NULL; i++) {
+        if (strcmp(tokenMapping[i].value, val) == 0) {
+            return tokenMapping[i].type;
+        }
+    }
+    return TokenLiteral;
+}
+
+char *getStringToken(char **val, int *n, int maxLength) {
+    char *str = malloc(100 * sizeof(char));
+    str[0] = '\0';
+    while (*n < maxLength && (!strstr(val[*n], QUOTES) || findTokenType(val[*n]) != TokenQuotes)) {
+        if(str[0] != '\0') strcat(str, " ");
+        strcat(str, val[*n]);
+        (*n)++;
+    }
+    return str;
+}
+
 Token tokenization(Input in) {
     Token head = malloc(sizeof(struct Token));
     Token crrnt = head;
@@ -53,24 +73,11 @@ Token tokenization(Input in) {
         crrnt->next = malloc(sizeof(struct Token));
         crrnt = crrnt->next;
 
-        if(!strcmp(in->input[i],VALUE_INT_DEFINITION)) {
-            crrnt->type = TokenDefinition;
-            crrnt->value = VALUE_INT_DEFINITION;
-            crrnt->next =  malloc(sizeof(struct Token));
-            i++;
-            crrnt = crrnt->next;
-            crrnt->value = in->input[i];
-            crrnt->type = TokenLiteral;
-        }else if(!strcmp(in->input[i],VALUE_ASSIGNEMENT)) {
-            crrnt->type = TokenAssignement;
-            crrnt->value = in->input[i];
-        }
-        else if(!strcmp(in->input[i],VALUE_PUNCTUATION)) {
-            crrnt->type = TokenPunctuation;
-            crrnt->value = in->input[i];
-        }
-        else {
-            crrnt->type = TokenLiteral;
+        crrnt->type = findTokenType(in->input[i]);
+        if (crrnt->type == TokenQuotes || (strstr(in->input[i], QUOTES) && crrnt->type == TokenLiteral)) {
+            crrnt->type = TokenString;
+            crrnt->value = getStringToken(in->input, &i, in->n);
+        } else {
             crrnt->value = in->input[i];
         }
     }

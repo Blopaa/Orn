@@ -5,33 +5,65 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#define VALUE_ASSIGNEMENT "="
-#define VALUE_PUNCTUATION ";"
-#define VALUE_INT_DEFINITION "int"
+#define ASSIGNEMENT "="
+#define PUNCTUATION ";"
+#define INT_DEFINITION "int"
+#define STRING_DEFINITION "string"
+#define QUOTES "\""
+#define SUM_OPERATOR "+"
+#define SUB_OPERATOR "-"
+#define MULTIPLY_OPERATOR "*"
+#define DIVIDE_OPERATOR "/"
+#include <stddef.h>
 
 typedef enum {
     TokenAssignement,
     TokenLiteral,
-    TokenDefinition,
+    TokenIntDefinition,
+    TokenStringDefinition,
     TokenPunctuation,
+    TokenQuotes,
+    TokenSum,
+    TokenSub,
+    TokenMult,
+    TokenDiv,
+    TokenString
 } TokenType;
 
+typedef struct {
+    char *value;
+    TokenType type;
+} TokenMap;
+
+static const TokenMap tokenMapping[] = {
+    {INT_DEFINITION, TokenIntDefinition},
+    {STRING_DEFINITION, TokenStringDefinition},
+    {ASSIGNEMENT, TokenAssignement},
+    {PUNCTUATION, TokenPunctuation},
+    {QUOTES, TokenQuotes},
+    {SUM_OPERATOR, TokenSum},
+    {SUB_OPERATOR, TokenSub},
+    {MULTIPLY_OPERATOR, TokenMult},
+    {DIVIDE_OPERATOR, TokenDiv},
+    {NULL, TokenLiteral}
+};
+
 struct Input {
-    char ** input;
+    char **input;
     int n;
 };
 
-typedef struct Input * Input;
+typedef struct Input *Input;
 
 struct Token {
     TokenType type;
-    char * value;
-    struct Token * next;
+    char *value;
+    struct Token *next;
 };
 
-typedef struct Token * Token;
+typedef struct Token *Token;
 
-Input splitter(char * input);
+Input splitter(char *input);
 
 Token tokenization(Input input);
 
