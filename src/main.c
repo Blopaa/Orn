@@ -9,14 +9,14 @@ void printTokens(char** tokens) {
 
     int i = 0;
     while (tokens[i] != NULL) {
-        printf("Token %d: '%s'\n", i, tokens[i]);
+        printf("split %d: '%s'\n", i, tokens[i]);
         i++;
     }
     printf("Total tokens: %d\n", i);
 }
 
 int main(void) {
-    char * input = "string x = \"hello world\" ;";
+    char * input = "string x = \"hello world\";";
     Input res = splitter(input);
     printTokens(res->input);
     Token t = tokenization(res);

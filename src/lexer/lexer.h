@@ -63,8 +63,8 @@ struct Token {
 
 typedef struct Token *Token;
 
-Input splitter(char *input);
+Input splitter(const char *input);
 
-Token tokenization(Input input);
+Token tokenization(Input in);
 
 #endif //LEXER_H
