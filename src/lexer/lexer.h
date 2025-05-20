@@ -35,6 +35,11 @@ typedef struct {
     TokenType type;
 } TokenMap;
 
+static const char SpecialCharMap[] = {
+    ';',
+    '='
+};
+
 static const TokenMap tokenMapping[] = {
     {INT_DEFINITION, TokenIntDefinition},
     {STRING_DEFINITION, TokenStringDefinition},

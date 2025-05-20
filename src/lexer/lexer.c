@@ -7,41 +7,69 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+int isSpecialChar(char c) {
+    for(int i = 0; i < sizeof(SpecialCharMap);i++) {
+        if(c == SpecialCharMap[i]) return 1;
+    }
+    return 0;
+}
+
 // This function will take a string as input and return a linked list of tokens
 // @param - input
 Input splitter(const char *input) {
     Input in = malloc(sizeof(struct Input));
-    int tokenCount = 1;
+    int tokenCount = 0;
     for (int i = 0; input[i] != '\0'; i++) {
-        if (isspace(input[i]) || input[i] == '\n') {
-            tokenCount++;
-        }
+        tokenCount++;
     }
-    in->n = tokenCount;
+    in->n = 0;
     char **tokens = malloc((tokenCount + 1) * sizeof(char *));
     in->input = tokens;
+
     int i = 0;
-    int j = 0;
-    char *buffer = malloc(100 * sizeof(char));
+
     while (input[i] != '\0') {
-        if (input[i] == '\n' || isspace(input[i])) {
-            buffer[j] = '\0';
-            *tokens = buffer;
-            tokens++;
-            buffer = malloc(100 * sizeof(char));
-            j = 0;
-        } else {
-            buffer[j] = input[i];
-            j++;
+        while((input[i] == '\n' || isspace(input[i])) && input[i] != '\0') {
+            i++;
         }
-        i++;
+
+        if(input[i] == '\"') {
+            int j = i;
+            i++;
+
+            while(input[i] != '\"' && input[i] != '\0') {
+                i++;
+            }
+
+            if(input[i] != '\0') i++;
+            int strLength = i-j;
+            char * token = malloc((strLength + 1) * sizeof(char));
+            strncpy(token, input + j, strLength);
+            token[strLength] = '\0';
+            tokens[in->n++] = token;
+        }
+
+        if(isSpecialChar(input[i])) {
+            char * token = malloc(2 * sizeof(char));
+            token[0] = input[i];
+            token[1] = '\0';
+            tokens[in->n++] = token;
+            i++;
+        }else {
+            int j = i;
+            while(!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
+                i++;
+            }
+            int tokenLength = i - j;
+            char * token = malloc((tokenLength + 1) * sizeof(char));
+            strncpy(token, input + j, tokenLength);
+            token[tokenLength] = '\0';
+            tokens[in->n++] = token;
+        }
     }
-    if (j > 0) {
-        buffer[j] = '\0';
-        *tokens = buffer;
-        tokens++;
-    }
-    *tokens = NULL;
+
+    tokens[in->n] = NULL;
     return in;
 }
 
@@ -61,30 +89,6 @@ TokenType findTokenType(const char *val) {
     return TokenLiteral;
 }
 
-char *getStringValue(char **val, int *n, int maxLength) {
-    char *str = malloc(100 * sizeof(char));
-    str[0] = '\0';
-    strcat(str, val[*n]);
-    (*n)++;
-    while (*n < maxLength && (!strstr(val[*n - 1], QUOTES) || !strcmp(val[*n - 1], str))) {
-        strcat(str, " ");
-        strcat(str, val[*n]);
-        (*n)++;
-    }
-    (*n)--;
-    return str;
-}
-
-Token handleStringPunc (Token crrnt) {
-    const size_t length = strlen(crrnt->value);
-    if (!strcmp(&crrnt->value[length - 1], PUNCTUATION)) {
-        crrnt->value[length - 1] = '\0';
-        crrnt->next = createToken(PUNCTUATION, TokenPunctuation);
-        crrnt = crrnt->next;
-    }
-    return crrnt;
-}
-
 Token tokenization(Input in) {
     struct Token * const head = malloc(sizeof(struct Token));
     Token crrnt = head;
@@ -93,13 +97,7 @@ Token tokenization(Input in) {
         crrnt = crrnt->next;
 
         crrnt->type = findTokenType(in->input[i]);
-        if (crrnt->type == TokenQuotes || (strstr(in->input[i], QUOTES) && crrnt->type == TokenLiteral)) {
-            crrnt->type = TokenString;
-            crrnt->value = getStringValue(in->input, &i, in->n);
-            crrnt = handleStringPunc(crrnt);
-        } else {
             crrnt->value = in->input[i];
-        }
     }
     crrnt->next = NULL;
     return head;
