@@ -16,6 +16,8 @@
 #define DIVIDE_OPERATOR "/"
 #include <stddef.h>
 
+
+// ammount of types of tokens there can be
 typedef enum {
     TokenAssignement,
     TokenLiteral,
@@ -27,14 +29,19 @@ typedef enum {
     TokenSub,
     TokenMult,
     TokenDiv,
-    TokenString
+    TokenString,
+    TokenNULL
 } TokenType;
 
+
+// Mapping type to quick find types by key
 typedef struct {
     char *value;
     TokenType type;
 } TokenMap;
 
+
+// reserved chars
 static const char * SpecialCharMap[] = {
     PUNCTUATION,
     ASSIGNEMENT,
@@ -45,6 +52,7 @@ static const char * SpecialCharMap[] = {
     NULL
 };
 
+// Map by key to quick find types
 static const TokenMap tokenMapping[] = {
     {INT_DEFINITION, TokenIntDefinition},
     {STRING_DEFINITION, TokenStringDefinition},
@@ -58,6 +66,7 @@ static const TokenMap tokenMapping[] = {
     {NULL, TokenLiteral}
 };
 
+// Input send by splitter, it is the splitted content and its legth
 struct Input {
     char **input;
     int n;

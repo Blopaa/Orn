@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+// returns 1 if char evaluated its an specialChar saved on SpecialCharMap or 0 if its not
 int isSpecialChar(char c) {
     for(int i = 0; SpecialCharMap[i] != NULL;i++) {
         if(c == SpecialCharMap[i][0]) return 1;
@@ -15,8 +15,6 @@ int isSpecialChar(char c) {
     return 0;
 }
 
-// This function will take a string as input and return a linked list of tokens
-// @param - input
 Input splitter(const char *input) {
     Input in = malloc(sizeof(struct Input));
     int tokenCount = 0;
@@ -73,6 +71,7 @@ Input splitter(const char *input) {
     return in;
 }
 
+//creates a new token given a type and its value
 Token createToken(char *val, TokenType t) {
     Token tk = malloc(sizeof(struct Token));
     tk->type = t;
@@ -80,6 +79,7 @@ Token createToken(char *val, TokenType t) {
     return tk;
 }
 
+// finds the type of the token by keys if didnt found a type for the key its considered a literal
 TokenType findTokenType(const char *val) {
     for (int i = 0; tokenMapping[i].value != NULL; i++) {
         if (strcmp(tokenMapping[i].value, val) == 0) {

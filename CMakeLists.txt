@@ -5,4 +5,6 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(untitled22 src/main.c
         src/lexer/lexer.c
-        src/lexer/lexer.h)
+        src/lexer/lexer.h
+        src/parser/parser.c
+        src/parser/parser.h)
