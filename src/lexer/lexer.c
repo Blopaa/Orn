@@ -9,8 +9,8 @@
 
 
 int isSpecialChar(char c) {
-    for(int i = 0; i < sizeof(SpecialCharMap);i++) {
-        if(c == SpecialCharMap[i]) return 1;
+    for(int i = 0; SpecialCharMap[i] != NULL;i++) {
+        if(c == SpecialCharMap[i][0]) return 1;
     }
     return 0;
 }

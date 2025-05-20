@@ -35,9 +35,14 @@ typedef struct {
     TokenType type;
 } TokenMap;
 
-static const char SpecialCharMap[] = {
-    ';',
-    '='
+static const char * SpecialCharMap[] = {
+    PUNCTUATION,
+    ASSIGNEMENT,
+    SUM_OPERATOR,
+    SUB_OPERATOR,
+    MULTIPLY_OPERATOR,
+    DIVIDE_OPERATOR,
+    NULL
 };
 
 static const TokenMap tokenMapping[] = {
