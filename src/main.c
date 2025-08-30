@@ -34,45 +34,25 @@ void printTokenList(Token t) {
 
 int main(void) {
     printf("=== LEXER TEST ===\n");
-    char * input = "string sum = \"hola\"; int num = 1";
+    char * input = "string c = \"hola\"";
     printf("Input: %s\n\n", input);
 
-    // Fase 1: Splitting
     printf("1. SPLITTING:\n");
     Input res = splitter(input);
     printTokens(res->input);
     printf("\n");
 
-    // Fase 2: Tokenization
     printf("2. TOKENIZATION:\n");
     Token t = tokenization(res);
     printTokenList(t);
     printf("\n");
 
-    // Fase 3: AST Generation
     printf("3. AST GENERATION:\n");
     ASTNode ast = ASTGenerator(t);
     printAST(ast, 0);
     printf("\n");
 
-    // Limpiar memoria
     freeAST(ast);
-
-    printf("=== EXAMPLES ===\n");
-    char* examples[] = {
-        "string name = \"Pablo\";",
-        "int age = 25;",
-        NULL
-    };
-
-    for(int i = 0; examples[i] != NULL; i++) {
-        printf("\nInput: %s\n", examples[i]);
-        Input inp = splitter(examples[i]);
-        Token tokens = tokenization(inp);
-        ASTNode tree = ASTGenerator(tokens);
-        printAST(tree, 0);
-        freeAST(tree);
-    }
 
     return 0;
 }

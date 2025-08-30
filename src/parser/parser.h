@@ -14,6 +14,7 @@ typedef enum {
      SUB_OP,
      INT_LIT,
      STRING_LIT,
+     VARIABLE,
      null_NODE
 } NodeTypes ;
 
