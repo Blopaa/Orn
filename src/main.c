@@ -1,8 +1,10 @@
 #include <stdio.h>
+
+#include "errorHandling/errorHandling.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 
-void printTokens(char** tokens) {
+void printTokens(char **tokens) {
     if (tokens == NULL) {
         printf("No tokens found.\n");
         return;
@@ -24,7 +26,7 @@ void printTokenList(Token t) {
 
     int i = 0;
     Token current = t;
-    while(current && current->next != NULL) {
+    while (current && current->next != NULL) {
         current = current->next;
         printf("Token %d: '%s', tipe: %d\n", i, current->value, current->type);
         i++;
@@ -34,7 +36,7 @@ void printTokenList(Token t) {
 
 int main(void) {
     printf("=== LEXER TEST ===\n");
-    char * input = "string c = \"hola\"";
+    char *input = "int c = 2";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
@@ -54,5 +56,30 @@ int main(void) {
 
     freeAST(ast);
 
-    return 0;
+    char *testInputs[] = {
+        "string name = \"Pablo\";",
+        "int age = 25;",
+        "string error1 = 123;",
+        "int error2 = \"hello\";",
+        "int sum = a + b;",
+        NULL
+    };
+
+    for (int i = 0; testInputs[i] != NULL; i++) {
+        printf("\n--- Testing: %s ---\n", testInputs[i]);
+
+        Input inp = splitter(testInputs[i]);
+        Token tokens = tokenization(inp);
+        ASTNode tree = ASTGenerator(tokens);
+
+        if (tree && !hasErrors()) {
+            printAST(tree, 0);
+        }
+
+        freeAST(tree);
+    }
+
+    printErrorSummary();
+
+    return hasErrors() ? 1 : 0;
 }

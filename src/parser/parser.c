@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
 
 // returns the type of the variable declaration based on the type of the token given string | int
@@ -50,13 +51,13 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
     ASTNode valNod = NULL;
     if (isStringLit(val)) {
         if (fatherType == INT_VARIABLE_DEFINITION) {
-            printf("ERROR: cannot assign string literal %s to int variable\n", val);
+            repError(ERROR_TYPE_MISMATCH_STRING_TO_INT, val);
             return NULL;
         }
         valNod = createNode(val, STRING_LIT);
     } else if (isIntLit(val)) {
         if (fatherType == STRING_VARIABLE_DEFINITION) {
-            printf("ERROR: cannot assign int literal %s to string variable\n", val);
+            repError(ERROR_TYPE_MISMATCH_INT_TO_STRING, val);
             return NULL;
         }
         valNod = createNode(val, INT_LIT);

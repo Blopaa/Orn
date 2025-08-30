@@ -7,4 +7,6 @@ add_executable(untitled22 src/main.c
         src/lexer/lexer.c
         src/lexer/lexer.h
         src/parser/parser.c
-        src/parser/parser.h)
+        src/parser/parser.h
+        src/errorHandling/errorHandling.c
+        src/errorHandling/errorHandling.h)
