@@ -38,5 +38,10 @@ struct ASTNode {
 };
 
 typedef struct ASTNode * ASTNode;
+NodeTypes getDecType(TokenType type);
+ASTNode createNode(char* val, NodeTypes type);
+ASTNode ASTGenerator(Token token);
+void printAST(ASTNode node, int depth);
+void freeAST(ASTNode node);
 
 #endif //PARSER_H
