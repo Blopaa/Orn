@@ -26,15 +26,15 @@ void printTokenList(Token t) {
     Token current = t;
     while(current && current->next != NULL) {
         current = current->next;
-        printf("Token %d: '%s', tipo: %d\n", i, current->value, current->type);
+        printf("Token %d: '%s', tipe: %d\n", i, current->value, current->type);
         i++;
     }
-    printf("Total tokens procesados: %d\n", i);
+    printf("Total tokens proccesed: %d\n", i);
 }
 
 int main(void) {
     printf("=== LEXER TEST ===\n");
-    char * input = "string sum = \"hola\";";
+    char * input = "string sum = \"hola\"; int num = 1";
     printf("Input: %s\n\n", input);
 
     // Fase 1: Splitting

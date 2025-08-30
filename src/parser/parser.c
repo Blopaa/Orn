@@ -22,7 +22,7 @@ NodeTypes getDecType(TokenType type) {
 
 ASTNode createNode(char* val, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
-    node->value = val;
+    node->value = val ? strdup(val) : NULL;;
     node->NodeType = type;
     node->brothers = NULL;
     node->children = NULL;
@@ -83,12 +83,8 @@ ASTNode ASTGenerator(Token token) {
     return programNode;
 }
 
-void printAST(ASTNode node, int depth) {
+void printASTTree(ASTNode node, char* prefix, int isLast) {
     if(node == NULL) return;
-
-    for(int i = 0; i < depth; i++) {
-        printf("  ");
-    }
 
     char* nodeTypeStr;
     switch(node->NodeType) {
@@ -98,8 +94,11 @@ void printAST(ASTNode node, int depth) {
         case INT_LIT: nodeTypeStr = "INT_LIT"; break;
         case ADD_OP: nodeTypeStr = "ADD_OP"; break;
         case SUB_OP: nodeTypeStr = "SUB_OP"; break;
-        default: nodeTypeStr = "PROGRAM"; break;
+        default: nodeTypeStr = "UNKNOWN"; break;
     }
+
+    printf("%s", prefix);
+    printf("%s", isLast ? "└── " : "├── ");
 
     printf("%s", nodeTypeStr);
     if(node->value) {
@@ -107,8 +106,32 @@ void printAST(ASTNode node, int depth) {
     }
     printf("\n");
 
-    printAST(node->children, depth + 1);
-    printAST(node->brothers, depth);
+    char newPrefix[256];
+    sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "│   ");
+
+    if(node->children != NULL) {
+        ASTNode child = node->children;
+        while(child != NULL) {
+            int isLastChild = (child->brothers == NULL);
+            printASTTree(child, newPrefix, isLastChild);
+            child = child->brothers;
+        }
+    }
+}
+
+void printAST(ASTNode node, int depth) {
+    if(node == NULL) return;
+
+    if(depth == 0) {
+        printf("AST:\n");
+
+        ASTNode child = node->children;
+        while(child != NULL) {
+            int isLast = (child->brothers == NULL);
+            printASTTree(child, "", isLast);
+            child = child->brothers;
+        }
+    }
 }
 
 void freeAST(ASTNode node) {
