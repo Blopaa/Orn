@@ -17,7 +17,14 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
-
+ASTNode createNode(char* val, NodeTypes type) {
+    ASTNode node = malloc(sizeof(struct ASTNode));
+    node->value = val;
+    node->NodeType = type;
+    node->brothers = NULL;
+    node->children = NULL;
+    return node;
+}
 
 // generates AST
 ASTNode ASTGenerator(Token token) {
@@ -30,9 +37,10 @@ ASTNode ASTGenerator(Token token) {
         NodeTypes decType = getDecType(token->type);
         if(decType != null_NODE) {
             crrnt->NodeType = decType;
-            crrnt->value = token->next->value;
-            token = token->next->next->next;
-
+            token->next;
+            crrnt->value = token->value;
+            token = token->next->next; // ignore =, usefull in the future to distinc += -=...
+            // crrnt->children = createNode(token->value, )
         }
     }
 }

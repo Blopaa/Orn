@@ -16,10 +16,11 @@ void printTokens(char** tokens) {
 }
 
 int main(void) {
-    char * input = "int sum = a+1;";
+    char * input = "int sum = \"hola\";";
     Input res = splitter(input);
     printTokens(res->input);
     Token t = tokenization(res);
+
     int i = 0;
     while(t->next != NULL) {
         t = t->next;
