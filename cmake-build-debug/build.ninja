@@ -11,7 +11,7 @@
 # =============================================================================
 
 # =============================================================================
-# Project: untitled22
+# Project: Cinterpreter
 # Configurations: Debug
 # =============================================================================
 
@@ -41,67 +41,67 @@ include CMakeFiles/rules.ninja
 
 cmake_ninja_workdir = C$:/Users/pablo/CLionProjects/untitled22/cmake-build-debug/
 # =============================================================================
-# Object build statements for EXECUTABLE target untitled22
+# Object build statements for EXECUTABLE target Cinterpreter
 
 
 #############################################
-# Order-only phony target for untitled22
+# Order-only phony target for Cinterpreter
 
-build cmake_object_order_depends_target_untitled22: phony || .
+build cmake_object_order_depends_target_Cinterpreter: phony || .
 
-build CMakeFiles/untitled22.dir/src/main.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/main.c || cmake_object_order_depends_target_untitled22
+build CMakeFiles/Cinterpreter.dir/src/main.c.obj: C_COMPILER__Cinterpreter_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/main.c || cmake_object_order_depends_target_Cinterpreter
   CONFIG = Debug
-  DEP_FILE = CMakeFiles\untitled22.dir\src\main.c.obj.d
+  DEP_FILE = CMakeFiles\Cinterpreter.dir\src\main.c.obj.d
   FLAGS = -g -std=gnu11 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\untitled22.dir
-  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
+  OBJECT_FILE_DIR = CMakeFiles\Cinterpreter.dir\src
 
-build CMakeFiles/untitled22.dir/src/lexer/lexer.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/lexer/lexer.c || cmake_object_order_depends_target_untitled22
+build CMakeFiles/Cinterpreter.dir/src/lexer/lexer.c.obj: C_COMPILER__Cinterpreter_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/lexer/lexer.c || cmake_object_order_depends_target_Cinterpreter
   CONFIG = Debug
-  DEP_FILE = CMakeFiles\untitled22.dir\src\lexer\lexer.c.obj.d
+  DEP_FILE = CMakeFiles\Cinterpreter.dir\src\lexer\lexer.c.obj.d
   FLAGS = -g -std=gnu11 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\untitled22.dir
-  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\lexer
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
+  OBJECT_FILE_DIR = CMakeFiles\Cinterpreter.dir\src\lexer
 
-build CMakeFiles/untitled22.dir/src/parser/parser.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/parser/parser.c || cmake_object_order_depends_target_untitled22
+build CMakeFiles/Cinterpreter.dir/src/parser/parser.c.obj: C_COMPILER__Cinterpreter_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/parser/parser.c || cmake_object_order_depends_target_Cinterpreter
   CONFIG = Debug
-  DEP_FILE = CMakeFiles\untitled22.dir\src\parser\parser.c.obj.d
+  DEP_FILE = CMakeFiles\Cinterpreter.dir\src\parser\parser.c.obj.d
   FLAGS = -g -std=gnu11 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\untitled22.dir
-  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\parser
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
+  OBJECT_FILE_DIR = CMakeFiles\Cinterpreter.dir\src\parser
 
-build CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/errorHandling/errorHandling.c || cmake_object_order_depends_target_untitled22
+build CMakeFiles/Cinterpreter.dir/src/errorHandling/errorHandling.c.obj: C_COMPILER__Cinterpreter_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/errorHandling/errorHandling.c || cmake_object_order_depends_target_Cinterpreter
   CONFIG = Debug
-  DEP_FILE = CMakeFiles\untitled22.dir\src\errorHandling\errorHandling.c.obj.d
+  DEP_FILE = CMakeFiles\Cinterpreter.dir\src\errorHandling\errorHandling.c.obj.d
   FLAGS = -g -std=gnu11 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\untitled22.dir
-  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\errorHandling
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
+  OBJECT_FILE_DIR = CMakeFiles\Cinterpreter.dir\src\errorHandling
 
-build CMakeFiles/untitled22.dir/src/testing/testing.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/testing/testing.c || cmake_object_order_depends_target_untitled22
+build CMakeFiles/Cinterpreter.dir/src/testing/testing.c.obj: C_COMPILER__Cinterpreter_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/testing/testing.c || cmake_object_order_depends_target_Cinterpreter
   CONFIG = Debug
-  DEP_FILE = CMakeFiles\untitled22.dir\src\testing\testing.c.obj.d
+  DEP_FILE = CMakeFiles\Cinterpreter.dir\src\testing\testing.c.obj.d
   FLAGS = -g -std=gnu11 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\untitled22.dir
-  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\testing
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
+  OBJECT_FILE_DIR = CMakeFiles\Cinterpreter.dir\src\testing
 
 
 # =============================================================================
-# Link build statements for EXECUTABLE target untitled22
+# Link build statements for EXECUTABLE target Cinterpreter
 
 
 #############################################
-# Link the executable untitled22.exe
+# Link the executable Cinterpreter.exe
 
-build untitled22.exe: C_EXECUTABLE_LINKER__untitled22_Debug CMakeFiles/untitled22.dir/src/main.c.obj CMakeFiles/untitled22.dir/src/lexer/lexer.c.obj CMakeFiles/untitled22.dir/src/parser/parser.c.obj CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj CMakeFiles/untitled22.dir/src/testing/testing.c.obj
+build Cinterpreter.exe: C_EXECUTABLE_LINKER__Cinterpreter_Debug CMakeFiles/Cinterpreter.dir/src/main.c.obj CMakeFiles/Cinterpreter.dir/src/lexer/lexer.c.obj CMakeFiles/Cinterpreter.dir/src/parser/parser.c.obj CMakeFiles/Cinterpreter.dir/src/errorHandling/errorHandling.c.obj CMakeFiles/Cinterpreter.dir/src/testing/testing.c.obj
   CONFIG = Debug
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
-  OBJECT_DIR = CMakeFiles\untitled22.dir
+  OBJECT_DIR = CMakeFiles\Cinterpreter.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
-  TARGET_FILE = untitled22.exe
-  TARGET_IMPLIB = libuntitled22.dll.a
-  TARGET_PDB = untitled22.exe.dbg
+  TARGET_FILE = Cinterpreter.exe
+  TARGET_IMPLIB = libCinterpreter.dll.a
+  TARGET_PDB = Cinterpreter.exe.dbg
 
 
 #############################################
@@ -129,7 +129,7 @@ build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 # =============================================================================
 # Target aliases.
 
-build untitled22: phony untitled22.exe
+build Cinterpreter: phony Cinterpreter.exe
 
 # =============================================================================
 # Folder targets.
@@ -139,7 +139,7 @@ build untitled22: phony untitled22.exe
 #############################################
 # Folder: C:/Users/pablo/CLionProjects/untitled22/cmake-build-debug
 
-build all: phony untitled22.exe
+build all: phony Cinterpreter.exe
 
 # =============================================================================
 # Built-in targets
