@@ -59,10 +59,6 @@ static const ErrorEntry errorList[] = {
     {ERROR_OK, ERROR, "Unknown error"}
 };
 
-static int errorCount = 0;
-static int warningCount = 0;
-static int fatalCount = 0;
-
 const ErrorEntry *getErrorEntry(ErrorCode code);
 
 void repError(ErrorCode code, const char *context);
@@ -73,5 +69,12 @@ int hasErrors(void);
 
 int hasFatalErrors(void);
 
+int getErrorCount(void);
+
+int getWarningCount(void);
+
+int getFatalCount(void);
+
+void resetErrorCount(void);
 
 #endif

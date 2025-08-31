@@ -36,18 +36,14 @@ int isFloatLit(char *val) {
     if (val == NULL) return 0;
 
     int hasDecPoint = 0;
-    int hasDigits = 0;
 
     for (int i = 0; val[i] != '\0'; i++) {
         if (val[i] == '.') {
-            if (hasDecPoint) return 0;
             hasDecPoint = 1;
-        } else if (isdigit(val[i])) {
-            hasDigits = 1;
         }
     }
 
-    return hasDecPoint && hasDigits;
+    return hasDecPoint;
 }
 
 int validateFloatLit(char *val) {
@@ -59,25 +55,20 @@ int validateFloatLit(char *val) {
 
     int decimalCount = 0;
     int hasDigits = 0;
-    int i = 0;
 
-    while (val[i] != '\0') {
-        char c = val[i];
-
-        if (c == '.') {
-            decimalCount++;
-            if (decimalCount > 1) {
+    for (int i = 0; val[i] != '\0'; i++) {
+        if (val[i] == '.') {
+            if (decimalCount) {
                 repError(ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, val);
                 return 0;
-            }
-        } else if (isdigit(c)) {
+            };
+            decimalCount = 1;
+        } else if (isdigit(val[i])) {
             hasDigits = 1;
         } else {
             repError(ERROR_INVALID_FLOAT_INVALID_CHAR, val);
             return 0;
         }
-
-        i++;
     }
 
     if (!hasDigits) {
@@ -145,8 +136,8 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
 //AST:
 //└── INT_VAR_DEF: variableName
 //    └── ADD_OP
-//        ├── INT_LIT: 2 (literals)
-//        └── VARIABLE: b (literals)
+//        ├── INT_LIT: 2 (value)
+//        └── VARIABLE: b (literal)
 ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
     if (*crrnt == NULL) return NULL;
     ASTNode leftBranch = createValNode((*crrnt)->value, fatherType);

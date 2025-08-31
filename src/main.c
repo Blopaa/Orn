@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "errorHandling/errorHandling.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "testing/testing.h"
 
 void printTokens(char **tokens) {
     if (tokens == NULL) {
@@ -34,9 +36,15 @@ void printTokenList(Token t) {
     printf("Total tokens proccesed: %d\n", i);
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+
+    if (argc == 2 && strcmp(argv[1], "--test") == 0) {
+        runTests();
+        return 0;
+    }
+
     printf("=== LEXER TEST ===\n");
-    char *input = "int c = 4.3;";
+    char *input = "float bad = 3.14.15;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
@@ -56,30 +64,9 @@ int main(void) {
 
     freeAST(ast);
 
-    // char *testInputs[] = {
-    //     "string name = \"Pablo\";",
-    //     "int age = 25;",
-    //     "string errorTest1 = 123;",
-    //     "int errorTest2 = \"hello\";",
-    //     "int sum = a + b;",
-    //     NULL
-    // };
-    //
-    // for (int i = 0; testInputs[i] != NULL; i++) {
-    //     printf("\n--- Testing: %s ---\n", testInputs[i]);
-    //
-    //     Input inp = splitter(testInputs[i]);
-    //     Token tokens = tokenization(inp);
-    //     ASTNode tree = ASTGenerator(tokens);
-    //
-    //     if (tree && !hasErrors()) {
-    //         printAST(tree, 0);
-    //     }
-    //
-    //     freeAST(tree);
-    // }
-
     printErrorSummary();
+
+    printf("\nTip: Use './compiler --test' to run tests\n");
 
     return hasErrors() ? 1 : 0;
 }

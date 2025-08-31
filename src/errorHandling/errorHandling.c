@@ -4,6 +4,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int errorCount = 0;
+static int warningCount = 0;
+static int fatalCount = 0;
+
+int getErrorCount(void) {return errorCount;}
+int getWarningCount(void) {return warningCount;}
+int getFatalCount(void) {return fatalCount;}
+void resetErrorCount(void) {
+    errorCount = 0;
+    warningCount = 0;
+    fatalCount = 0;
+}
+
 const ErrorEntry *getErrorEntry(ErrorCode code) {
     int i = 0;
     while (errorList[i].code != ERROR_OK) {
