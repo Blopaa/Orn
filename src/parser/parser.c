@@ -81,6 +81,12 @@ int validateFloatLit(char *val) {
 
 //checks if its a string
 int isStringLit(char *val) {
+    // ERROR REP SHOULDN'T BE HERE, BUT AS IF SOMETHING HAS QUOTES CANT BE A NUMBER NOR A VARIABLE IT WILL BE TAKEN AS A TRY TO INPUT AN STRING
+    // FIX: checker takes anything with a quote and then verifies if it's correct.
+    if ((strchr(val, '"') && val[0] != '"') || (strchr(val, '"') && val[strlen(val) - 1] != '"')) {
+        repError(ERROR_MISSING_QUOTE, val);
+        return 0;
+    }
     return val != NULL && val[0] == '"' && val[strlen(val) - 1] == '"';
 }
 

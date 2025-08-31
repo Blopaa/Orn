@@ -19,6 +19,37 @@ void assert(int condition, const char *testName) {
     }
 }
 
+void testTokenCount(const char *name, const char *input, int expectedTokens) {
+    printf("\nTesting: %s\n", name);
+    printf("Input: '%s'\n", input);
+    printf("Expected tokens: %d\n", expectedTokens);
+
+    resetErrorCount();
+
+    Input res = splitter(input);
+
+    printf("Actual tokens: %d\n", res->n);
+
+    if (res->n > 0) {
+        printf("Tokens found:\n");
+        for (int i = 0; i < res->n; i++) {
+            printf("  Token %d: '%s'\n", i, res->input[i]);
+        }
+    } else {
+        printf("No tokens found.\n");
+    }
+
+    assert(res->n == expectedTokens, "Token count should match expected");
+
+    for (int i = 0; i < res->n; i++) {
+        free(res->input[i]);
+    }
+    free(res->input);
+    free(res);
+
+    printf("\n");
+}
+
 void testCase(const char *name, const char *input, int shouldPass) {
     printf("\nTesting: %s\n", name);
     printf("Input: %s\n", input);
@@ -47,9 +78,11 @@ void testBasicCases(void) {
     printf("=== TESTING BASIC CASES ===\n");
 
     testCase("Basic int declaration", "int x = 5;", 1);
+    testTokenCount("Basic int declaration", "int x = 5;", 5);
     testCase("Basic string declaration", "string name = \"Pablo\";", 1);
     testCase("Basic float declaration", "float pi = 3.14;", 1);
     testCase("Simple addition", "int sum = a + b;", 1);
+    testTokenCount("Simple addition", "int sum = a + b;", 7);
     testCase("Simple subtraction", "int diff = x - y;", 1);
 }
 
@@ -62,6 +95,17 @@ void testErrorCases(void) {
     testCase("Invalid float (multiple decimals)", "float bad = 3.14.15;", 0);
     testCase("Invalid float (no digits)", "float empty = .;", 0);
     testCase("Invalid float to int variable", "int bad = 3.14;", 0);
+    testCase("Missing expected '\"' on input string (at the start)", "string input = \"hello;", 0);
+    testCase("Missing expected '\"' on input string (at the end)", "string input = hello\";", 0);
+}
+
+void testCommentCases(void) {
+    testTokenCount("void code comment", "// hello world", 0);
+    testTokenCount("void code comment with newline", "// hello world \n", 0);
+    testTokenCount("Multiple comment lines", "// line 1\n// line 2", 0);
+    testTokenCount("Comment with spaces", "   // spaced comment   ", 0);
+    testTokenCount("Empty input", "", 0);
+    testTokenCount("Only whitespace", "   \n  \t  ", 0);
 }
 
 void runTests(void) {
@@ -72,6 +116,7 @@ void runTests(void) {
 
     testBasicCases();
     testErrorCases();
+    testCommentCases();
 
     printf("=== TEST SUMMARY ===\n");
     printf("Tests run: %d\n", testsRun);
@@ -85,5 +130,5 @@ void runTests(void) {
     }
 
     printf("Success rate: %.1f%%\n",
-           testsRun > 0 ? (float)testsPassed / testsRun * 100.0 : 0.0);
+           testsRun > 0 ? (float) testsPassed / testsRun * 100.0 : 0.0);
 }

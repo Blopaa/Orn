@@ -11,5 +11,9 @@ void runTests(void);
 // Tests específicos
 void testBasicCases(void);
 void testErrorCases(void);
+void testCommentCases(void);
+
+void testTokenCount(const char *name, const char* input, int expectedTokens);
+void assert(int condition, const char *message);
 
 #endif //UNTITLED22_TESTING_H

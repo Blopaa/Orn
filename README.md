@@ -266,33 +266,6 @@ We welcome contributions! Here's how to get started:
 - [ ] **Standard Library**: Built-in functions
 - [ ] **IDE Integration**: Language server protocol support
 
-## 🎓 Educational Value
-
-This compiler is perfect for:
-
-- 📚 **Computer Science Students** learning compiler design
-- 👨‍🏫 **Educators** teaching compilation principles
-- 🔬 **Researchers** prototyping language features
-- 🧠 **Self-learners** understanding how compilers work
-
-### Learning Resources
-
-- [Crafting Interpreters](https://craftinginterpreters.com/) - Excellent book on language implementation
-- [Compiler Design Course](https://www.coursera.org/learn/compilers) - Stanford's compiler course
-- [LLVM Tutorial](https://llvm.org/docs/tutorial/) - Advanced code generation
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by classic compiler textbooks and courses
-- Built with educational purposes in mind
-- Thanks to the open-source community for inspiration
-
----
-
 <div align="center">
 
 **⭐ If you found this helpful, please consider giving it a star! ⭐**

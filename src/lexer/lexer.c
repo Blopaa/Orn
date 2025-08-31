@@ -34,6 +34,14 @@ Input splitter(const char *input) {
             i++;
         }
 
+        // takes care of comments "//"
+        if (input[i] == '/' && input[i + 1] == '/') {
+            while (input[i] != '\n' && input[i] != '\0') {
+                i++;
+            }
+            continue;
+        }
+
         if(input[i] == '\"') {
             int j = i;
             i++;
@@ -50,7 +58,7 @@ Input splitter(const char *input) {
             tokens[in->n++] = token;
         }
 
-        if(isSpecialChar(input[i])) {
+        else if(isSpecialChar(input[i])) {
             char * token = malloc(2 * sizeof(char));
             token[0] = input[i];
             token[1] = '\0';
@@ -62,10 +70,13 @@ Input splitter(const char *input) {
                 i++;
             }
             int tokenLength = i - j;
-            char * token = malloc((tokenLength + 1) * sizeof(char));
-            strncpy(token, input + j, tokenLength);
-            token[tokenLength] = '\0';
-            tokens[in->n++] = token;
+            // creates tokens if there is content (only comment code case)
+            if (tokenLength > 0) {
+                char * token = malloc((tokenLength + 1) * sizeof(char));
+                strncpy(token, input + j, tokenLength);
+                token[tokenLength] = '\0';
+                tokens[in->n++] = token;
+            }
         }
     }
 

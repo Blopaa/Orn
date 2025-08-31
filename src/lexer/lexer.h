@@ -5,6 +5,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#define COMMENT "//"
 #define ASSIGNEMENT "="
 #define PUNCTUATION ";"
 #define INT_DEFINITION "int"
