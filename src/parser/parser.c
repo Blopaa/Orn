@@ -119,6 +119,10 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
             repError(ERROR_TYPE_MISMATCH_FLOAT_TO_STRING, val);
             return NULL;
         }
+        if (fatherType == INT_VARIABLE_DEFINITION) {
+            repError(ERROR_TYPE_MISMATCH_FLOAT_TO_INT, val);
+            return NULL;
+        }
         valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
         if (fatherType == STRING_VARIABLE_DEFINITION) {

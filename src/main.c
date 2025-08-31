@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("=== LEXER TEST ===\n");
-    char *input = "float bad = 3.14.15;";
+    char *input = "int bad = 3.14;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");

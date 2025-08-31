@@ -61,6 +61,7 @@ void testErrorCases(void) {
     testCase("Float to string error", "string value = 3.14;", 0);
     testCase("Invalid float (multiple decimals)", "float bad = 3.14.15;", 0);
     testCase("Invalid float (no digits)", "float empty = .;", 0);
+    testCase("Invalid float to int variable", "int bad = 3.14;", 0);
 }
 
 void runTests(void) {
