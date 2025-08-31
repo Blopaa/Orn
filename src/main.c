@@ -36,7 +36,7 @@ void printTokenList(Token t) {
 
 int main(void) {
     printf("=== LEXER TEST ===\n");
-    char *input = "int c = 2";
+    char *input = "int c = 4.3;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
@@ -56,28 +56,28 @@ int main(void) {
 
     freeAST(ast);
 
-    char *testInputs[] = {
-        "string name = \"Pablo\";",
-        "int age = 25;",
-        "string error1 = 123;",
-        "int error2 = \"hello\";",
-        "int sum = a + b;",
-        NULL
-    };
-
-    for (int i = 0; testInputs[i] != NULL; i++) {
-        printf("\n--- Testing: %s ---\n", testInputs[i]);
-
-        Input inp = splitter(testInputs[i]);
-        Token tokens = tokenization(inp);
-        ASTNode tree = ASTGenerator(tokens);
-
-        if (tree && !hasErrors()) {
-            printAST(tree, 0);
-        }
-
-        freeAST(tree);
-    }
+    // char *testInputs[] = {
+    //     "string name = \"Pablo\";",
+    //     "int age = 25;",
+    //     "string errorTest1 = 123;",
+    //     "int errorTest2 = \"hello\";",
+    //     "int sum = a + b;",
+    //     NULL
+    // };
+    //
+    // for (int i = 0; testInputs[i] != NULL; i++) {
+    //     printf("\n--- Testing: %s ---\n", testInputs[i]);
+    //
+    //     Input inp = splitter(testInputs[i]);
+    //     Token tokens = tokenization(inp);
+    //     ASTNode tree = ASTGenerator(tokens);
+    //
+    //     if (tree && !hasErrors()) {
+    //         printAST(tree, 0);
+    //     }
+    //
+    //     freeAST(tree);
+    // }
 
     printErrorSummary();
 

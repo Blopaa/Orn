@@ -21,6 +21,7 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
+//creates a new node given a value and a type
 ASTNode createNode(char *val, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
     node->value = val ? strdup(val) : NULL;;
@@ -30,10 +31,69 @@ ASTNode createNode(char *val, NodeTypes type) {
     return node;
 }
 
+// checks if its a float, also works for ints, as a float it can have int signature so it would depend on set type
+int isFloatLit(char *val) {
+    if (val == NULL) return 0;
+
+    int hasDecPoint = 0;
+    int hasDigits = 0;
+
+    for (int i = 0; val[i] != '\0'; i++) {
+        if (val[i] == '.') {
+            if (hasDecPoint) return 0;
+            hasDecPoint = 1;
+        } else if (isdigit(val[i])) {
+            hasDigits = 1;
+        }
+    }
+
+    return hasDecPoint && hasDigits;
+}
+
+int validateFloatLit(char *val) {
+    if (val == NULL) return 0;
+
+    if (strchr(val, '.') == NULL) {
+        return 0;
+    }
+
+    int decimalCount = 0;
+    int hasDigits = 0;
+    int i = 0;
+
+    while (val[i] != '\0') {
+        char c = val[i];
+
+        if (c == '.') {
+            decimalCount++;
+            if (decimalCount > 1) {
+                repError(ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, val);
+                return 0;
+            }
+        } else if (isdigit(c)) {
+            hasDigits = 1;
+        } else {
+            repError(ERROR_INVALID_FLOAT_INVALID_CHAR, val);
+            return 0;
+        }
+
+        i++;
+    }
+
+    if (!hasDigits) {
+        repError(ERROR_INVALID_FLOAT_NO_DIGITS, val);
+        return 0;
+    }
+
+    return 1;
+}
+
+//checks if its a string
 int isStringLit(char *val) {
     return val != NULL && val[0] == '"' && val[strlen(val) - 1] == '"';
 }
 
+//checks if its an int
 int isIntLit(char *val) {
     if (val == NULL) return 0;
     for (int i = 0; val[i] != '\0'; i++) {
@@ -42,19 +102,33 @@ int isIntLit(char *val) {
     return 1;
 }
 
+//checks if its not a int nor a string
 int isVariable(char *val) {
     if (val == NULL) return 0;
-    return !(isStringLit(val) && isIntLit(val));
+    return !(isStringLit(val) && isIntLit(val) && isFloatLit(val));
 }
 
+//classifies variable possible values, int, string,....
 ASTNode createValNode(char *val, NodeTypes fatherType) {
     ASTNode valNod = NULL;
     if (isStringLit(val)) {
-        if (fatherType == INT_VARIABLE_DEFINITION) {
-            repError(ERROR_TYPE_MISMATCH_STRING_TO_INT, val);
+        if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION) {
+            ErrorCode errorType = (fatherType == INT_VARIABLE_DEFINITION)
+                                      ? ERROR_TYPE_MISMATCH_STRING_TO_INT
+                                      : ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
+            repError(errorType, val);
             return NULL;
         }
         valNod = createNode(val, STRING_LIT);
+    } else if (isFloatLit(val)) {
+        if (!validateFloatLit(val)) {
+            return NULL;
+        }
+        if (fatherType == STRING_VARIABLE_DEFINITION) {
+            repError(ERROR_TYPE_MISMATCH_FLOAT_TO_STRING, val);
+            return NULL;
+        }
+        valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
         if (fatherType == STRING_VARIABLE_DEFINITION) {
             repError(ERROR_TYPE_MISMATCH_INT_TO_STRING, val);
@@ -67,9 +141,16 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
     return valNod;
 }
 
+//splits arithmetic expressions into two branches of a variable definition
+//AST:
+//└── INT_VAR_DEF: variableName
+//    └── ADD_OP
+//        ├── INT_LIT: 2 (literals)
+//        └── VARIABLE: b (literals)
 ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
     if (*crrnt == NULL) return NULL;
     ASTNode leftBranch = createValNode((*crrnt)->value, fatherType);
+    if (leftBranch == NULL) return NULL;
     if ((*crrnt)->next != NULL && ((*crrnt)->next->type == TokenSum || (*crrnt)->next->type == TokenSub)) {
         Token opTk = (*crrnt)->next;
         *crrnt = (*crrnt)->next;
@@ -131,6 +212,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
             break;
         case INT_VARIABLE_DEFINITION: nodeTypeStr = "INT_VAR_DEF";
             break;
+        case FLOAT_VARIABLE_DEFINITION: nodeTypeStr = "FLOAT_VAR_DEF";
+            break;
         case STRING_LIT: nodeTypeStr = "STRING_LIT";
             break;
         case INT_LIT: nodeTypeStr = "INT_LIT";
@@ -140,6 +223,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case SUB_OP: nodeTypeStr = "SUB_OP";
             break;
         case VARIABLE: nodeTypeStr = "VARIABLE";
+            break;
+        case FLOAT_LIT: nodeTypeStr = "FLOAT_LIT";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;

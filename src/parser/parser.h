@@ -10,9 +10,11 @@
 typedef enum {
      STRING_VARIABLE_DEFINITION,
      INT_VARIABLE_DEFINITION,
+     FLOAT_VARIABLE_DEFINITION,
      ADD_OP,
      SUB_OP,
      INT_LIT,
+     FLOAT_LIT,
      STRING_LIT,
      VARIABLE,
      null_NODE
@@ -27,6 +29,7 @@ typedef struct {
 static const NodeMap TypeDefs[] = {
      {TokenStringDefinition, STRING_VARIABLE_DEFINITION},
      {TokenIntDefinition, INT_VARIABLE_DEFINITION},
+     {TokenFloatDefinition, FLOAT_VARIABLE_DEFINITION},
      {TokenNULL, null_NODE}
 };
 

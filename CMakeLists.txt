@@ -9,4 +9,6 @@ add_executable(untitled22 src/main.c
         src/parser/parser.c
         src/parser/parser.h
         src/errorHandling/errorHandling.c
-        src/errorHandling/errorHandling.h)
+        src/errorHandling/errorHandling.h
+        src/testing/testing.c
+        src/testing/testing.h)

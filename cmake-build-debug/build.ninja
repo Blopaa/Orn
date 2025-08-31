@@ -77,6 +77,13 @@ build CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj: C_COMPILE
   OBJECT_DIR = CMakeFiles\untitled22.dir
   OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\errorHandling
 
+build CMakeFiles/untitled22.dir/src/testing/testing.c.obj: C_COMPILER__untitled22_unscanned_Debug C$:/Users/pablo/CLionProjects/untitled22/src/testing/testing.c || cmake_object_order_depends_target_untitled22
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles\untitled22.dir\src\testing\testing.c.obj.d
+  FLAGS = -g -std=gnu11 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles\untitled22.dir
+  OBJECT_FILE_DIR = CMakeFiles\untitled22.dir\src\testing
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target untitled22
@@ -85,7 +92,7 @@ build CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj: C_COMPILE
 #############################################
 # Link the executable untitled22.exe
 
-build untitled22.exe: C_EXECUTABLE_LINKER__untitled22_Debug CMakeFiles/untitled22.dir/src/main.c.obj CMakeFiles/untitled22.dir/src/lexer/lexer.c.obj CMakeFiles/untitled22.dir/src/parser/parser.c.obj CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj
+build untitled22.exe: C_EXECUTABLE_LINKER__untitled22_Debug CMakeFiles/untitled22.dir/src/main.c.obj CMakeFiles/untitled22.dir/src/lexer/lexer.c.obj CMakeFiles/untitled22.dir/src/parser/parser.c.obj CMakeFiles/untitled22.dir/src/errorHandling/errorHandling.c.obj CMakeFiles/untitled22.dir/src/testing/testing.c.obj
   CONFIG = Debug
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32

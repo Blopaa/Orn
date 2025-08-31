@@ -9,6 +9,7 @@
 #define PUNCTUATION ";"
 #define INT_DEFINITION "int"
 #define STRING_DEFINITION "string"
+#define FLOAT_DEFINITION "float"
 #define QUOTES "\""
 #define SUM_OPERATOR "+"
 #define SUB_OPERATOR "-"
@@ -23,6 +24,7 @@ typedef enum {
     TokenLiteral,
     TokenIntDefinition,
     TokenStringDefinition,
+    TokenFloatDefinition,
     TokenPunctuation,
     TokenQuotes,
     TokenSum,
@@ -56,6 +58,7 @@ static const char * SpecialCharMap[] = {
 static const TokenMap tokenMapping[] = {
     {INT_DEFINITION, TokenIntDefinition},
     {STRING_DEFINITION, TokenStringDefinition},
+    {FLOAT_DEFINITION, TokenFloatDefinition},
     {ASSIGNEMENT, TokenAssignement},
     {PUNCTUATION, TokenPunctuation},
     {QUOTES, TokenQuotes},

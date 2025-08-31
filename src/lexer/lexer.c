@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../errorHandling/errorHandling.h"
+
 // returns 1 if char evaluated its an specialChar saved on SpecialCharMap or 0 if its not
 int isSpecialChar(char c) {
     for(int i = 0; SpecialCharMap[i] != NULL;i++) {
