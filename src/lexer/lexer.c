@@ -11,12 +11,17 @@
 
 // returns 1 if char evaluated its an specialChar saved on SpecialCharMap or 0 if its not
 int isSpecialChar(char c) {
-    for(int i = 0; SpecialCharMap[i] != NULL;i++) {
-        if(c == SpecialCharMap[i][0]) return 1;
+    for (int i = 0; SpecialCharMap[i] != NULL; i++) {
+        if (c == SpecialCharMap[i][0]) return 1;
     }
     return 0;
 }
 
+/*
+ * the way of splitting works by saving the current position of were we are working, work to the desire spot, and then
+ * get what would be the token lenght and splitting that content
+ * example: strncpy(token, input + j, tokenLength);
+ */
 Input splitter(const char *input) {
     Input in = malloc(sizeof(struct Input));
     int tokenCount = 0;
@@ -30,7 +35,7 @@ Input splitter(const char *input) {
     int i = 0;
 
     while (input[i] != '\0') {
-        while((input[i] == '\n' || isspace(input[i])) && input[i] != '\0') {
+        while ((input[i] == '\n' || isspace(input[i])) && input[i] != '\0') {
             i++;
         }
 
@@ -42,37 +47,78 @@ Input splitter(const char *input) {
             continue;
         }
 
-        if(input[i] == '\"') {
+        if (input[i] == '\"') {
             int j = i;
             i++;
 
-            while(input[i] != '\"' && input[i] != '\0') {
+            while (input[i] != '\"' && input[i] != '\0') {
                 i++;
             }
 
-            if(input[i] != '\0') i++;
-            int strLength = i-j;
-            char * token = malloc((strLength + 1) * sizeof(char));
+            if (input[i] != '\0') i++;
+            int strLength = i - j;
+            char *token = malloc((strLength + 1) * sizeof(char));
             strncpy(token, input + j, strLength);
             token[strLength] = '\0';
             tokens[in->n++] = token;
-        }
 
-        else if(isSpecialChar(input[i])) {
-            char * token = malloc(2 * sizeof(char));
+            // negative number handling
+            /*
+             * works by assumption of its context:
+             * in order to not mix sub from a -5 we have to check previous tokens like = or operations
+             */
+        } else if (input[i] == '-') {
+            int isNegativeNumber = 0;
+            if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
+                if (in->n == 0) isNegativeNumber = 1;
+                else {
+                    char *lastToken = tokens[in->n - 1];
+                    if (strcmp(lastToken, "=") == 0 ||
+                        strcmp(lastToken, "+") == 0 ||
+                        strcmp(lastToken, "-") == 0 ||
+                        strcmp(lastToken, "*") == 0 ||
+                        strcmp(lastToken, "/") == 0) {
+                        isNegativeNumber = 1;
+                    }
+                }
+            }
+            if (isNegativeNumber) {
+                int j = i;
+                i++;
+                while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
+                    i++;
+                }
+                int tokenLength = i - j;
+                if (tokenLength > 1) {
+                    // has to be more than just a - sign
+                    char *token = malloc((tokenLength + 1) * sizeof(char));
+                    strncpy(token, input + j, tokenLength);
+                    token[tokenLength] = '\0';
+                    tokens[in->n++] = token;
+                }
+            }else {
+                // NOT a negative number, treat as subtraction operator
+                char *token = malloc(2 * sizeof(char));
+                token[0] = input[i];
+                token[1] = '\0';
+                tokens[in->n++] = token;
+                i++; // CRITICAL: increment i
+            }
+        } else if (isSpecialChar(input[i])) {
+            char *token = malloc(2 * sizeof(char));
             token[0] = input[i];
             token[1] = '\0';
             tokens[in->n++] = token;
             i++;
-        }else {
+        } else {
             int j = i;
-            while(!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
+            while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
                 i++;
             }
             int tokenLength = i - j;
             // creates tokens if there is content (only comment code case)
             if (tokenLength > 0) {
-                char * token = malloc((tokenLength + 1) * sizeof(char));
+                char *token = malloc((tokenLength + 1) * sizeof(char));
                 strncpy(token, input + j, tokenLength);
                 token[tokenLength] = '\0';
                 tokens[in->n++] = token;
@@ -103,14 +149,14 @@ TokenType findTokenType(const char *val) {
 }
 
 Token tokenization(Input in) {
-    struct Token * const head = malloc(sizeof(struct Token));
+    struct Token *const head = malloc(sizeof(struct Token));
     Token crrnt = head;
     for (int i = 0; i < in->n; i++) {
         crrnt->next = malloc(sizeof(struct Token));
         crrnt = crrnt->next;
 
         crrnt->type = findTokenType(in->input[i]);
-            crrnt->value = in->input[i];
+        crrnt->value = in->input[i];
     }
     crrnt->next = NULL;
     return head;

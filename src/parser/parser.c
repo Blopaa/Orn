@@ -36,8 +36,16 @@ int isFloatLit(char *val) {
     if (val == NULL) return 0;
 
     int hasDecPoint = 0;
+    int start = 0;
 
-    for (int i = 0; val[i] != '\0'; i++) {
+    // Handle negative sign
+    if (val[0] == '-') {
+        start = 1;
+        // Must have at least one character after the minus sign
+        if (val[1] == '\0') return 0;
+    }
+
+    for (int i = start; val[i] != '\0'; i++) {
         if (val[i] == '.') {
             hasDecPoint = 1;
         }
@@ -49,14 +57,24 @@ int isFloatLit(char *val) {
 int validateFloatLit(char *val) {
     if (val == NULL) return 0;
 
-    if (strchr(val, '.') == NULL) {
+    int start = 0;
+    // Handle negative sign
+    if (val[0] == '-') {
+        start = 1;
+        if (val[1] == '\0') {
+            repError(ERROR_INVALID_FLOAT_NO_DIGITS, val);
+            return 0;
+        }
+    }
+
+    if (strchr(val + start, '.') == NULL) {
         return 0;
     }
 
     int decimalCount = 0;
     int hasDigits = 0;
 
-    for (int i = 0; val[i] != '\0'; i++) {
+    for (int i = start; val[i] != '\0'; i++) {
         if (val[i] == '.') {
             if (decimalCount) {
                 repError(ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, val);
@@ -93,16 +111,42 @@ int isStringLit(char *val) {
 //checks if its an int
 int isIntLit(char *val) {
     if (val == NULL) return 0;
-    for (int i = 0; val[i] != '\0'; i++) {
+    int start = 0;
+
+    // Handle negative sign
+    if (val[0] == '-') {
+        start = 1;
+        // Must have at least one digit after the minus sign
+        if (val[1] == '\0') return 0;
+    }
+
+    for (int i = start; val[i] != '\0'; i++) {
         if (!isdigit(val[i])) return 0;
     }
-    return 1;
+    return (val[start] != '\0');
 }
 
 //checks if its not a int nor a string
 int isVariable(char *val) {
     if (val == NULL) return 0;
     return !(isStringLit(val) && isIntLit(val) && isFloatLit(val));
+}
+
+int isValidVariable(char * val) {
+    if (val == NULL) return 0;
+
+    // Check if it's just an operator
+    if (strcmp(val, "-") == 0 || strcmp(val, "+") == 0 ||
+        strcmp(val, "*") == 0 || strcmp(val, "/") == 0 ||
+        strcmp(val, "=") == 0 || strcmp(val, ";") == 0) {
+        return 0;
+        }
+    // Check if it starts with a letter or underscore (proper variable naming)
+    if (!isalpha(val[0]) && val[0] != '_') {
+        return 0;
+    }
+
+    return 1;
 }
 
 //classifies variable possible values, int, string,....
@@ -136,8 +180,11 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
             return NULL;
         }
         valNod = createNode(val, INT_LIT);
-    } else {
+    } else if (isValidVariable(val)){
         valNod = createNode(val, VARIABLE);
+    }else {
+        repError(ERROR_INVALID_EXPRESSION, val);
+        return NULL;
     }
     return valNod;
 }

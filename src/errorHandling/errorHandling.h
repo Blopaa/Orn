@@ -22,6 +22,7 @@ typedef enum {
     ERROR_INVALID_FLOAT_INVALID_CHAR = 3002,
     ERROR_INVALID_FLOAT_NO_DIGITS = 3003,
     ERROR_MISSING_QUOTE = 3004,
+    ERROR_INVALID_EXPRESSION = 3005
 } ErrorCode;
 
 // WARING -> ERROR -> FATAL
@@ -56,6 +57,8 @@ static const ErrorEntry errorList[] = {
     {ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, ERROR, "Float literal cannot have multiple decimal points"},
     {ERROR_INVALID_FLOAT_INVALID_CHAR, ERROR, "Float literal contains invalid character"},
     {ERROR_INVALID_FLOAT_NO_DIGITS, ERROR, "Float literal must contain at least one digit"},
+    {ERROR_INVALID_EXPRESSION, ERROR, "Invalid expression or operator used as value"},
+
 
     {ERROR_OK, ERROR, "Unknown error"}
 };

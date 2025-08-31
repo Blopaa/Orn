@@ -82,8 +82,50 @@ void testBasicCases(void) {
     testCase("Basic string declaration", "string name = \"Pablo\";", 1);
     testCase("Basic float declaration", "float pi = 3.14;", 1);
     testCase("Simple addition", "int sum = a + b;", 1);
+    testCase("Simple sub", "int sum = a - b;", 1);
+    testTokenCount("Simple sub input together", "int sum = a-b;", 7);
     testTokenCount("Simple addition", "int sum = a + b;", 7);
     testCase("Simple subtraction", "int diff = x - y;", 1);
+    testCase("Empty string", "string empty = \"\";", 1);
+    testCase("String with spaces", "string text = \"hello world\";", 1);
+    testCase("String with numbers", "string mixed = \"abc123\";", 1);
+    testCase("Multiple assignments", "int a = 1; int b = 2; int c = 3;", 1);
+    testCase("Variable reuse", "int x = a; int y = x;", 1);
+    //edging
+    testCase("Zero assignment", "int zero = 0;", 1);
+    testCase("Float without leading zero", "float small = .5;", 1);
+
+    //complex expressions
+    testCase("Multiple operations", "int result = a + b - c;", 1);  // FAKE POSITIVE NO SUPPORT YET
+    testCase("Mixed operators", "int calc = x * y / z;", 1);  // FAKE POSITIVE NO SUPPORT YET
+
+    //negative numbers
+    testCase("Basic negative int", "int x = -5;", 1);
+    testCase("Basic negative float", "float pi = -3.14;", 1);
+    testCase("Negative at start", "int first = -42;", 1);
+    testCase("Negative in addition", "int result = -5 + 3;", 1);
+    testCase("Multiple negatives", "int a = -1; int b = -2;", 1);
+    // Error cases - should FAIL
+    testCase("Negative int to string", "string bad = -123;", 0);
+    testCase("Negative float to int", "int bad = -3.14;", 0);
+    testCase("Invalid negative float", "float bad = -3.14.15;", 0);
+    testCase("Just minus sign", "int bad = -;", 0);
+    testCase("Minus with space", "int bad = - 5;", 0);
+    // Negative numbers (single tokens)
+    testTokenCount("Single negative int", "-42", 1);
+    testTokenCount("Assignment with negative", "x = -5", 3);
+    testTokenCount("Full statement", "int num = -123", 4);
+
+    // Subtraction (separate tokens)
+    testTokenCount("Simple subtraction", "a - b", 3);
+    testTokenCount("Assignment subtraction", "result = a - 5", 5);
+
+    // Mixed cases
+    testTokenCount("Negative in addition", "sum = -5 + 10", 5);
+    testTokenCount("Negative after operator", "a + -5", 3);
+    testTokenCount("Double minus", "a - -5", 3);
+    testTokenCount("After equals", "= -42", 2);
+    testTokenCount("Complex expression", "calc = -10 - 5", 5);
 }
 
 void testErrorCases(void) {
@@ -97,6 +139,7 @@ void testErrorCases(void) {
     testCase("Invalid float to int variable", "int bad = 3.14;", 0);
     testCase("Missing expected '\"' on input string (at the start)", "string input = \"hello;", 0);
     testCase("Missing expected '\"' on input string (at the end)", "string input = hello\";", 0);
+    testCase("Invalid Expresion", "int num = -;", 0);
 }
 
 void testCommentCases(void) {
@@ -106,6 +149,8 @@ void testCommentCases(void) {
     testTokenCount("Comment with spaces", "   // spaced comment   ", 0);
     testTokenCount("Empty input", "", 0);
     testTokenCount("Only whitespace", "   \n  \t  ", 0);
+    testTokenCount("Code with inline comment", "int x = 5; // comment", 5);
+    testTokenCount("Comment then code", "// comment\nint y = 10;", 5);
 }
 
 void runTests(void) {
@@ -115,8 +160,8 @@ void runTests(void) {
     testsPassed = 0;
 
     testBasicCases();
-    testErrorCases();
     testCommentCases();
+    testErrorCases();
 
     printf("=== TEST SUMMARY ===\n");
     printf("Tests run: %d\n", testsRun);
