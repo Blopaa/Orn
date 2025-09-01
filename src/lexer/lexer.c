@@ -68,42 +68,60 @@ Input splitter(const char *input) {
              * in order to not mix sub from a -5 we have to check previous tokens like = or operations
              */
         } else if (input[i] == '-') {
-            int isNegativeNumber = 0;
-            if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
-                if (in->n == 0) isNegativeNumber = 1;
-                else {
-                    char *lastToken = tokens[in->n - 1];
-                    if (strcmp(lastToken, "=") == 0 ||
-                        strcmp(lastToken, "+") == 0 ||
-                        strcmp(lastToken, "-") == 0 ||
-                        strcmp(lastToken, "*") == 0 ||
-                        strcmp(lastToken, "/") == 0) {
-                        isNegativeNumber = 1;
+            if (input[i + 1] == '=') {
+                // Handle -= compound operator
+                char *token = malloc(3 * sizeof(char));
+                token[0] = input[i];
+                token[1] = input[i + 1];
+                token[2] = '\0';
+                tokens[in->n++] = token;
+                i += 2;
+            }else {
+                int isNegativeNumber = 0;
+                if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
+                    if (in->n == 0) isNegativeNumber = 1;
+                    else {
+                        char *lastToken = tokens[in->n - 1];
+                        if (strcmp(lastToken, "=") == 0 ||
+                            strcmp(lastToken, "+") == 0 ||
+                            strcmp(lastToken, "-") == 0 ||
+                            strcmp(lastToken, "*") == 0 ||
+                            strcmp(lastToken, "/") == 0) {
+                            isNegativeNumber = 1;
+                            }
                     }
                 }
-            }
-            if (isNegativeNumber) {
-                int j = i;
-                i++;
-                while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
+                if (isNegativeNumber) {
+                    int j = i;
+                    i++;
+                    while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
+                        i++;
+                    }
+                    int tokenLength = i - j;
+                    if (tokenLength > 1) {
+                        // has to be more than just a - sign
+                        char *token = malloc((tokenLength + 1) * sizeof(char));
+                        strncpy(token, input + j, tokenLength);
+                        token[tokenLength] = '\0';
+                        tokens[in->n++] = token;
+                    }
+                } else {
+                    // NOT a negative number, treat as subtraction operator
+                    char *token = malloc(2 * sizeof(char));
+                    token[0] = input[i];
+                    token[1] = '\0';
+                    tokens[in->n++] = token;
                     i++;
                 }
-                int tokenLength = i - j;
-                if (tokenLength > 1) {
-                    // has to be more than just a - sign
-                    char *token = malloc((tokenLength + 1) * sizeof(char));
-                    strncpy(token, input + j, tokenLength);
-                    token[tokenLength] = '\0';
-                    tokens[in->n++] = token;
-                }
-            }else {
-                // NOT a negative number, treat as subtraction operator
-                char *token = malloc(2 * sizeof(char));
-                token[0] = input[i];
-                token[1] = '\0';
-                tokens[in->n++] = token;
-                i++; // CRITICAL: increment i
             }
+        } else if ((input[i] == '+' || input[i] == '*' || input[i] == '/') && input[i + 1] == '=') {
+            // Handle compound operators for +=, *=, /=
+            char *token = malloc(3 * sizeof(char));
+            token[0] = input[i];
+            token[1] = input[i + 1];
+            token[2] = '\0';
+            tokens[in->n++] = token;
+            i += 2;
         } else if (isSpecialChar(input[i])) {
             char *token = malloc(2 * sizeof(char));
             token[0] = input[i];

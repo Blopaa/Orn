@@ -58,6 +58,7 @@ static const ErrorEntry errorList[] = {
     {ERROR_INVALID_FLOAT_INVALID_CHAR, ERROR, "Float literal contains invalid character"},
     {ERROR_INVALID_FLOAT_NO_DIGITS, ERROR, "Float literal must contain at least one digit"},
     {ERROR_INVALID_EXPRESSION, ERROR, "Invalid expression or operator used as value"},
+    {ERROR_MISSING_QUOTE, ERROR, "Invalid string expression"},
 
 
     {ERROR_OK, ERROR, "Unknown error"}

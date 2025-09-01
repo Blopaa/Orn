@@ -17,6 +17,11 @@ typedef enum {
      FLOAT_LIT,
      STRING_LIT,
      VARIABLE,
+     ASSIGNMENT,
+     COMPOUND_ADD_ASSIGN,
+     COMPOUND_SUB_ASSIGN,
+     COMPOUND_MUL_ASSIGN,
+     COMPOUND_DIV_ASSIGN,
      null_NODE
 } NodeTypes ;
 

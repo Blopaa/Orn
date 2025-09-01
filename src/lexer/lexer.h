@@ -16,23 +16,32 @@
 #define SUB_OPERATOR "-"
 #define MULTIPLY_OPERATOR "*"
 #define DIVIDE_OPERATOR "/"
+#define PLUS_ASSIGN "+="
+#define SUB_ASSIGN "-="
+#define MULTIPLY_ASSIGN "*="
+#define DIVIDE_ASSIGN "/="
 #include <stddef.h>
 
 
 // ammount of types of tokens there can be
 typedef enum {
-    TokenAssignement,
+    TokenAssignement, // =
     TokenLiteral,
-    TokenIntDefinition,
-    TokenStringDefinition,
-    TokenFloatDefinition,
-    TokenPunctuation,
-    TokenQuotes,
-    TokenSum,
-    TokenSub,
-    TokenMult,
-    TokenDiv,
+    TokenIntDefinition, // int
+    TokenStringDefinition, // string
+    TokenFloatDefinition, // float
+    TokenPunctuation, // ;
+    TokenQuotes, // "
+    TokenSum, // +
+    TokenSub, // -
+    TokenMult, // *
+    TokenDiv, // /
     TokenString,
+    TokenPlusAssign, // +=
+    TokenSubAssign, // -=
+    TokenMultAssign, // *=
+    TokenDivAssign, // /=
+
     TokenNULL
 } TokenType;
 
@@ -67,6 +76,10 @@ static const TokenMap tokenMapping[] = {
     {SUB_OPERATOR, TokenSub},
     {MULTIPLY_OPERATOR, TokenMult},
     {DIVIDE_OPERATOR, TokenDiv},
+    {PLUS_ASSIGN, TokenPlusAssign},
+    {SUB_ASSIGN, TokenSubAssign},
+    {MULTIPLY_ASSIGN, TokenMultAssign},
+    {DIVIDE_ASSIGN, TokenDivAssign},
     {NULL, TokenLiteral}
 };
 

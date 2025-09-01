@@ -21,6 +21,22 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
+// checks if its compoundAssign =+, -=...
+int isCompoundAssignType(TokenType type) {
+    return (type == TokenPlusAssign || type == TokenSubAssign || type == TokenMultAssign || type == TokenDivAssign);
+}
+
+//  returns the respective Node for each type, if it doesn't match returns null_NODE
+NodeTypes getCompoundNodeType(TokenType tokenType) {
+    switch (tokenType) {
+        case TokenPlusAssign: return COMPOUND_ADD_ASSIGN;
+        case TokenSubAssign: return COMPOUND_SUB_ASSIGN;
+        case TokenMultAssign: return COMPOUND_MUL_ASSIGN;
+        case TokenDivAssign: return COMPOUND_DIV_ASSIGN;
+        default: return null_NODE;
+    }
+}
+
 //creates a new node given a value and a type
 ASTNode createNode(char *val, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
@@ -132,7 +148,7 @@ int isVariable(char *val) {
     return !(isStringLit(val) && isIntLit(val) && isFloatLit(val));
 }
 
-int isValidVariable(char * val) {
+int isValidVariable(char *val) {
     if (val == NULL) return 0;
 
     // Check if it's just an operator
@@ -140,7 +156,7 @@ int isValidVariable(char * val) {
         strcmp(val, "*") == 0 || strcmp(val, "/") == 0 ||
         strcmp(val, "=") == 0 || strcmp(val, ";") == 0) {
         return 0;
-        }
+    }
     // Check if it starts with a letter or underscore (proper variable naming)
     if (!isalpha(val[0]) && val[0] != '_') {
         return 0;
@@ -180,9 +196,9 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
             return NULL;
         }
         valNod = createNode(val, INT_LIT);
-    } else if (isValidVariable(val)){
+    } else if (isValidVariable(val)) {
         valNod = createNode(val, VARIABLE);
-    }else {
+    } else {
         repError(ERROR_INVALID_EXPRESSION, val);
         return NULL;
     }
@@ -236,7 +252,24 @@ ASTNode ASTGenerator(Token token) {
                     if (token->next != NULL) {
                         token = token->next;
                         ASTNode valNod = ExpParser(&token, type);
-                        crrntStat->children = valNod;
+                        if (valNod) {
+                            crrntStat->children = valNod;
+                        }
+                        // IMPORTANT: Always advance to semicolon or end, even if ExpParser failed
+                        while (token && token->next != NULL && token->next->type != TokenPunctuation) {
+                            token = token->next;
+                        }
+                        if (token && token->next != NULL && token->next->type == TokenPunctuation) {
+                            token = token->next; // skip ";"
+                        }
+                    }
+                } else {
+                    // No assignment, just skip to semicolon
+                    while (token && token->next != NULL && token->next->type != TokenPunctuation) {
+                        token = token->next;
+                    }
+                    if (token && token->next != NULL && token->next->type == TokenPunctuation) {
+                        token = token->next; // skip ";"
                     }
                 }
             }
@@ -246,6 +279,37 @@ ASTNode ASTGenerator(Token token) {
                 ls->brothers = crrntStat;
             }
             ls = crrntStat;
+            //handles variable assignements NOT declarations, dec is top if
+        } else if (token->type == TokenLiteral) {
+            if (token->next != NULL && token->next->type == TokenAssignement) {
+                crrntStat = createNode(strdup(token->value), ASSIGNMENT);
+                token = token->next;
+                if (token->next != NULL) {
+                    token = token->next;
+                    ASTNode valNod = ExpParser(&token, type);
+                    crrntStat->children = valNod;
+                }
+                //handles compound assignements like += -= ...
+            } else if (token->next != NULL && isCompoundAssignType(token->next->type)) {
+                // Compound assignment (x += 5;, x -= 3;, etc.)
+                NodeTypes compoundType = getCompoundNodeType(token->next->type);
+                crrntStat = createNode(strdup(token->value), compoundType);
+                token = token->next; // skip compound operator
+                if (token->next != NULL) {
+                    token = token->next;
+                    ASTNode valNod = ExpParser(&token, null_NODE); // No type constraint for assignments
+                    crrntStat->children = valNod;
+                }
+            }
+            // Add to AST if we created a statement
+            if (crrntStat != NULL) {
+                if (programNode->children == NULL) {
+                    programNode->children = crrntStat;
+                } else {
+                    ls->brothers = crrntStat;
+                }
+                ls = crrntStat;
+            }
         }
     }
     return programNode;
@@ -273,6 +337,16 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case VARIABLE: nodeTypeStr = "VARIABLE";
             break;
         case FLOAT_LIT: nodeTypeStr = "FLOAT_LIT";
+            break;
+        case ASSIGNMENT: nodeTypeStr = "ASSIGNMENT";
+            break;
+        case COMPOUND_ADD_ASSIGN: nodeTypeStr = "COMPOUND_ADD_ASSIGN";
+            break;
+        case COMPOUND_SUB_ASSIGN: nodeTypeStr = "COMPOUND_SUB_ASSIGN";
+            break;
+        case COMPOUND_MUL_ASSIGN: nodeTypeStr = "COMPOUND_MULT_ASSIGN";
+            break;
+        case COMPOUND_DIV_ASSIGN: nodeTypeStr = "COMPOUND_DIV_ASSIGN";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;

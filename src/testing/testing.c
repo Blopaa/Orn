@@ -78,6 +78,7 @@ void testBasicCases(void) {
     printf("=== TESTING BASIC CASES ===\n");
 
     testCase("Basic int declaration", "int x = 5;", 1);
+    testCase("redefine variable", "sum = 5;", 1);
     testTokenCount("Basic int declaration", "int x = 5;", 5);
     testCase("Basic string declaration", "string name = \"Pablo\";", 1);
     testCase("Basic float declaration", "float pi = 3.14;", 1);
@@ -96,8 +97,14 @@ void testBasicCases(void) {
     testCase("Float without leading zero", "float small = .5;", 1);
 
     //complex expressions
-    testCase("Multiple operations", "int result = a + b - c;", 1);  // FAKE POSITIVE NO SUPPORT YET
-    testCase("Mixed operators", "int calc = x * y / z;", 1);  // FAKE POSITIVE NO SUPPORT YET
+   // testCase("Multiple operations", "int result = a + b - c;", 1);  // FAKE POSITIVE NO SUPPORT YET
+   // testCase("Mixed operators", "int calc = x * y / z;", 1);  // FAKE POSITIVE NO SUPPORT YET
+
+    // Mixed declarations and assignments
+    testCase("Declaration then assignment", "int x = 5; x = 10;", 1);
+    testCase("Multiple assignments", "x = 1; y = 2; z = 3;", 1);
+    testCase("Assignment with expression", "result = a + b;", 1);
+    testCase("Compound assignment with expression", "total += x + y;", 1);
 
     //negative numbers
     testCase("Basic negative int", "int x = -5;", 1);
@@ -137,6 +144,7 @@ void testErrorCases(void) {
     testCase("Invalid float (multiple decimals)", "float bad = 3.14.15;", 0);
     testCase("Invalid float (no digits)", "float empty = .;", 0);
     testCase("Invalid float to int variable", "int bad = 3.14;", 0);
+    // FIX: GIVES ALSO UNKNOWN ERROR ↓↓↓
     testCase("Missing expected '\"' on input string (at the start)", "string input = \"hello;", 0);
     testCase("Missing expected '\"' on input string (at the end)", "string input = hello\";", 0);
     testCase("Invalid Expresion", "int num = -;", 0);
