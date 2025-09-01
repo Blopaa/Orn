@@ -1,4 +1,4 @@
-# Contributing to CInterpreter
+# Contributing to Compiler
 
 Thank you for your interest in contributing to this educational C interpreter/compiler project! We welcome contributions from developers of all skill levels.
 
@@ -17,8 +17,8 @@ Thank you for your interest in contributing to this educational C interpreter/co
 
 ```bash
 # Fork the repository on GitHub
-git clone https://github.com/your-username/CInterpreter.git
-cd CInterpreter
+git clone https://github.com/your-username/Compiler.git
+cd Compiler
 
 # Switch to development branch
 git checkout dev
@@ -112,7 +112,7 @@ Input → Lexer → Parser → AST → [Future: Code Gen]
 
 ### Project Structure
 ```
-CInterpreter/
+Compiler/
 ├── src/
 │   ├── main.c                 # Entry point and demo
 │   ├── errorHandling/
@@ -385,6 +385,6 @@ We're committed to providing a welcoming environment:
 
 ---
 
-Thank you for contributing to CInterpreter!
+Thank you for contributing to Compiler!
 
 Every contribution, no matter how small, helps make this project better for the community.
