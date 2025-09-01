@@ -76,7 +76,7 @@ Input splitter(const char *input) {
                 token[2] = '\0';
                 tokens[in->n++] = token;
                 i += 2;
-            }else {
+            } else {
                 int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
                     if (in->n == 0) isNegativeNumber = 1;
@@ -88,7 +88,7 @@ Input splitter(const char *input) {
                             strcmp(lastToken, "*") == 0 ||
                             strcmp(lastToken, "/") == 0) {
                             isNegativeNumber = 1;
-                            }
+                        }
                     }
                 }
                 if (isNegativeNumber) {

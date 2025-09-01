@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.29)
-project(Cinterpreter C)
+project(Compiler C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(Cinterpreter src/main.c
+add_executable(Compiler src/main.c
         src/lexer/lexer.c
         src/lexer/lexer.h
         src/parser/parser.c

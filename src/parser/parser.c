@@ -248,7 +248,7 @@ ASTNode ASTGenerator(Token token) {
                 token = token->next;
                 crrntStat->value = strdup(token->value);
                 if (token->next != NULL && token->next->type == TokenAssignement) {
-                    token = token->next; // skip "=", future updates will take care of += -=;
+                    token = token->next;
                     if (token->next != NULL) {
                         token = token->next;
                         ASTNode valNod = ExpParser(&token, type);

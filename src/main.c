@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("=== LEXER TEST ===\n");
-    char *input = "int bad = - 5;";
+    char *input = "int num = -5;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
