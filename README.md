@@ -2,10 +2,10 @@
 
 A foundational C-like programming language compiler written in C, demonstrating the core stages of compilation: **lexical analysis**, **parsing**, and **AST generation**. The compiler foundation is being built to support multiple backends (bytecode generation, VM interpretation, or transpilation).
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Blopaa/CInterpreter)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Blopaa/Compiler)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
-[![Branch](https://img.shields.io/badge/branch-dev-orange.svg)](https://github.com/Blopaa/CInterpreter/tree/dev)
+[![Branch](https://img.shields.io/badge/branch-dev-orange.svg)](https://github.com/Blopaa/Compiler/tree/dev)
 
 ## ✨ Current Features
 
@@ -61,8 +61,8 @@ float bad = 3.14.15;    // ❌ Error: Invalid float format
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Blopaa/CInterpreter.git
-   cd CInterpreter
+   git clone https://github.com/Blopaa/Compiler.git
+   cd Compiler
    
    # Switch to development branch
    git checkout dev
@@ -244,7 +244,7 @@ AST:
 
 ### Project Structure
 ```
-Cinterpreter/
+Compiler/
 ├── src/
 │   ├── main.c                 # Entry point and demo
 │   ├── errorHandling/
@@ -351,6 +351,6 @@ The current implementation focuses on the **frontend** (lexer → parser → AST
 
 **⭐ If you found this helpful, please consider giving it a star! ⭐**
 
-[Report Bug](https://github.com/Blopaa/CInterpreter/issues) • [Request Feature](https://github.com/Blopaa/CInterpreter/issues) • [Ask Question](https://github.com/Blopaa/CInterpreter/discussions)
+[Report Bug](https://github.com/Blopaa/Compiler/issues) • [Request Feature](https://github.com/Blopaa/Compiler/issues) • [Ask Question](https://github.com/Blopaa/Compiler/discussions)
 
 </div>
