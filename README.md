@@ -1,4 +1,4 @@
-# 🚀 Mint Language Compiler
+# Compiler
 
 A foundational C-like programming language compiler written in C, demonstrating the core stages of compilation: **lexical analysis**, **parsing**, and **AST generation**. The compiler foundation is being built to support multiple backends (bytecode generation, VM interpretation, or transpilation).
 
@@ -18,17 +18,17 @@ A foundational C-like programming language compiler written in C, demonstrating 
 - 🧪 **Testing Framework**: Comprehensive test suite with 95%+ coverage
 - 📚 **Educational**: Clean, well-documented code perfect for learning compiler construction
 
-## 🎯 Mint Language Features
+## 🎯Language Features
 
 ### Data Types
-```mint
+```
 int age = 25;           // Integer variables
 float pi = 3.14159;     // Floating-point numbers  
 string name = "Alice";  // String literals
 ```
 
 ### Arithmetic Operations
-```mint
+```
 int sum = a + b;        // Addition
 int diff = x - y;       // Subtraction
 float result = 2.5 + 1.8;  // Mixed operations
@@ -36,7 +36,7 @@ int negative = -42;     // Negative numbers
 ```
 
 ### Assignment Operations
-```mint
+```
 int x = 10;            // Basic assignment
 x += 5;                // Compound addition
 y -= 3;                // Compound subtraction
@@ -45,7 +45,7 @@ w /= 4;                // Compound division
 ```
 
 ### Type Safety
-```mint
+```
 int x = "hello";        // ❌ Error: Cannot assign string to int
 string name = 123;      // ❌ Error: Cannot assign int to string
 float bad = 3.14.15;    // ❌ Error: Invalid float format
@@ -182,7 +182,7 @@ Success rate: 100.0%
 <summary><b>Example 1: Variable Declarations</b></summary>
 
 **Input:**
-```mint
+```
 int age = 30;
 string name = "Developer";
 float height = 5.9;
@@ -204,7 +204,7 @@ AST:
 <summary><b>Example 2: Arithmetic Expressions</b></summary>
 
 **Input:**
-```mint
+```
 int sum = a + b;
 int negative = -42;
 ```
@@ -225,7 +225,7 @@ AST:
 <summary><b>Example 3: Compound Assignments</b></summary>
 
 **Input:**
-```mint
+```
 total += value;
 counter -= 1;
 ```
