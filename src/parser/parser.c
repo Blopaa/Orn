@@ -205,6 +205,21 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
     return valNod;
 }
 
+NodeTypes getOperatorType(char *val) {
+    switch (val[0]) {
+        case '+':
+            return ADD_OP;
+        case '-':
+            return SUB_OP;
+        case '*':
+            return MUL_OP;
+        case '/':
+            return DIV_OP;
+        default:
+            return null_NODE;
+    }
+}
+
 //splits arithmetic expressions into two branches of a variable definition
 //AST:
 //└── INT_VAR_DEF: variableName
@@ -215,13 +230,14 @@ ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
     if (*crrnt == NULL) return NULL;
     ASTNode leftBranch = createValNode((*crrnt)->value, fatherType);
     if (leftBranch == NULL) return NULL;
-    if ((*crrnt)->next != NULL && ((*crrnt)->next->type == TokenSum || (*crrnt)->next->type == TokenSub)) {
+    if ((*crrnt)->next != NULL && ((*crrnt)->next->type == TokenSum || (*crrnt)->next->type == TokenSub || (*crrnt)->
+                                   next->type == TokenMult || (*crrnt)->next->type == TokenDiv)) {
         Token opTk = (*crrnt)->next;
         *crrnt = (*crrnt)->next;
         if ((*crrnt)->next != NULL) {
             *crrnt = (*crrnt)->next;
             ASTNode rightBranch = createValNode((*crrnt)->value, fatherType);
-            NodeTypes opType = (opTk->type == TokenSum) ? ADD_OP : SUB_OP;
+            NodeTypes opType = getOperatorType(opTk->value);
             ASTNode opNode = createNode(NULL, opType);
             opNode->children = leftBranch;
             leftBranch->brothers = rightBranch;
@@ -333,6 +349,10 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case ADD_OP: nodeTypeStr = "ADD_OP";
             break;
         case SUB_OP: nodeTypeStr = "SUB_OP";
+            break;
+        case MUL_OP: nodeTypeStr = "MUL_OP";
+            break;
+        case DIV_OP: nodeTypeStr = "DIV_OP";
             break;
         case VARIABLE: nodeTypeStr = "VARIABLE";
             break;

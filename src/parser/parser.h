@@ -13,6 +13,8 @@ typedef enum {
      FLOAT_VARIABLE_DEFINITION,
      ADD_OP,
      SUB_OP,
+     MUL_OP,
+     DIV_OP,
      INT_LIT,
      FLOAT_LIT,
      STRING_LIT,
