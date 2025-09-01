@@ -205,19 +205,62 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
     return valNod;
 }
 
+// returns if found respective NodeType for the operator send, otherwise returns null_Node
 NodeTypes getOperatorType(char *val) {
     switch (val[0]) {
-        case '+':
-            return ADD_OP;
-        case '-':
-            return SUB_OP;
-        case '*':
-            return MUL_OP;
-        case '/':
-            return DIV_OP;
-        default:
-            return null_NODE;
+        case '+': return ADD_OP;
+        case '-': return SUB_OP;
+        case '*': return MUL_OP;
+        case '/': return DIV_OP;
+        default: return null_NODE;
     }
+}
+
+ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
+    if (*current == NULL) return NULL;
+    ASTNode node = createValNode((*current)->value, fatherType);
+    if (node != NULL) {
+        *current = (*current)->next;
+    }
+    return node;
+}
+
+ASTNode parseMulDivExp(Token *current, NodeTypes fatherType) {
+    ASTNode left = parsePrimaryExp(current, fatherType);
+    if (left == NULL) return NULL;
+
+    while (*current != NULL && ((*current)->type == TokenMult || (*current)->type == TokenDiv)) {
+        Token opToken = *current;
+        *current = (*current)->next;
+        ASTNode right = parsePrimaryExp(current, fatherType);
+        if (right == NULL) return left;
+        NodeTypes opType = getOperatorType(opToken->value);
+        ASTNode opNode = createNode(opToken->value, opType);
+        opNode->children = left;
+        left->brothers = right;
+        left = opNode;
+    }
+    return left;
+}
+
+ASTNode parseAddSubExp(Token *current, NodeTypes fatherType) {
+    ASTNode left = parseMulDivExp(current, fatherType);
+    if (left == NULL) return NULL;
+    while (*current != NULL && ((*current)->type == TokenSum || (*current)->type == TokenSub)) {
+        Token opToken = *current;
+        *current = (*current)->next;
+        ASTNode right = parseMulDivExp(current, fatherType);
+        if (right == NULL) {
+            return left;
+        }
+
+        NodeTypes opType = getOperatorType(opToken->value);
+        ASTNode opNode = createNode(opToken->value, opType);
+        opNode->children = left;
+        left->brothers = right;
+        left = opNode;
+    }
+    return left;
 }
 
 //splits arithmetic expressions into two branches of a variable definition
@@ -227,25 +270,7 @@ NodeTypes getOperatorType(char *val) {
 //        ├── INT_LIT: 2 (value)
 //        └── VARIABLE: b (literal)
 ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
-    if (*crrnt == NULL) return NULL;
-    ASTNode leftBranch = createValNode((*crrnt)->value, fatherType);
-    if (leftBranch == NULL) return NULL;
-    if ((*crrnt)->next != NULL && ((*crrnt)->next->type == TokenSum || (*crrnt)->next->type == TokenSub || (*crrnt)->
-                                   next->type == TokenMult || (*crrnt)->next->type == TokenDiv)) {
-        Token opTk = (*crrnt)->next;
-        *crrnt = (*crrnt)->next;
-        if ((*crrnt)->next != NULL) {
-            *crrnt = (*crrnt)->next;
-            ASTNode rightBranch = createValNode((*crrnt)->value, fatherType);
-            NodeTypes opType = getOperatorType(opTk->value);
-            ASTNode opNode = createNode(NULL, opType);
-            opNode->children = leftBranch;
-            leftBranch->brothers = rightBranch;
-
-            return opNode;
-        }
-    }
-    return leftBranch;
+    return parseAddSubExp(crrnt, fatherType);
 }
 
 // generates AST

@@ -95,11 +95,6 @@ void testBasicCases(void) {
     //edging
     testCase("Zero assignment", "int zero = 0;", 1);
     testCase("Float without leading zero", "float small = .5;", 1);
-
-    //complex expressions
-   // testCase("Multiple operations", "int result = a + b - c;", 1);  // FAKE POSITIVE NO SUPPORT YET
-   // testCase("Mixed operators", "int calc = x * y / z;", 1);  // FAKE POSITIVE NO SUPPORT YET
-
     // Mixed declarations and assignments
     testCase("Declaration then assignment", "int x = 5; x = 10;", 1);
     testCase("Multiple assignments", "x = 1; y = 2; z = 3;", 1);
@@ -122,7 +117,12 @@ void testBasicCases(void) {
     testTokenCount("Single negative int", "-42", 1);
     testTokenCount("Assignment with negative", "x = -5", 3);
     testTokenCount("Full statement", "int num = -123", 4);
-
+    //compoundOperations
+    testCase("Precedence: 2 + 3 * 4 (should be 2+(3*4))", "int result = 2 + 3 * 4;", 1);
+    testCase("Multiple mults: 2 * 2 + 4 * 3 (should be (2*2)+(4*3))", "int result = 2 * 2 + 4 * 3;", 1);
+    testCase("Left assoc: 10 - 3 - 2 (should be (10-3)-2)", "int result = 10 - 3 - 2;", 1);
+    testCase("Div assoc: 12 / 3 / 2 (should be (12/3)/2)", "int result = 12 / 3 / 2;", 1);
+    testCase("Complex: 1 + 2 * 3 - 4 / 2 (should be 1+(2*3)-(4/2))", "int result = 1 + 2 * 3 - 4 / 2;", 1);
     // Subtraction (separate tokens)
     testTokenCount("Simple subtraction", "a - b", 3);
     testTokenCount("Assignment subtraction", "result = a - 5", 5);
