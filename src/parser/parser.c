@@ -113,15 +113,18 @@ int validateFloatLit(char *val) {
     return 1;
 }
 
-//checks if its a string
+// takes anything with quotes as a try to write an string
 int isStringLit(char *val) {
-    // ERROR REP SHOULDN'T BE HERE, BUT AS IF SOMETHING HAS QUOTES CANT BE A NUMBER NOR A VARIABLE IT WILL BE TAKEN AS A TRY TO INPUT AN STRING
-    // FIX: checker takes anything with a quote and then verifies if it's correct.
+    return strchr(val, '"') != NULL;
+}
+
+// checks if the string quotes are wrote correctly
+int isValidStringLit(char *val) {
     if ((strchr(val, '"') && val[0] != '"') || (strchr(val, '"') && val[strlen(val) - 1] != '"')) {
         repError(ERROR_MISSING_QUOTE, val);
         return 0;
     }
-    return val != NULL && val[0] == '"' && val[strlen(val) - 1] == '"';
+    return 1;
 }
 
 //checks if its an int
@@ -169,6 +172,9 @@ int isValidVariable(char *val) {
 ASTNode createValNode(char *val, NodeTypes fatherType) {
     ASTNode valNod = NULL;
     if (isStringLit(val)) {
+        if (!isValidStringLit(val)) {
+            return NULL;
+        }
         if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION || fatherType ==
             BOOL_VARIABLE_DEFINITION) {
             ErrorCode errorType;
