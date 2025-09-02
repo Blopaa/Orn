@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("=== LEXER TEST ===\n");
-    char *input = "bool test = true;";
+    char *input = "int mod = 4 % 5";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");

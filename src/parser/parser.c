@@ -241,6 +241,7 @@ NodeTypes getOperatorType(char *val) {
         case '-': return SUB_OP;
         case '*': return MUL_OP;
         case '/': return DIV_OP;
+        case '%': return MOD_OP;
         default: return null_NODE;
     }
 }
@@ -254,11 +255,12 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     return node;
 }
 
-ASTNode parseMulDivExp(Token *current, NodeTypes fatherType) {
+ASTNode parseMulDivModExp(Token *current, NodeTypes fatherType) {
     ASTNode left = parsePrimaryExp(current, fatherType);
     if (left == NULL) return NULL;
 
-    while (*current != NULL && ((*current)->type == TokenMult || (*current)->type == TokenDiv)) {
+    while (*current != NULL && ((*current)->type == TokenMult || (*current)->type == TokenDiv || (*current)->type ==
+                                TokenMod)) {
         Token opToken = *current;
         *current = (*current)->next;
         ASTNode right = parsePrimaryExp(current, fatherType);
@@ -273,12 +275,12 @@ ASTNode parseMulDivExp(Token *current, NodeTypes fatherType) {
 }
 
 ASTNode parseAddSubExp(Token *current, NodeTypes fatherType) {
-    ASTNode left = parseMulDivExp(current, fatherType);
+    ASTNode left = parseMulDivModExp(current, fatherType);
     if (left == NULL) return NULL;
     while (*current != NULL && ((*current)->type == TokenSum || (*current)->type == TokenSub)) {
         Token opToken = *current;
         *current = (*current)->next;
-        ASTNode right = parseMulDivExp(current, fatherType);
+        ASTNode right = parseMulDivModExp(current, fatherType);
         if (right == NULL) {
             return left;
         }
@@ -409,6 +411,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case MUL_OP: nodeTypeStr = "MUL_OP";
             break;
         case DIV_OP: nodeTypeStr = "DIV_OP";
+            break;
+        case MOD_OP: nodeTypeStr = "MOD_OP";
             break;
         case VARIABLE: nodeTypeStr = "VARIABLE";
             break;
