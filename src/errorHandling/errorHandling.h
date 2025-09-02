@@ -58,9 +58,10 @@ static const ErrorEntry errorList[] = {
     {ERROR_TYPE_MISMATCH_STRING_TO_FLOAT, ERROR, "Cannot assign string literal to float variable"},
     {ERROR_TYPE_MISMATCH_FLOAT_TO_STRING, ERROR, "Cannot assign float literal to string variable"},
     {ERROR_TYPE_MISMATCH_FLOAT_TO_INT, ERROR, "Cannot assign float literal to int variable"},
-    {ERROR_TYPE_MISMATCH_STRING_TO_BOOL, ERROR, "Cannot assign string literal to bool variable"},
-    {ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL, ERROR, "Cannot assign float literal to bool variable"},
     {ERROR_TYPE_MISMATCH_INT_TO_BOOL, ERROR, "Cannot assign int literal to bool variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_STRING, ERROR, "Cannot assign bool literal to string variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_INT, ERROR, "Cannot assign bool literal to int variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT, ERROR, "Cannot assign bool literal to float variable"},
 
     // Syntax errors
     {ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, ERROR, "Float literal cannot have multiple decimal points"},
