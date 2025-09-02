@@ -11,6 +11,9 @@
 #define INT_DEFINITION "int"
 #define STRING_DEFINITION "string"
 #define FLOAT_DEFINITION "float"
+#define BOOL_DEFINITION "bool"
+#define TRUE_STATEMENT "true"
+#define FALSE_STATEMENT "false"
 #define QUOTES "\""
 #define SUM_OPERATOR "+"
 #define SUB_OPERATOR "-"
@@ -30,8 +33,11 @@ typedef enum {
     TokenIntDefinition, // int
     TokenStringDefinition, // string
     TokenFloatDefinition, // float
+    TokenBoolDefinition, // bool
     TokenPunctuation, // ;
     TokenQuotes, // "
+    TokenTrueStatement, // true
+    TokenFalseStatement, // false
     TokenSum, // +
     TokenSub, // -
     TokenMult, // *
@@ -54,7 +60,7 @@ typedef struct {
 
 
 // reserved chars
-static const char * SpecialCharMap[] = {
+static const char *SpecialCharMap[] = {
     PUNCTUATION,
     ASSIGNEMENT,
     SUM_OPERATOR,
@@ -69,9 +75,12 @@ static const TokenMap tokenMapping[] = {
     {INT_DEFINITION, TokenIntDefinition},
     {STRING_DEFINITION, TokenStringDefinition},
     {FLOAT_DEFINITION, TokenFloatDefinition},
+    {BOOL_DEFINITION, TokenBoolDefinition},
     {ASSIGNEMENT, TokenAssignement},
     {PUNCTUATION, TokenPunctuation},
     {QUOTES, TokenQuotes},
+    {TRUE_STATEMENT, TokenTrueStatement},
+    {FALSE_STATEMENT, TokenFalseStatement},
     {SUM_OPERATOR, TokenSum},
     {SUB_OPERATOR, TokenSub},
     {MULTIPLY_OPERATOR, TokenMult},

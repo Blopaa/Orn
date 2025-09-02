@@ -169,10 +169,17 @@ int isValidVariable(char *val) {
 ASTNode createValNode(char *val, NodeTypes fatherType) {
     ASTNode valNod = NULL;
     if (isStringLit(val)) {
-        if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION) {
-            ErrorCode errorType = (fatherType == INT_VARIABLE_DEFINITION)
-                                      ? ERROR_TYPE_MISMATCH_STRING_TO_INT
-                                      : ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
+        if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION || fatherType ==
+            BOOL_VARIABLE_DEFINITION) {
+            ErrorCode errorType;
+            switch (fatherType) {
+                case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_INT;
+                    break;
+                case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
+                    break;
+                case BOOL_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_BOOL;
+                    break;
+            }
             repError(errorType, val);
             return NULL;
         }
@@ -181,8 +188,11 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         if (!validateFloatLit(val)) {
             return NULL;
         }
-        if (fatherType == STRING_VARIABLE_DEFINITION) {
-            repError(ERROR_TYPE_MISMATCH_FLOAT_TO_STRING, val);
+        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
+            ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
+                                      ? ERROR_TYPE_MISMATCH_FLOAT_TO_STRING
+                                      : ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL;
+            repError(errorType, val);
             return NULL;
         }
         if (fatherType == INT_VARIABLE_DEFINITION) {
@@ -191,11 +201,30 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         }
         valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
-        if (fatherType == STRING_VARIABLE_DEFINITION) {
-            repError(ERROR_TYPE_MISMATCH_INT_TO_STRING, val);
+        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
+            ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
+                                      ? ERROR_TYPE_MISMATCH_INT_TO_STRING
+                                      : ERROR_TYPE_MISMATCH_INT_TO_BOOL;
+            repError(errorType, val);
             return NULL;
         }
         valNod = createNode(val, INT_LIT);
+    } else if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) {
+        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == INT_VARIABLE_DEFINITION || fatherType ==
+            FLOAT_VARIABLE_DEFINITION) {
+            ErrorCode errorType;
+            switch (fatherType) {
+                case STRING_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
+                    break;
+                case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_INT;
+                    break;
+                case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT;
+                    break;
+            }
+            repError(errorType, val);
+            return NULL;
+        }
+        valNod = createNode(val, BOOL_LIT);
     } else if (isValidVariable(val)) {
         valNod = createNode(val, VARIABLE);
     } else {
@@ -367,6 +396,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
             break;
         case FLOAT_VARIABLE_DEFINITION: nodeTypeStr = "FLOAT_VAR_DEF";
             break;
+        case BOOL_VARIABLE_DEFINITION: nodeTypeStr = "BOOL_VAR_DEF";
+            break;
         case STRING_LIT: nodeTypeStr = "STRING_LIT";
             break;
         case INT_LIT: nodeTypeStr = "INT_LIT";
@@ -382,6 +413,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case VARIABLE: nodeTypeStr = "VARIABLE";
             break;
         case FLOAT_LIT: nodeTypeStr = "FLOAT_LIT";
+            break;
+        case BOOL_LIT: nodeTypeStr = "BOOL_LIT";
             break;
         case ASSIGNMENT: nodeTypeStr = "ASSIGNMENT";
             break;
