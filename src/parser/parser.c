@@ -264,7 +264,7 @@ ASTNode parseUnaryExp(Token *current, NodeTypes fatherType) {
         ASTNode operand = parsePrimaryExp(current, fatherType);
         if (operand == NULL) return NULL;
         NodeTypes opType = (opTk->type == TokenIncrement) ? PRE_INCREMENT : PRE_DECREMENT;
-        ASTNode opNode = createNode(operand->value, opType);
+        ASTNode opNode = createNode((opTk->type == TokenIncrement) ? "++" : "--", opType);
         opNode->children = operand;
         return opNode;
     }
