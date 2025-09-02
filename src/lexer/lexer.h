@@ -65,6 +65,11 @@ typedef struct {
 static const char *SpecialCharMap[] = {
     PUNCTUATION,
     ASSIGNEMENT,
+    SUM_OPERATOR,
+    SUB_OPERATOR,
+    MULTIPLY_OPERATOR,
+    DIVIDE_OPERATOR,
+    MODULUS_OPERATOR,
     NULL
 };
 
