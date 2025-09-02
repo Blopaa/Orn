@@ -146,6 +146,15 @@ void testBasicCases(void) {
     testCase("Same precedence: 12 / 3 % 2 (should be (12/3)%2)", "int result = 12 / 3 % 2;", 1);
     testCase("Multiple modulos: 15 % 4 % 2", "int result = 15 % 4 % 2;", 1);
     testCase("Compound with modulo: a * b % c + d", "int result = a * b % c + d;", 1);
+    // increment and decrement operators
+    testTokenCount("Prefix decrement tokenization", "int x = --a;", 6);
+    testCase("Prefix decrement assignment", "int result = --counter;", 1);
+    testTokenCount("Prefix increment tokenization", "int y = ++b;", 6);
+    testCase("Prefix increment assignment", "int total = ++index;", 1);
+    testTokenCount("Postfix decrement tokenization", "int z = c--;", 6);
+    testCase("Postfix decrement assignment", "int old_val = num--;", 1);
+    testTokenCount("Mixed increment expression", "int sum = ++a + b++;", 9);
+    testCase("Complex increment/decrement expression", "int calc = --x + y++ - ++z;", 1);
 }
 
 void testErrorCases(void) {
