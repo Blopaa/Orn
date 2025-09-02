@@ -17,6 +17,12 @@ typedef enum {
     ERROR_TYPE_MISMATCH_FLOAT_TO_STRING = 1003,
     ERROR_TYPE_MISMATCH_STRING_TO_FLOAT = 1004,
     ERROR_TYPE_MISMATCH_FLOAT_TO_INT = 1005,
+    ERROR_TYPE_MISMATCH_STRING_TO_BOOL = 1006,
+    ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL = 1007,
+    ERROR_TYPE_MISMATCH_INT_TO_BOOL = 1008,
+    ERROR_TYPE_MISMATCH_BOOL_TO_STRING = 1009,
+    ERROR_TYPE_MISMATCH_BOOL_TO_INT = 1010,
+    ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT = 1011,
     // 3000s syntax errors
     ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS = 3001,
     ERROR_INVALID_FLOAT_INVALID_CHAR = 3002,
@@ -52,6 +58,10 @@ static const ErrorEntry errorList[] = {
     {ERROR_TYPE_MISMATCH_STRING_TO_FLOAT, ERROR, "Cannot assign string literal to float variable"},
     {ERROR_TYPE_MISMATCH_FLOAT_TO_STRING, ERROR, "Cannot assign float literal to string variable"},
     {ERROR_TYPE_MISMATCH_FLOAT_TO_INT, ERROR, "Cannot assign float literal to int variable"},
+    {ERROR_TYPE_MISMATCH_INT_TO_BOOL, ERROR, "Cannot assign int literal to bool variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_STRING, ERROR, "Cannot assign bool literal to string variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_INT, ERROR, "Cannot assign bool literal to int variable"},
+    {ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT, ERROR, "Cannot assign bool literal to float variable"},
 
     // Syntax errors
     {ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS, ERROR, "Float literal cannot have multiple decimal points"},

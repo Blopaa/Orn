@@ -76,7 +76,7 @@ void testCase(const char *name, const char *input, int shouldPass) {
 
 void testBasicCases(void) {
     printf("=== TESTING BASIC CASES ===\n");
-
+    // basic cases
     testCase("Basic int declaration", "int x = 5;", 1);
     testCase("redefine variable", "sum = 5;", 1);
     testTokenCount("Basic int declaration", "int x = 5;", 5);
@@ -100,7 +100,6 @@ void testBasicCases(void) {
     testCase("Multiple assignments", "x = 1; y = 2; z = 3;", 1);
     testCase("Assignment with expression", "result = a + b;", 1);
     testCase("Compound assignment with expression", "total += x + y;", 1);
-
     //negative numbers
     testCase("Basic negative int", "int x = -5;", 1);
     testCase("Basic negative float", "float pi = -3.14;", 1);
@@ -126,13 +125,21 @@ void testBasicCases(void) {
     // Subtraction (separate tokens)
     testTokenCount("Simple subtraction", "a - b", 3);
     testTokenCount("Assignment subtraction", "result = a - 5", 5);
-
     // Mixed cases
     testTokenCount("Negative in addition", "sum = -5 + 10", 5);
     testTokenCount("Negative after operator", "a + -5", 3);
     testTokenCount("Double minus", "a - -5", 3);
     testTokenCount("After equals", "= -42", 2);
     testTokenCount("Complex expression", "calc = -10 - 5", 5);
+    // bool cases
+    testCase("Basic bool declaration true", "bool flag = true;", 1);
+    testCase("Basic bool declaration false", "bool active = false;", 1);
+    testCase("Bool variable assignment true", "isReady = true;", 1);
+    testCase("Bool variable assignment false", "isComplete = false;", 1);
+
+    // bool tokenization
+    testTokenCount("Bool true declaration", "bool flag = true;", 5);
+    testTokenCount("Bool false declaration", "bool active = false;", 5);
 }
 
 void testErrorCases(void) {
@@ -148,6 +155,13 @@ void testErrorCases(void) {
     testCase("Missing expected '\"' on input string (at the start)", "string input = \"hello;", 0);
     testCase("Missing expected '\"' on input string (at the end)", "string input = hello\";", 0);
     testCase("Invalid Expresion", "int num = -;", 0);
+    // bool cases
+    testCase("Bool to int error", "int x = true;", 0);
+    testCase("Bool to string error", "string text = false;", 0);
+    testCase("Bool to float error", "float value = true;", 0);
+    testCase("Int to bool error", "bool flag = 123;", 0);
+    testCase("String to bool error", "bool active = \"yes\";", 0);
+    testCase("Float to bool error", "bool ready = 3.14;", 0);
 }
 
 void testCommentCases(void) {

@@ -11,6 +11,7 @@ typedef enum {
      STRING_VARIABLE_DEFINITION,
      INT_VARIABLE_DEFINITION,
      FLOAT_VARIABLE_DEFINITION,
+     BOOL_VARIABLE_DEFINITION,
      ADD_OP,
      SUB_OP,
      MUL_OP,
@@ -18,6 +19,7 @@ typedef enum {
      INT_LIT,
      FLOAT_LIT,
      STRING_LIT,
+     BOOL_LIT,
      VARIABLE,
      ASSIGNMENT,
      COMPOUND_ADD_ASSIGN,
@@ -37,6 +39,7 @@ static const NodeMap TypeDefs[] = {
      {TokenStringDefinition, STRING_VARIABLE_DEFINITION},
      {TokenIntDefinition, INT_VARIABLE_DEFINITION},
      {TokenFloatDefinition, FLOAT_VARIABLE_DEFINITION},
+     {TokenBoolDefinition, BOOL_VARIABLE_DEFINITION},
      {TokenNULL, null_NODE}
 };
 
