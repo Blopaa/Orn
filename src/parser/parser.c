@@ -118,7 +118,7 @@ int isStringLit(char *val) {
     return strchr(val, '"') != NULL;
 }
 
-// checks if the string quotes are wrote correctly
+// checks if the string quotes are written correctly
 int isValidStringLit(char *val) {
     if ((strchr(val, '"') && val[0] != '"') || (strchr(val, '"') && val[strlen(val) - 1] != '"')) {
         repError(ERROR_MISSING_QUOTE, val);
