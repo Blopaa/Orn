@@ -24,6 +24,8 @@
 #define SUB_ASSIGN "-="
 #define MULTIPLY_ASSIGN "*="
 #define DIVIDE_ASSIGN "/="
+#define INCREMENT_OPERATOR "++"
+#define DECREMENT_OPERATOR "--"
 #include <stddef.h>
 
 
@@ -44,6 +46,8 @@ typedef enum {
     TokenMult, // *
     TokenDiv, // /
     TokenMod, // %
+    TokenIncrement, // ++
+    TokenDecrement, // --
     TokenString,
     TokenPlusAssign, // +=
     TokenSubAssign, // -=
@@ -93,6 +97,8 @@ static const TokenMap tokenMapping[] = {
     {SUB_ASSIGN, TokenSubAssign},
     {MULTIPLY_ASSIGN, TokenMultAssign},
     {DIVIDE_ASSIGN, TokenDivAssign},
+    {INCREMENT_OPERATOR, TokenIncrement},
+    {DECREMENT_OPERATOR, TokenDecrement},
     {NULL, TokenLiteral}
 };
 

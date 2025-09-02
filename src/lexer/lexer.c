@@ -76,6 +76,14 @@ Input splitter(const char *input) {
                 token[2] = '\0';
                 tokens[in->n++] = token;
                 i += 2;
+            } else if (input[i + 1] == '-') {
+                // Handle -- decrement operator
+                char *token = malloc(3 * sizeof(char));
+                token[0] = input[i];
+                token[1] = input[i + 1];
+                token[2] = '\0';
+                tokens[in->n++] = token;
+                i += 2;
             } else {
                 int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
@@ -114,7 +122,8 @@ Input splitter(const char *input) {
                     i++;
                 }
             }
-        } else if ((input[i] == '+' || input[i] == '*' || input[i] == '/') && input[i + 1] == '=') {
+        } else if ((input[i] == '+' || input[i] == '*' || input[i] == '/' || input[i] == '-') && (
+                       input[i + 1] == '=' || input[i + 1] == '+' || input[i + 1] == '-')) {
             // Handle compound operators for +=, *=, /=
             char *token = malloc(3 * sizeof(char));
             token[0] = input[i];
