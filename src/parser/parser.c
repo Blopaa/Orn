@@ -255,15 +255,46 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     return node;
 }
 
+ASTNode parseUnaryExp(Token *current, NodeTypes fatherType) {
+    if (*current == NULL) return NULL;
+    // Prefix operators ++x, --x
+    if ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement) {
+        Token opTk = *current;
+        *current = (*current)->next;
+        ASTNode operand = parsePrimaryExp(current, fatherType);
+        if (operand == NULL) return NULL;
+        NodeTypes opType = (opTk->type == TokenIncrement) ? PRE_INCREMENT : PRE_DECREMENT;
+        ASTNode opNode = createNode((opTk->type == TokenIncrement) ? "++" : "--", opType);
+        opNode->children = operand;
+        return opNode;
+    }
+
+    // Not a unary operator, parse as primary
+    ASTNode result = parsePrimaryExp(current, fatherType);
+
+    // Postfix operators x++, x--
+    if (*current != NULL && ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement)) {
+        Token opToken = *current;
+        *current = (*current)->next;
+
+        NodeTypes opType = (opToken->type == TokenIncrement) ? POST_INCREMENT : POST_DECREMENT;
+        ASTNode opNode = createNode(NULL, opType);
+        opNode->children = result;
+        return opNode;
+    }
+
+    return result;
+}
+
 ASTNode parseMulDivModExp(Token *current, NodeTypes fatherType) {
-    ASTNode left = parsePrimaryExp(current, fatherType);
+    ASTNode left = parseUnaryExp(current, fatherType);
     if (left == NULL) return NULL;
 
     while (
         *current != NULL &&
         (
             (*current)->type == TokenMult ||
-            (*current)->type == TokenDiv  ||
+            (*current)->type == TokenDiv ||
             (*current)->type == TokenMod
         )
     ) {
@@ -427,6 +458,14 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case BOOL_LIT: nodeTypeStr = "BOOL_LIT";
             break;
         case ASSIGNMENT: nodeTypeStr = "ASSIGNMENT";
+            break;
+        case PRE_INCREMENT: nodeTypeStr = "PRE_INCREMENT";
+            break;
+        case PRE_DECREMENT: nodeTypeStr = "PRE_DECREMENT";
+            break;
+        case POST_INCREMENT: nodeTypeStr = "POST_INCREMENT";
+            break;
+        case POST_DECREMENT: nodeTypeStr = "POST_DECREMENT";
             break;
         case COMPOUND_ADD_ASSIGN: nodeTypeStr = "COMPOUND_ADD_ASSIGN";
             break;
