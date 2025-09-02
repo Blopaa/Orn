@@ -16,6 +16,7 @@ typedef enum {
      SUB_OP,
      MUL_OP,
      DIV_OP,
+     MOD_OP,
      INT_LIT,
      FLOAT_LIT,
      STRING_LIT,

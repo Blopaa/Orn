@@ -19,6 +19,7 @@
 #define SUB_OPERATOR "-"
 #define MULTIPLY_OPERATOR "*"
 #define DIVIDE_OPERATOR "/"
+#define MODULUS_OPERATOR "%"
 #define PLUS_ASSIGN "+="
 #define SUB_ASSIGN "-="
 #define MULTIPLY_ASSIGN "*="
@@ -36,12 +37,13 @@ typedef enum {
     TokenBoolDefinition, // bool
     TokenPunctuation, // ;
     TokenQuotes, // "
-    TokenTrueStatement, // true
-    TokenFalseStatement, // false
+    TokenTrue, // true
+    TokenFalse, // false
     TokenSum, // +
     TokenSub, // -
     TokenMult, // *
     TokenDiv, // /
+    TokenMod, // %
     TokenString,
     TokenPlusAssign, // +=
     TokenSubAssign, // -=
@@ -67,6 +69,7 @@ static const char *SpecialCharMap[] = {
     SUB_OPERATOR,
     MULTIPLY_OPERATOR,
     DIVIDE_OPERATOR,
+    MODULUS_OPERATOR,
     NULL
 };
 
@@ -79,11 +82,12 @@ static const TokenMap tokenMapping[] = {
     {ASSIGNEMENT, TokenAssignement},
     {PUNCTUATION, TokenPunctuation},
     {QUOTES, TokenQuotes},
-    {TRUE_STATEMENT, TokenTrueStatement},
-    {FALSE_STATEMENT, TokenFalseStatement},
+    {TRUE_STATEMENT, TokenTrue},
+    {FALSE_STATEMENT, TokenFalse},
     {SUM_OPERATOR, TokenSum},
     {SUB_OPERATOR, TokenSub},
     {MULTIPLY_OPERATOR, TokenMult},
+    {MODULUS_OPERATOR, TokenMod},
     {DIVIDE_OPERATOR, TokenDiv},
     {PLUS_ASSIGN, TokenPlusAssign},
     {SUB_ASSIGN, TokenSubAssign},

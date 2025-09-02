@@ -136,10 +136,16 @@ void testBasicCases(void) {
     testCase("Basic bool declaration false", "bool active = false;", 1);
     testCase("Bool variable assignment true", "isReady = true;", 1);
     testCase("Bool variable assignment false", "isComplete = false;", 1);
-
     // bool tokenization
     testTokenCount("Bool true declaration", "bool flag = true;", 5);
     testTokenCount("Bool false declaration", "bool active = false;", 5);
+    // mod operator
+    testCase("Basic modulo: 10 % 3", "int result = 10 % 3;", 1);
+    testCase("Modulo with variables: a % b", "int remainder = a % b;", 1);
+    testCase("Precedence: 5 + 10 % 3 (should be 5+(10%3))", "int result = 5 + 10 % 3;", 1);
+    testCase("Same precedence: 12 / 3 % 2 (should be (12/3)%2)", "int result = 12 / 3 % 2;", 1);
+    testCase("Multiple modulos: 15 % 4 % 2", "int result = 15 % 4 % 2;", 1);
+    testCase("Compound with modulo: a * b % c + d", "int result = a * b % c + d;", 1);
 }
 
 void testErrorCases(void) {
