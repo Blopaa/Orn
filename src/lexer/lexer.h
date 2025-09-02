@@ -122,4 +122,7 @@ Input splitter(const char *input);
 
 Token tokenization(Input in);
 
+void freeInput(Input in);
+void freeTokenList(Token token);
+
 #endif //LEXER_H
