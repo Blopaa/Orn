@@ -122,9 +122,15 @@ Input splitter(const char *input) {
                     i++;
                 }
             }
-        } else if ((input[i] == '+' || input[i] == '*' || input[i] == '/' || input[i] == '-') && (
-                       input[i + 1] == '=' || input[i + 1] == '+' || input[i + 1] == '-')) {
-            // Handle compound operators for +=, *=, /=
+        } else if (
+            // Handle ++ and += for '+'
+            (input[i] == '+' && (input[i + 1] == '=' || input[i + 1] == '+')) ||
+            // Handle *= for '*'
+            (input[i] == '*' && input[i + 1] == '=') ||
+            // Handle /= for '/'
+            (input[i] == '/' && input[i + 1] == '=')
+        ) {
+            // Handle compound assignment and increment operators: ++, +=, *=, /=
             char *token = malloc(3 * sizeof(char));
             token[0] = input[i];
             token[1] = input[i + 1];
