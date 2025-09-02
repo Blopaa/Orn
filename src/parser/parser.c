@@ -252,6 +252,15 @@ NodeTypes getOperatorType(char *val) {
     }
 }
 
+const OperatorInfo *getOperatorInfo(TokenType type) {
+    for (int i = 0; operators[i].token != TokenNULL; i++) {
+        if (operators[i].token == type) {
+            return &operators[i];
+        }
+    }
+    return NULL;
+}
+
 ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     if (*current == NULL) return NULL;
     ASTNode node = createValNode((*current)->value, fatherType);
@@ -261,8 +270,9 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     return node;
 }
 
-ASTNode parseUnaryExp(Token *current, NodeTypes fatherType) {
+ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (*current == NULL) return NULL;
+
     // Prefix operators ++x, --x
     if ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement) {
         Token opTk = *current;
@@ -292,48 +302,28 @@ ASTNode parseUnaryExp(Token *current, NodeTypes fatherType) {
     return result;
 }
 
-ASTNode parseMulDivModExp(Token *current, NodeTypes fatherType) {
-    ASTNode left = parseUnaryExp(current, fatherType);
+ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec) {
+    ASTNode left = parseUnary(current, fatherType);
     if (left == NULL) return NULL;
 
-    while (
-        *current != NULL &&
-        (
-            (*current)->type == TokenMult ||
-            (*current)->type == TokenDiv ||
-            (*current)->type == TokenMod
-        )
-    ) {
-        Token opToken = *current;
-        *current = (*current)->next;
-        ASTNode right = parsePrimaryExp(current, fatherType);
-        if (right == NULL) return left;
-        NodeTypes opType = getOperatorType(opToken->value);
-        ASTNode opNode = createNode(opToken->value, opType);
-        opNode->children = left;
-        left->brothers = right;
-        left = opNode;
-    }
-    return left;
-}
-
-ASTNode parseAddSubExp(Token *current, NodeTypes fatherType) {
-    ASTNode left = parseMulDivModExp(current, fatherType);
-    if (left == NULL) return NULL;
-    while (*current != NULL && ((*current)->type == TokenSum || (*current)->type == TokenSub)) {
-        Token opToken = *current;
-        *current = (*current)->next;
-        ASTNode right = parseMulDivModExp(current, fatherType);
-        if (right == NULL) {
-            return left;
+    while (*current != NULL) {
+        const OperatorInfo *opInfo = getOperatorInfo((*current)->type);
+        if (opInfo == NULL || opInfo->precedence < minPrec) {
+            break;
         }
 
-        NodeTypes opType = getOperatorType(opToken->value);
-        ASTNode opNode = createNode(opToken->value, opType);
+        Token opToken = *current;
+        *current = (*current)->next;
+
+        ASTNode right = parseExpression(current, fatherType, opInfo->precedence + 1);
+        if (right == NULL) return left;
+
+        ASTNode opNode = createNode(opToken->value, opInfo->nodeType);
         opNode->children = left;
         left->brothers = right;
         left = opNode;
     }
+
     return left;
 }
 
@@ -344,7 +334,7 @@ ASTNode parseAddSubExp(Token *current, NodeTypes fatherType) {
 //        ├── INT_LIT: 2 (value)
 //        └── VARIABLE: b (literal)
 ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
-    return parseAddSubExp(crrnt, fatherType);
+    return parseExpression(crrnt, fatherType, PREC_OR);
 }
 
 // generates AST

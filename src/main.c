@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("=== LEXER TEST ===\n");
-    char *input = "string input = \"hello;";
+    char *input = "int input = 2 * 3 + 4 * 2;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
