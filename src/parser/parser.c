@@ -364,22 +364,10 @@ ASTNode ASTGenerator(Token token) {
                         if (valNod) {
                             crrntStat->children = valNod;
                         }
-                        // IMPORTANT: Always advance to semicolon or end, even if ExpParser failed
-                        while (token && token->next != NULL && token->next->type != TokenPunctuation) {
-                            token = token->next;
-                        }
-                        if (token && token->next != NULL && token->next->type == TokenPunctuation) {
-                            token = token->next; // skip ";"
-                        }
                     }
-                } else {
-                    // No assignment, just skip to semicolon
-                    while (token && token->next != NULL && token->next->type != TokenPunctuation) {
-                        token = token->next;
-                    }
-                    if (token && token->next != NULL && token->next->type == TokenPunctuation) {
-                        token = token->next; // skip ";"
-                    }
+                }
+                while (token && token->type != TokenPunctuation) {
+                    token = token->next;
                 }
             }
             if (programNode->children == NULL) {
@@ -412,6 +400,10 @@ ASTNode ASTGenerator(Token token) {
             }
             // Add to AST if we created a statement
             if (crrntStat != NULL) {
+                // Advance to semicolons
+                while (token && token->type != TokenPunctuation) {
+                    token = token->next;
+                }
                 if (programNode->children == NULL) {
                     programNode->children = crrntStat;
                 } else {
