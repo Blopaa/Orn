@@ -21,6 +21,9 @@ typedef enum {
     FLOAT_LIT,
     STRING_LIT,
     BOOL_LIT,
+    LOGIC_AND,
+    LOGIC_OR,
+    LOGIC_NOT,
     VARIABLE,
     ASSIGNMENT,
     PRE_INCREMENT,
@@ -53,6 +56,8 @@ typedef struct {
 } OperatorInfo;
 
 static const OperatorInfo operators[] = {
+    {TokenOr, LOGIC_OR, PREC_OR},
+    {TokenAnd, LOGIC_AND, PREC_AND},
     {TokenSum, ADD_OP, PREC_TERM},
     {TokenSub, SUB_OP, PREC_TERM},
     {TokenMult, MUL_OP, PREC_FACTOR},

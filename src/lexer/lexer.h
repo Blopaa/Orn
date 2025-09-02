@@ -26,6 +26,9 @@
 #define DIVIDE_ASSIGN "/="
 #define INCREMENT_OPERATOR "++"
 #define DECREMENT_OPERATOR "--"
+#define LOGICAL_AND "&&"
+#define LOGICAL_OR "||"
+#define LOGICAL_NOT "!"
 #include <stddef.h>
 
 
@@ -48,6 +51,9 @@ typedef enum {
     TokenMod, // %
     TokenIncrement, // ++
     TokenDecrement, // --
+    TokenAnd, // &&
+    TokenOr, // ||
+    TokenNot, // !
     TokenString,
     TokenPlusAssign, // +=
     TokenSubAssign, // -=
@@ -74,6 +80,7 @@ static const char *SpecialCharMap[] = {
     MULTIPLY_OPERATOR,
     DIVIDE_OPERATOR,
     MODULUS_OPERATOR,
+    LOGICAL_NOT,
     NULL
 };
 
@@ -99,6 +106,9 @@ static const TokenMap tokenMapping[] = {
     {DIVIDE_ASSIGN, TokenDivAssign},
     {INCREMENT_OPERATOR, TokenIncrement},
     {DECREMENT_OPERATOR, TokenDecrement},
+    {LOGICAL_AND, TokenAnd},
+    {LOGICAL_OR, TokenOr},
+    {LOGICAL_NOT, TokenNot},
     {NULL, TokenLiteral}
 };
 
@@ -123,6 +133,7 @@ Input splitter(const char *input);
 Token tokenization(Input in);
 
 void freeInput(Input in);
+
 void freeTokenList(Token token);
 
 #endif //LEXER_H

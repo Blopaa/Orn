@@ -272,7 +272,16 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
 
 ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (*current == NULL) return NULL;
+    // Handle logical NOT operator
+    if ((*current)->type == TokenNot) {
+        *current = (*current)->next;
+        ASTNode operand = parseUnary(current, fatherType);
+        if (operand == NULL) return NULL;
 
+        ASTNode opNode = createNode("!", LOGIC_NOT);
+        opNode->children = operand;
+        return opNode;
+    }
     // Prefix operators ++x, --x
     if ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement) {
         Token opTk = *current;
@@ -462,6 +471,12 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case COMPOUND_MUL_ASSIGN: nodeTypeStr = "COMPOUND_MULT_ASSIGN";
             break;
         case COMPOUND_DIV_ASSIGN: nodeTypeStr = "COMPOUND_DIV_ASSIGN";
+            break;
+        case LOGIC_AND: nodeTypeStr = "LOGIC_AND";
+            break;
+        case LOGIC_OR: nodeTypeStr = "LOGIC_OR";
+            break;
+        case LOGIC_NOT: nodeTypeStr = "LOGIC_NOT";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;
