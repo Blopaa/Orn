@@ -259,8 +259,14 @@ ASTNode parseMulDivModExp(Token *current, NodeTypes fatherType) {
     ASTNode left = parsePrimaryExp(current, fatherType);
     if (left == NULL) return NULL;
 
-    while (*current != NULL && ((*current)->type == TokenMult || (*current)->type == TokenDiv || (*current)->type ==
-                                TokenMod)) {
+    while (
+        *current != NULL &&
+        (
+            (*current)->type == TokenMult ||
+            (*current)->type == TokenDiv  ||
+            (*current)->type == TokenMod
+        )
+    ) {
         Token opToken = *current;
         *current = (*current)->next;
         ASTNode right = parsePrimaryExp(current, fatherType);
