@@ -124,7 +124,7 @@ int isValidStringLit(char *val) {
         repError(ERROR_MISSING_QUOTE, val);
         return 0;
     }
-    return 1;
+    return val != NULL && val[0] == '"' && val[strlen(val) - 1] == '"';
 }
 
 //checks if its an int
