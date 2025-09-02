@@ -113,7 +113,7 @@ int validateFloatLit(char *val) {
     return 1;
 }
 
-// takes anything with quotes as a try to write an string
+// takes anything with quotes as a try to write a string
 int isStringLit(char *val) {
     return strchr(val, '"') != NULL;
 }
