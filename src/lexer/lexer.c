@@ -194,3 +194,28 @@ Token tokenization(Input in) {
     crrnt->next = NULL;
     return head;
 }
+
+void freeInput(Input input) {
+    if (input == NULL) return;
+    if (input->input != NULL) {
+        for (int i = 0; i < input->n; i++) {
+            if (input->input[i] != NULL) {
+                free(input->input[i]);
+            }
+        }
+        free(input->input);
+    }
+
+    free(input);
+}
+
+void freeTokenList(Token tokens) {
+    if (tokens == NULL) return;
+
+    Token current = tokens;
+    while (current != NULL) {
+        Token next = current->next;
+        free(current);
+        current = next;
+    }
+}

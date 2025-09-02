@@ -62,6 +62,8 @@ int main(int argc, char *argv[]) {
     printAST(ast, 0);
     printf("\n");
 
+    freeInput(res);
+    freeTokenList(t);
     freeAST(ast);
 
     printErrorSummary();

@@ -41,11 +41,7 @@ void testTokenCount(const char *name, const char *input, int expectedTokens) {
 
     assert(res->n == expectedTokens, "Token count should match expected");
 
-    for (int i = 0; i < res->n; i++) {
-        free(res->input[i]);
-    }
-    free(res->input);
-    free(res);
+    freeInput(res);
 
     printf("\n");
 }
@@ -67,6 +63,8 @@ void testCase(const char *name, const char *input, int shouldPass) {
         assert(hasErrors(), "Should have errors");
     }
 
+    freeInput(res);
+    freeTokenList(tokens);
     if (ast) {
         freeAST(ast);
     }
