@@ -45,8 +45,22 @@ Input splitter(const char *input) {
                 i++;
             }
             continue;
+        } // issue REFACTOR: dup code
+        if (input[i] == '&' && input[i + 1] == '&') {
+            char *token = malloc(3 * sizeof(char));
+            token[0] = input[i];
+            token[1] = input[i + 1];
+            token[2] = '\0';
+            tokens[in->n++] = token;
+            i += 2;
+        } else if (input[i] == '|' && input[i + 1] == '|') {
+            char *token = malloc(3 * sizeof(char));
+            token[0] = input[i];
+            token[1] = input[i + 1];
+            token[2] = '\0';
+            tokens[in->n++] = token;
+            i += 2;
         }
-
         if (input[i] == '\"') {
             int j = i;
             i++;
