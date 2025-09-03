@@ -25,6 +25,12 @@ typedef enum {
     LOGIC_OR,
     LOGIC_NOT,
     VARIABLE,
+    EQUAL_OP,
+    NOT_EQUAL_OP,
+    LESS_THAN_OP,
+    GREATER_THAN_OP,
+    LESS_EQUAL_OP,
+    GREATER_EQUAL_OP,
     ASSIGNMENT,
     PRE_INCREMENT,
     PRE_DECREMENT,
@@ -39,10 +45,10 @@ typedef enum {
 
 typedef enum {
     PREC_NONE,
-    PREC_OR, // || (for future)
-    PREC_AND, // && (for future)
-    PREC_EQUALITY, // == != (for future)
-    PREC_COMPARISON, // < > <= >= (for future)
+    PREC_OR, // ||
+    PREC_AND, // &&
+    PREC_EQUALITY, // == !=
+    PREC_COMPARISON, // < > <= >=
     PREC_TERM, // + -
     PREC_FACTOR, // * / %
     PREC_UNARY, // ! - ++ --
@@ -58,6 +64,12 @@ typedef struct {
 static const OperatorInfo operators[] = {
     {TokenOr, LOGIC_OR, PREC_OR},
     {TokenAnd, LOGIC_AND, PREC_AND},
+    {TokenEqual, EQUAL_OP, PREC_EQUALITY},
+    {TokenNotEqual, NOT_EQUAL_OP, PREC_EQUALITY},
+    {TokenLess, LESS_THAN_OP, PREC_COMPARISON},
+    {TokenGreater, GREATER_THAN_OP, PREC_COMPARISON},
+    {TokenLessEqual, LESS_EQUAL_OP, PREC_COMPARISON},
+    {TokenGreaterEqual, GREATER_EQUAL_OP, PREC_COMPARISON},
     {TokenSum, ADD_OP, PREC_TERM},
     {TokenSub, SUB_OP, PREC_TERM},
     {TokenMult, MUL_OP, PREC_FACTOR},

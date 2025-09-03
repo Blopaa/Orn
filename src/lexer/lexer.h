@@ -29,6 +29,12 @@
 #define LOGICAL_AND "&&"
 #define LOGICAL_OR "||"
 #define LOGICAL_NOT "!"
+#define EQUAL_OPERATOR "=="
+#define NOT_EQUAL_OPERATOR "!="
+#define LESS_THAN_OPERATOR "<"
+#define GREATER_THAN_OPERATOR ">"
+#define LESS_EQUAL_OPERATOR "<="
+#define GREATER_EQUAL_OPERATOR ">="
 #include <stddef.h>
 
 
@@ -59,6 +65,12 @@ typedef enum {
     TokenSubAssign, // -=
     TokenMultAssign, // *=
     TokenDivAssign, // /=
+    TokenEqual, // ==
+    TokenNotEqual, // !=
+    TokenLess, // <
+    TokenGreater, // >
+    TokenLessEqual, // <=
+    TokenGreaterEqual, // >=
 
     TokenNULL
 } TokenType;
@@ -81,6 +93,8 @@ static const char *SpecialCharMap[] = {
     DIVIDE_OPERATOR,
     MODULUS_OPERATOR,
     LOGICAL_NOT,
+    LESS_THAN_OPERATOR,
+    GREATER_THAN_OPERATOR,
     NULL
 };
 
@@ -109,6 +123,12 @@ static const TokenMap tokenMapping[] = {
     {LOGICAL_AND, TokenAnd},
     {LOGICAL_OR, TokenOr},
     {LOGICAL_NOT, TokenNot},
+    {EQUAL_OPERATOR, TokenEqual},
+    {NOT_EQUAL_OPERATOR, TokenNotEqual},
+    {LESS_THAN_OPERATOR, TokenLess},
+    {GREATER_THAN_OPERATOR, TokenGreater},
+    {LESS_EQUAL_OPERATOR, TokenLessEqual},
+    {GREATER_EQUAL_OPERATOR, TokenGreaterEqual},
     {NULL, TokenLiteral}
 };
 
