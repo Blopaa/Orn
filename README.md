@@ -5,7 +5,7 @@ A foundational C-like programming language compiler written in C, demonstrating 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Blopaa/Compiler)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
-[![Branch](https://img.shields.io/badge/branch-dev-orange.svg)](https://github.com/Blopaa/Compiler/tree/dev)
+[![branch](https://img.shields.io/badge/branch-dev-orange.svg)](https://github.com/Blopaa/Compiler/tree/main)
 [![Testing](https://img.shields.io/badge/testing-Unity-green.svg)](https://github.com/ThrowTheSwitch/Unity)
 
 ## ✨ Current Features
