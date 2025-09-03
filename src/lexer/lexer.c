@@ -75,7 +75,7 @@ Input splitter(const char *input) {
             // negative number handling
             /*
              * works by assumption of its context:
-             * in order to not mix sub from a -5 we have to check previous in->input like = or operations
+             * in order to not mix sub from a -5 we have to check previous tokens like = or operations
              */
         } else if (input[i] == '-') {
             if (input[i + 1] == '=' || input[i + 1] == '-') {
