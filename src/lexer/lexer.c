@@ -17,11 +17,11 @@ int isSpecialChar(char c) {
     return 0;
 }
 
-void generateCustomLengthToken(const char *buffer, Input in, int *i,const int length) {
+void generateCustomLengthToken(const char *buffer, Input in, int *i, const int length) {
     if (in == NULL || buffer == NULL || i == NULL || length < 0) return;
-    char *token = malloc((length+1) * sizeof(char));
+    char *token = malloc((length + 1) * sizeof(char));
     for (int j = 0; j < length; j++) {
-        token[j] = buffer[j+(*i)];
+        token[j] = buffer[j + (*i)];
     }
     token[length] = '\0';
     in->input[in->n++] = token;
@@ -56,7 +56,12 @@ Input splitter(const char *input) {
             }
             continue;
         }
-        if ((input[i] == '&' && input[i + 1] == '&') || (input[i] == '|' && input[i + 1] == '|')) {
+        if ((input[i] == '&' && input[i + 1] == '&') ||
+            (input[i] == '|' && input[i + 1] == '|') ||
+            (input[i] == '=' && input[i + 1] == '=') ||
+            (input[i] == '!' && input[i + 1] == '=') ||
+            (input[i] == '<' && input[i + 1] == '=') ||
+            (input[i] == '>' && input[i + 1] == '=')) {
             generateCustomLengthToken(input, in, &i, 2);
         }
         if (input[i] == '\"') {

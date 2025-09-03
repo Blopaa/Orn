@@ -175,20 +175,25 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         if (!isValidStringLit(val)) {
             return NULL;
         }
-        if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION || fatherType ==
-            BOOL_VARIABLE_DEFINITION) {
-            ErrorCode errorType;
-            switch (fatherType) {
-                case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_INT;
-                    break;
-                case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
-                    break;
-                case BOOL_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_BOOL;
-                    break;
-            }
-            repError(errorType, val);
-            return NULL;
-        }
+
+        // ISSUE
+        // MAJOR-FEATURE, REFACTOR
+        // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
+
+        // if (fatherType == INT_VARIABLE_DEFINITION || fatherType == FLOAT_VARIABLE_DEFINITION || fatherType ==
+        //     BOOL_VARIABLE_DEFINITION) {
+        //     ErrorCode errorType;
+        //     switch (fatherType) {
+        //         case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_INT;
+        //             break;
+        //         case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
+        //             break;
+        //         case BOOL_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_STRING_TO_BOOL;
+        //             break;
+        //     }
+        //     repError(errorType, val);
+        //     return NULL;
+        // }
         valNod = createNode(val, STRING_LIT);
     } else if (isFloatLit(val)) {
         if (!validateFloatLit(val)) {
@@ -207,29 +212,39 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         }
         valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
-        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
-            ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
-                                      ? ERROR_TYPE_MISMATCH_INT_TO_STRING
-                                      : ERROR_TYPE_MISMATCH_INT_TO_BOOL;
-            repError(errorType, val);
-            return NULL;
-        }
+
+        // ISSUE
+        // MAJOR-FEATURE, REFACTOR
+        // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
+
+        // if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
+        //     ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
+        //                               ? ERROR_TYPE_MISMATCH_INT_TO_STRING
+        //                               : ERROR_TYPE_MISMATCH_INT_TO_BOOL;
+        //     repError(errorType, val);
+        //     return NULL;
+        // }
         valNod = createNode(val, INT_LIT);
     } else if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) {
-        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == INT_VARIABLE_DEFINITION || fatherType ==
-            FLOAT_VARIABLE_DEFINITION) {
-            ErrorCode errorType;
-            switch (fatherType) {
-                case STRING_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
-                    break;
-                case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_INT;
-                    break;
-                case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT;
-                    break;
-            }
-            repError(errorType, val);
-            return NULL;
-        }
+
+        // ISSUE
+        // MAJOR-FEATURE, REFACTOR
+        // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
+
+        // if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == INT_VARIABLE_DEFINITION || fatherType ==
+        //     FLOAT_VARIABLE_DEFINITION) {
+        //     ErrorCode errorType;
+        //     switch (fatherType) {
+        //         case STRING_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
+        //             break;
+        //         case INT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_INT;
+        //             break;
+        //         case FLOAT_VARIABLE_DEFINITION: errorType = ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT;
+        //             break;
+        //     }
+        //     repError(errorType, val);
+        //     return NULL;
+        // }
         valNod = createNode(val, BOOL_LIT);
     } else if (isValidVariable(val)) {
         valNod = createNode(val, VARIABLE);
@@ -477,6 +492,18 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case LOGIC_OR: nodeTypeStr = "LOGIC_OR";
             break;
         case LOGIC_NOT: nodeTypeStr = "LOGIC_NOT";
+            break;
+        case EQUAL_OP: nodeTypeStr = "EQUAL_OP";
+            break;
+        case NOT_EQUAL_OP: nodeTypeStr = "NOT_EQUAL_OP";
+            break;
+        case LESS_THAN_OP: nodeTypeStr = "LESS_THAN_OP";
+            break;
+        case GREATER_THAN_OP: nodeTypeStr = "GREATER_THAN_OP";
+            break;
+        case LESS_EQUAL_OP: nodeTypeStr = "LESS_EQUAL_OP";
+            break;
+        case GREATER_EQUAL_OP: nodeTypeStr = "GREATER_EQUAL_OP";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;
