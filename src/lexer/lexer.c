@@ -17,13 +17,15 @@ int isSpecialChar(char c) {
     return 0;
 }
 
-void generateTwoCharTokens(const char *buffer, Input in, int *i) {
-    char *token = malloc(3 * sizeof(char));
-    token[0] = buffer[*i];
-    token[1] = buffer[*i + 1];
-    token[2] = '\0';
+void generateCustomLengthToken(const char *buffer, Input in, int *i,const int length) {
+    if (in == NULL || buffer == NULL || i == NULL || length < 0) return;
+    char *token = malloc((length+1) * sizeof(char));
+    for (int j = 0; j < length; j++) {
+        token[j] = buffer[j+(*i)];
+    }
+    token[length] = '\0';
     in->input[in->n++] = token;
-    *i += 2;
+    *i += length;
 }
 
 /*
@@ -55,7 +57,7 @@ Input splitter(const char *input) {
             continue;
         }
         if ((input[i] == '&' && input[i + 1] == '&') || (input[i] == '|' && input[i + 1] == '|')) {
-            generateTwoCharTokens(input, in, &i);
+            generateCustomLengthToken(input, in, &i, 2);
         }
         if (input[i] == '\"') {
             int j = i;
@@ -79,7 +81,7 @@ Input splitter(const char *input) {
              */
         } else if (input[i] == '-') {
             if (input[i + 1] == '=' || input[i + 1] == '-') {
-                generateTwoCharTokens(input, in, &i);
+                generateCustomLengthToken(input, in, &i, 2);
             } else {
                 int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
@@ -111,11 +113,7 @@ Input splitter(const char *input) {
                     }
                 } else {
                     // NOT a negative number, treat as subtraction operator
-                    char *token = malloc(2 * sizeof(char));
-                    token[0] = input[i];
-                    token[1] = '\0';
-                    in->input[in->n++] = token;
-                    i++;
+                    generateCustomLengthToken(input, in, &i, 1);
                 }
             }
         } else if (
@@ -127,13 +125,9 @@ Input splitter(const char *input) {
             (input[i] == '/' && input[i + 1] == '=')
         ) {
             // Handle compound assignment and increment operators: ++, +=, *=, /=
-            generateTwoCharTokens(input, in, &i);
+            generateCustomLengthToken(input, in, &i, 2);
         } else if (isSpecialChar(input[i])) {
-            char *token = malloc(2 * sizeof(char));
-            token[0] = input[i];
-            token[1] = '\0';
-            in->input[in->n++] = token;
-            i++;
+            generateCustomLengthToken(input, in, &i, 1);
         } else {
             int j = i;
             while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
