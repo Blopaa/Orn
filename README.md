@@ -29,6 +29,7 @@ int age = 25;           // Integer variables
 float pi = 3.14159;     // Floating-point numbers  
 string name = "Alice";  // String literals
 bool active = true;     // Boolean values
+bool inactive = false;  // Boolean false value
 ```
 
 ### Arithmetic Operations
@@ -40,6 +41,26 @@ int quotient = x / y;   // Division
 int remainder = x % y;  // Modulo
 float result = 2.5 + 1.8;  // Mixed operations
 int negative = -42;     // Negative numbers
+float neg_float = -3.14; // Negative floats
+```
+
+### Comparison Operations
+```c
+bool equal = a == b;        // Equality comparison
+bool not_equal = x != y;    // Inequality comparison
+bool less = value < limit;  // Less than
+bool greater = score > 90;  // Greater than
+bool less_eq = age <= 65;   // Less than or equal
+bool greater_eq = temp >= 0; // Greater than or equal
+```
+
+### Logical Operations
+```c
+bool and_result = x > 0 && y < 10;     // Logical AND
+bool or_result = flag1 || flag2;       // Logical OR
+bool not_result = !condition;          // Logical NOT
+bool complex = (a > b) && (c <= d);    // Complex logical expressions
+bool chain = x == y || z != w;         // Mixed logical and comparison
 ```
 
 ### Increment/Decrement Operations
@@ -62,23 +83,111 @@ w /= 4;                // Compound division (w = w / 4)
 
 ### Expression Precedence
 ```c
-int result = 2 + 3 * 4;      // Result: 14 (multiplication first)
-int calc = (10 - 3) * 2;     // Result: 14 (parentheses first)
-int complex = --x + y++ - ++z; // Mixed increment/decrement operations
+int result = 2 + 3 * 4;           // Result: 14 (multiplication first)
+int calc = (10 - 3) * 2;          // Result: 14 (parentheses first)
+int complex = --x + y++ - ++z;    // Mixed increment/decrement operations
+bool comparison = a + b >= c * 2;  // Arithmetic with comparison
+bool logical = x > 0 && y == z;   // Comparison with logical operators
+```
+
+### Complex Expressions
+```c
+// Mixed arithmetic and logical operations
+bool result = a + b >= c * 2 && flag;
+bool check = (x > 0) || (y < 10 && z != 0);
+int calc = ++counter * value-- + offset;
+
+// Chained comparisons and operations
+bool range_check = value >= min && value <= max;
+bool valid = score > 90 || (attempts < 3 && bonus_points > 0);
+int formula = base + increment++ * multiplier;
+```
+
+### Operator Precedence (Highest to Lowest)
+```c
+// 1. Primary expressions: literals, identifiers, parentheses
+// 2. Postfix: x++, x--
+// 3. Unary/Prefix: !x, ++x, --x, -x
+// 4. Multiplicative: *, /, %
+// 5. Additive: +, -
+// 6. Comparison: <, >, <=, >=
+// 7. Equality: ==, !=
+// 8. Logical AND: &&
+// 9. Logical OR: ||
+// 10. Assignment: =, +=, -=, *=, /=
+
+int example = !flag || x++ > y * 2 && z <= w + 1;
+//            ^    ^    ^     ^      ^   ^
+//            3    2    6     4      7   5
 ```
 
 ### Comments
 ```c
 // This is a single-line comment
 int x = 5; // Inline comment
+// Comments can contain any text: symbols !@#$%^&*()
+```
+
+### Special Number Formats
+```c
+int zero = 0;           // Zero
+int big_num = 123456;   // Large integers
+float small = 0.5;      // Leading zero optional
+float tiny = .25;       // No leading zero
+float precise = 3.14159265; // High precision
+```
+
+### String Handling
+```c
+string empty = "";              // Empty string
+string greeting = "Hello";      // Simple string
+string message = "Hello World"; // String with spaces
+string quote_content = "She said \"Hello\""; // Escaped quotes (future feature)
+```
+
+### Boolean Logic Examples
+```c
+bool user_valid = age >= 18 && has_license;
+bool discount_eligible = is_student || is_senior || purchase_amount > 100;
+bool access_granted = is_admin || (is_user && has_permission && !is_banned);
+bool in_range = value >= 0 && value <= 100;
+bool valid_score = score > 0 && score <= max_score && !is_disqualified;
 ```
 
 ### Type Safety
+> **Note**: Type checking is currently disabled during AST generation. It will be implemented in a dedicated semantic analysis phase that runs after AST construction for better separation of concerns.
+```c
+int x = "hello";        // ❌ Error: Cannot assign string to int (future semantic analysis)
+string name = 123;      // ❌ Error: Cannot assign int to string (future semantic analysis)
+float bad = 3.14.15;    // ❌ Error: Invalid float format (detected during parsing)
+bool flag = "yes";      // ❌ Error: Cannot assign string to bool (future semantic analysis)
 ```c
 int x = "hello";        // ❌ Error: Cannot assign string to int
 string name = 123;      // ❌ Error: Cannot assign int to string
 float bad = 3.14.15;    // ❌ Error: Invalid float format
 bool flag = "yes";      // ❌ Error: Cannot assign string to bool
+float invalid = 3..14;  // ❌ Error: Multiple decimal points
+int malformed = -;      // ❌ Error: Invalid expression
+string broken = "hello; // ❌ Error: Missing closing quote
+```
+
+### Error Detection Examples
+```c
+// Syntax Errors (detected during parsing)
+float bad1 = 3.14.15;   // Multiple decimals
+float bad2 = 3.1a4;     // Invalid character in float
+float bad3 = .;         // No digits in float
+string bad4 = "hello;   // Missing closing quote
+
+// Type Mismatches (detected during semantic analysis - when enabled)
+int x = "text";         // String to int assignment
+bool flag = 42;         // Int to bool assignment  
+string msg = 3.14;      // Float to string assignment
+
+// Invalid Expressions
+int result = + * 5;     // Invalid operator sequence
+bool check = x ++ y;    // Invalid increment usage
+int bad = =5;           // Invalid assignment as value
 ```
 
 ## 🚀 Quick Start
@@ -392,18 +501,37 @@ Compiler/
 
 ```
 Program           → Statement*
+
 Statement         → VarDecl | Assignment | CompoundAssign
+
 VarDecl           → Type IDENTIFIER '=' Expression ';'
-Assignment        → IDENTIFIER '=' Expression ';'
+Assignment        → IDENTIFIER '=' Expression ';'  
 CompoundAssign    → IDENTIFIER CompoundOp Expression ';'
-Expression        → AddSubExpr
-AddSubExpr        → MulDivModExpr (('+' | '-') MulDivModExpr)*
-MulDivModExpr     → UnaryExpr (('*' | '/' | '%') UnaryExpr)*
-UnaryExpr         → ('++' | '--') PrimaryExpr | PrimaryExpr ('++' | '--')?
-PrimaryExpr       → NUMBER | STRING | BOOLEAN | IDENTIFIER | '-' NUMBER
+
+Expression        → LogicalOrExpr
+LogicalOrExpr     → LogicalAndExpr ('||' LogicalAndExpr)*
+LogicalAndExpr    → EqualityExpr ('&&' EqualityExpr)*
+EqualityExpr      → ComparisonExpr (('==' | '!=') ComparisonExpr)*
+ComparisonExpr    → TermExpr (('<' | '>' | '<=' | '>=') TermExpr)*
+TermExpr          → FactorExpr (('+' | '-') FactorExpr)*
+FactorExpr        → UnaryExpr (('*' | '/' | '%') UnaryExpr)*
+UnaryExpr         → ('!' | '++' | '--') UnaryExpr
+                  | PrimaryExpr ('++' | '--')?
+                  | PrimaryExpr
+PrimaryExpr       → NUMBER | FLOAT | STRING | BOOLEAN | IDENTIFIER
+                  | '-' NUMBER | '-' FLOAT
+                  | '(' Expression ')'
+
 Type              → 'int' | 'float' | 'string' | 'bool'
 CompoundOp        → '+=' | '-=' | '*=' | '/='
 BOOLEAN           → 'true' | 'false'
+NUMBER            → DIGIT+ | '-' DIGIT+
+FLOAT             → DIGIT* '.' DIGIT+ | '-' DIGIT* '.' DIGIT+
+STRING            → '"' CHAR* '"'
+IDENTIFIER        → LETTER (LETTER | DIGIT | '_')*
+DIGIT             → [0-9]
+LETTER            → [a-zA-Z]
+CHAR              → any character except '"'
 ```
 
 ### Unity Testing Integration
@@ -449,8 +577,8 @@ The project uses **Unity**, the most popular C testing framework, providing:
 **Phase 2: Control Flow**
 - [ ] **Conditional Statements**: `if/else` statements
 - [ ] **Loops**: `while`, `for` statements
-- [ ] **Comparison Operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- [ ] **Logical Operators**: `&&`, `||`, `!`
+- [x] **Comparison Operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- [x] **Logical Operators**: `&&`, `||`, `!`
 - [ ] **Block Statements**: `{ }` scope handling
 
 **Phase 3: Functions and Scope**
