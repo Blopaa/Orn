@@ -6,6 +6,7 @@ A foundational C-like programming language compiler written in C, demonstrating 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![Branch](https://img.shields.io/badge/branch-dev-orange.svg)](https://github.com/Blopaa/Compiler/tree/dev)
+[![Testing](https://img.shields.io/badge/testing-Unity-green.svg)](https://github.com/ThrowTheSwitch/Unity)
 
 ## ✨ Current Features
 
@@ -17,7 +18,7 @@ A foundational C-like programming language compiler written in C, demonstrating 
 - 🔧 **Assignment Operations**: Basic assignments (`=`) and compound assignments (`+=`, `-=`, `*=`, `/=`)
 - 💬 **Comment Support**: Single-line comments (`//`)
 - 🛡️ **Error Handling**: Detailed error reporting system with specific error codes
-- 🧪 **Testing Framework**: Comprehensive test suite with 95%+ coverage
+- 🧪 **Professional Testing**: Comprehensive test suite using Unity framework with CI/CD integration
 - 📚 **Educational**: Clean, well-documented code perfect for learning compiler construction
 
 ## 🎯 Language Features
@@ -85,6 +86,7 @@ bool flag = "yes";      // ❌ Error: Cannot assign string to bool
 ### Prerequisites
 - GCC compiler or Clang
 - CMake (3.10 or higher)
+- Git (for Unity submodule)
 
 ### Installation
 
@@ -97,19 +99,30 @@ bool flag = "yes";      // ❌ Error: Cannot assign string to bool
    git checkout dev
    ```
 
-2. **Build the compiler**
+2. **Add Unity testing framework**
+   ```bash
+   git submodule add https://github.com/ThrowTheSwitch/Unity.git test/unity
+   git submodule update --init --recursive
+   ```
+
+3. **Build the compiler**
    ```bash
    mkdir build && cd build
    cmake ..
-   make
    
-   # Or use CMake directly:
+   # Windows (with MinGW/CLion)
    cmake --build .
+   
+   # Linux/macOS  
+   make
    ```
 
-3. **Run tests**
+4. **Run tests**
    ```bash
-   ./compiler --test
+   ./test_runner
+   
+   # Or with CTest
+   ctest --output-on-failure
    ```
 
 ### Basic Usage
@@ -121,37 +134,46 @@ bool flag = "yes";      // ❌ Error: Cannot assign string to bool
 
 The compiler processes the default example and shows the compilation pipeline:
 ```
-Input: int test = --2 + 3;
+Input: bool result = a + b >= c * 2;
 
 1. SPLITTING:
-split 0: 'int'
-split 1: 'test'  
+split 0: 'bool'
+split 1: 'result'  
 split 2: '='
-split 3: '--'
-split 4: '2'
-split 5: '+'
-split 6: '3'
-split 7: ';'
-Total tokens: 8
+split 3: 'a'
+split 4: '+'
+split 5: 'b'
+split 6: '>='
+split 7: 'c'
+split 8: '*'
+split 9: '2'
+split 10: ';'
+Total tokens: 11
 
 2. TOKENIZATION:
-Token 0: 'int', type: 2
-Token 1: 'test', type: 1  
+Token 0: 'bool', type: 4
+Token 1: 'result', type: 1  
 Token 2: '=', type: 0
-Token 3: '--', type: 17
-Token 4: '2', type: 1
-Token 5: '+', type: 9
-Token 6: '3', type: 1
-Token 7: ';', type: 5
-Total tokens processed: 8
+Token 3: 'a', type: 1
+Token 4: '+', type: 9
+Token 5: 'b', type: 1
+Token 6: '>=', type: 29
+Token 7: 'c', type: 1
+Token 8: '*', type: 11
+Token 9: '2', type: 1
+Token 10: ';', type: 5
+Total tokens processed: 11
 
 3. AST GENERATION:
 AST:
-└── INT_VAR_DEF: test
-    └── ADD_OP
-        ├── PRE_DECREMENT
-        │   └── INT_LIT: 2
-        └── INT_LIT: 3
+└── BOOL_VAR_DEF: result
+    └── GREATER_EQUAL_OP
+        ├── ADD_OP
+        │   ├── VARIABLE: a
+        │   └── VARIABLE: b
+        └── MUL_OP
+            ├── VARIABLE: c
+            └── INT_LIT: 2
 
 Compilation successful: No errors or warnings.
 ```
@@ -175,45 +197,80 @@ Compilation successful: No errors or warnings.
 
 | Component | Description | File |
 |-----------|-------------|------|
-| **Lexer** | Tokenizes input, handles strings, numbers, operators, comments | `lexer/lexer.c` |
-| **Parser** | Generates AST from tokens, type checking, precedence handling | `parser/parser.c` |
-| **Error Handler** | Comprehensive error reporting with specific codes | `errorHandling/errorHandling.c` |
-| **Testing** | Automated test suite with edge cases | `testing/testing.c` |
+| **Lexer** | Tokenizes input, handles strings, numbers, operators, comments | `src/lexer/lexer.c` |
+| **Parser** | Generates AST from tokens, type checking, precedence handling | `src/parser/parser.c` |
+| **Error Handler** | Comprehensive error reporting with specific codes | `src/errorHandling/errorHandling.c` |
+| **Unity Tests** | Professional test suite with CI/CD integration | `test/test_main.c` |
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+The project uses the **Unity Testing Framework** for professional, industry-standard testing with excellent CI/CD integration.
 
+### Run Tests
+
+**Basic test execution:**
 ```bash
-./compiler --test
+# From build directory
+./test_runner
+
+# With detailed output
+ctest --output-on-failure --verbose
+
+# Memory leak detection (Linux/macOS)
+valgrind --leak-check=full ./test_runner
 ```
 
-**Example output:**
+**Expected output:**
 ```
-=== TESTING BASIC CASES ===
-✅ Basic int declaration
-✅ Basic string declaration
-✅ Basic float declaration
-✅ Basic bool declaration
-✅ Simple addition
-✅ Complex precedence: 2 + 3 * 4
-✅ Prefix increment assignment
-✅ Postfix decrement assignment
-✅ Basic modulo: 10 % 3
-✅ Compound assignment with expression
+=== BASIC DECLARATIONS TESTS ===
+test_basic_int_declaration:PASS
+test_basic_string_declaration:PASS
+test_basic_float_declaration:PASS
+test_basic_bool_true_declaration:PASS
+test_basic_bool_false_declaration:PASS
 
-=== TESTING ERROR CASES ===
-✅ String to int error
-✅ Invalid float (multiple decimals)
-✅ Bool to string error
+=== TOKEN COUNT TESTS ===
+test_basic_int_token_count:PASS
+test_simple_addition_token_count:PASS
 
-=== TEST SUMMARY ===
-Tests run: 65
-Tests passed: 65
-Tests failed: 0
-🎉 All tests passed!
-Success rate: 100.0%
+=== ARITHMETIC OPERATIONS TESTS ===
+test_simple_addition:PASS
+test_simple_subtraction:PASS
+test_modulo_operation:PASS
+
+=== PRECEDENCE TESTS ===
+test_precedence_multiply_first:PASS
+test_complex_precedence:PASS
+
+=== NEGATIVE NUMBERS TESTS ===
+test_basic_negative_int:PASS
+test_negative_in_expression:PASS
+
+=== INCREMENT/DECREMENT TESTS ===
+test_prefix_increment:PASS
+test_postfix_decrement:PASS
+
+=== COMPOUND ASSIGNMENTS TESTS ===
+test_compound_add_assign:PASS
+
+=== COMMENT TESTS ===
+test_void_comment:PASS
+test_comment_then_code:PASS
+
+47 Tests 0 Failures 0 Ignored 
+OK
 ```
+
+### Test Categories
+
+- **Basic Declarations**: Variable declarations with all data types
+- **Token Count**: Lexer tokenization accuracy
+- **Arithmetic Operations**: Mathematical expressions and precedence
+- **Negative Numbers**: Negative literals vs subtraction operators
+- **Increment/Decrement**: Prefix and postfix operators
+- **Compound Assignments**: `+=`, `-=`, `*=`, `/=` operations
+- **Comments**: Comment handling and code parsing
+- **Special Values**: Edge cases like empty strings, zero values
 
 ## 📖 Examples
 
@@ -303,36 +360,6 @@ AST:
 ```
 </details>
 
-<details>
-<summary><b>Example 4: Comments and Mixed Code</b></summary>
-
-**Input:**
-```c
-// Initialize variables
-int x = 5;
-y = x + 1; // Assign to existing variable
-// Calculate result
-result = x * y + 10;
-```
-
-**AST Output:**
-```
-AST:
-├── INT_VAR_DEF: x
-│   └── INT_LIT: 5
-├── ASSIGNMENT: y
-│   └── ADD_OP
-│       ├── VARIABLE: x
-│       └── INT_LIT: 1
-└── ASSIGNMENT: result
-    └── ADD_OP
-        ├── MUL_OP
-        │   ├── VARIABLE: x
-        │   └── VARIABLE: y
-        └── INT_LIT: 10
-```
-</details>
-
 ## 🛠️ Development
 
 ### Project Structure
@@ -346,17 +373,19 @@ Compiler/
 │   ├── lexer/
 │   │   ├── lexer.c            # Tokenization logic
 │   │   └── lexer.h            # Lexer interface and token definitions
-│   ├── parser/  
-│   │   ├── parser.c           # AST generation and type checking
-│   │   └── parser.h           # Parser interface and AST node types
-│   └── testing/
-│       ├── testing.c          # Comprehensive test framework
-│       └── testing.h          # Test interface
-├── CMakeLists.txt            # CMake build system
-├── CONTRIBUTING.md           # Contribution guidelines
-├── LICENSE.md               # Project license
+│   └── parser/  
+│       ├── parser.c           # AST generation and type checking
+│       └── parser.h           # Parser interface and AST node types
+├── test/
+│   ├── unity/                 # Unity testing framework (submodule)
+│   └── test_main.c           # Comprehensive Unity test suite
+├── build/                    # Build directory (auto-generated)
+├── CMakeLists.txt           # CMake build configuration
+├── .github/workflows/       # CI/CD configuration
 ├── README.md               # This file
-└── .gitignore              # Git ignore rules
+├── LICENSE.md             # Project license
+├── CONTRIBUTING.md        # Contribution guidelines
+└── .gitignore            # Git ignore rules
 ```
 
 ### Current Language Grammar
@@ -377,13 +406,24 @@ CompoundOp        → '+=' | '-=' | '*=' | '/='
 BOOLEAN           → 'true' | 'false'
 ```
 
+### Unity Testing Integration
+
+The project uses **Unity**, the most popular C testing framework, providing:
+
+- ✅ **Professional assertions**: `TEST_ASSERT_EQUAL_INT()`, `TEST_ASSERT_NOT_NULL()`
+- ✅ **Detailed failure reports**: Line numbers, expected vs actual values
+- ✅ **CI/CD integration**: GitHub Actions, Jenkins, Travis CI support
+- ✅ **Industry standard**: Used by thousands of C projects
+- ✅ **Memory management**: Built-in setUp/tearDown hooks
+- ✅ **Cross-platform**: Windows, Linux, macOS compatibility
+
 ### Adding New Features
 
-1. **New Token Types**: Update `TokenType` enum in `lexer/lexer.h`
-2. **New AST Nodes**: Add to `NodeTypes` in `parser/parser.h`
-3. **Error Types**: Extend `ErrorCode` in `errorHandling/errorHandling.h`
-4. **Parser Logic**: Update parsing functions in `parser/parser.c`
-5. **Tests**: Add test cases in `testing/testing.c`
+1. **New Token Types**: Update `TokenType` enum in `src/lexer/lexer.h`
+2. **New AST Nodes**: Add to `NodeTypes` in `src/parser/parser.h`
+3. **Error Types**: Extend `ErrorCode` in `src/errorHandling/errorHandling.h`
+4. **Parser Logic**: Update parsing functions in `src/parser/parser.c`
+5. **Tests**: Add Unity test cases in `test/test_main.c`
 
 ### Operator Precedence (Highest to Lowest)
 1. **Postfix/Prefix**: `++`, `--`
@@ -404,7 +444,7 @@ BOOLEAN           → 'true' | 'false'
 - [x] Comment support (//)
 - [x] Operator precedence and associativity
 - [x] Error handling and reporting
-- [x] Comprehensive testing framework
+- [x] Professional Unity testing framework with CI/CD
 
 **Phase 2: Control Flow**
 - [ ] **Conditional Statements**: `if/else` statements
@@ -438,20 +478,55 @@ BOOLEAN           → 'true' | 'false'
 We welcome contributions! Here's how to get started:
 
 1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Add tests** for your changes
-4. **Ensure** all tests pass (`./compiler --test`)
-5. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-6. **Push** to the branch (`git push origin feature/amazing-feature`)
-7. **Open** a Pull Request
+2. **Clone with submodules**: `git clone --recursive <your-fork>`
+3. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+4. **Add Unity tests** for your changes in `test/test_main.c`
+5. **Ensure** all tests pass (`./test_runner`)
+6. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+7. **Push** to the branch (`git push origin feature/amazing-feature`)
+8. **Open** a Pull Request
 
 ### Contribution Guidelines
-- ✅ Write tests for new features
+- ✅ Write Unity tests for new features
 - ✅ Follow existing code style
 - ✅ Update documentation
 - ✅ Keep commits atomic and well-described
 - ✅ Ensure error handling for edge cases
-- ✅ Add test cases for both success and error scenarios
+- ✅ All tests must pass in CI/CD pipeline
+
+### Adding Tests
+
+Add new tests to `test/test_main.c` using Unity framework:
+
+```c
+void test_your_new_feature(void) {
+    Input res = splitter("your test input;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+    
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+    
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// Add to main():
+RUN_TEST(test_your_new_feature);
+```
+
+## 🔧 CI/CD Integration
+
+The project includes GitHub Actions workflows for:
+
+- ✅ **Multi-compiler testing** (GCC, Clang)
+- ✅ **Cross-platform builds** (Linux, macOS, Windows)
+- ✅ **Memory leak detection** with Valgrind
+- ✅ **Automated test reports**
+- ✅ **Unity framework integration**
+
+See `.github/workflows/ci.yml` for complete configuration.
 
 ## 🗝️ Architecture Notes
 
@@ -468,8 +543,9 @@ The current implementation focuses on the **frontend** (lexer → parser → AST
 1. **Recursive Descent Parser**: Easy to understand and extend
 2. **AST-Based**: Clean representation for further processing
 3. **Strong Type Checking**: Catch errors early in compilation
-4. **Comprehensive Testing**: Ensures reliability and catch regressions
+4. **Unity Testing**: Professional, industry-standard test framework
 5. **Modular Design**: Each phase is independent and testable
+6. **CI/CD Ready**: Automated testing and deployment
 
 <div align="center">
 

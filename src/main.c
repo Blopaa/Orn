@@ -4,7 +4,6 @@
 #include "errorHandling/errorHandling.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
-#include "testing/testing.h"
 
 void printTokens(char **tokens) {
     if (tokens == NULL) {
@@ -36,13 +35,7 @@ void printTokenList(Token t) {
     printf("Total tokens proccesed: %d\n", i);
 }
 
-int main(int argc, char *argv[]) {
-
-    if (argc == 2 && strcmp(argv[1], "--test") == 0) {
-        runTests();
-        return 0;
-    }
-
+int main() {
     printf("=== LEXER TEST ===\n");
     char *input = "bool result = a + b >= c * 2;";
     printf("Input: %s\n\n", input);

@@ -1,13 +1,13 @@
 # Contributing to Compiler
 
-Thank you for your interest in contributing to this educational C interpreter/compiler project! We welcome contributions from developers of all skill levels.
+Thank you for your interest in contributing to this educational C compiler project! We welcome contributions from developers of all skill levels.
 
 ## Ways to Contribute
 
 - **Bug Reports**: Found a bug? Let us know!
 - **Feature Requests**: Have ideas for new language features?
 - **Documentation**: Improve README, comments, or add examples
-- **Testing**: Add more test cases or improve existing ones
+- **Testing**: Add more Unity test cases or improve existing ones
 - **Features**: Implement new compiler features
 - **Refactoring**: Improve code quality and organization
 
@@ -17,12 +17,14 @@ Thank you for your interest in contributing to this educational C interpreter/co
 
 ```bash
 # Fork the repository on GitHub
-git clone https://github.com/your-username/Compiler.git
+git clone --recursive https://github.com/your-username/Compiler.git
 cd Compiler
 
 # Switch to development branch
 git checkout dev
 ```
+
+**Note**: Use `--recursive` to automatically clone Unity testing framework.
 
 ### 2. Set Up Development Environment
 
@@ -34,11 +36,21 @@ sudo apt-get install gcc cmake valgrind cppcheck
 # macOS with Homebrew
 brew install cmake valgrind cppcheck
 
-# Windows (with vcpkg or similar)
+# Windows (with vcpkg or CLion)
 # Install Visual Studio with C++ support and CMake
 ```
 
-### 3. Build the Project
+### 3. Set Up Unity Testing Framework
+
+If you didn't clone recursively:
+
+```bash
+# Add Unity as submodule
+git submodule add https://github.com/ThrowTheSwitch/Unity.git test/unity
+git submodule update --init --recursive
+```
+
+### 4. Build the Project
 
 ```bash
 # Create build directory
@@ -48,15 +60,14 @@ mkdir build && cd build
 cmake ..
 
 # Build the project
-make
-# Or use CMake directly:
 cmake --build .
+# Or on Linux/macOS: make
 
 # Test the build
-./compiler --test
+./test_runner
 ```
 
-### 4. Create a Branch
+### 5. Create a Branch
 
 ```bash
 git checkout -b feature/your-feature-name
@@ -78,18 +89,29 @@ We follow a consistent coding style. Please:
 
 ### Testing Requirements
 
-All contributions must include tests:
+All contributions must include Unity tests:
 
-- **New features**: Add test cases in `src/testing/testing.c`
+- **New features**: Add test cases in `test/test_main.c`
 - **Bug fixes**: Include tests that reproduce the bug
-- **Ensure all tests pass**: Run `./compiler --test` before submitting
+- **Ensure all tests pass**: Run `./test_runner` before submitting
 
-**Example test case:**
+**Example Unity test case:**
 ```c
-void testNewFeature(void) {
-    printf("=== TESTING NEW FEATURE ===\n");
-    testCase("Feature description", "input code", shouldPass);
+void test_your_new_feature(void) {
+    Input res = splitter("your test input;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
 }
+
+// Add to main() function:
+RUN_TEST(test_your_new_feature);
 ```
 
 ### Memory Management
@@ -97,7 +119,7 @@ void testNewFeature(void) {
 Since this is a C project:
 
 - **Always free allocated memory**
-- **Check for memory leaks**: `valgrind ./compiler --test`
+- **Check for memory leaks**: `valgrind ./test_runner`
 - **Initialize pointers to NULL**
 - **Validate input parameters**
 
@@ -121,17 +143,18 @@ Compiler/
 │   ├── lexer/
 │   │   ├── lexer.c            # Tokenization logic
 │   │   └── lexer.h            # Lexer interface
-│   ├── parser/  
-│   │   ├── parser.c           # AST generation and type checking
-│   │   └── parser.h           # Parser interface
-│   └── testing/
-│       ├── testing.c          # Comprehensive test framework
-│       └── testing.h          # Test interface
-├── CMakeLists.txt            # CMake build configuration
-├── CONTRIBUTING.md           # This file
-├── LICENSE.md               # Project license
-├── README.md               # Project documentation
-└── .gitignore              # Git ignore rules
+│   └── parser/  
+│       ├── parser.c           # AST generation and type checking
+│       └── parser.h           # Parser interface
+├── test/
+│   ├── unity/                 # Unity testing framework (submodule)
+│   └── test_main.c           # Unity test suite
+├── build/                    # Build directory (auto-generated)
+├── CMakeLists.txt           # CMake build configuration
+├── CONTRIBUTING.md          # This file
+├── LICENSE.md              # Project license
+├── README.md              # Project documentation
+└── .gitignore            # Git ignore rules
 ```
 
 ### Key Components
@@ -141,7 +164,7 @@ Compiler/
 | **Lexer** | Tokenize input | `src/lexer/lexer.c`, `src/lexer/lexer.h` |
 | **Parser** | Generate AST | `src/parser/parser.c`, `src/parser/parser.h` |
 | **Errors** | Handle compilation errors | `src/errorHandling/` |
-| **Tests** | Automated testing | `src/testing/` |
+| **Unity Tests** | Professional testing framework | `test/test_main.c`, `test/unity/` |
 
 ### Adding New Features
 
@@ -150,7 +173,7 @@ Compiler/
 1. Add to `TokenType` enum in `src/lexer/lexer.h`
 2. Update `tokenMapping` array
 3. Modify `splitter()` if needed
-4. Add tests in `src/testing/testing.c`
+4. **Add Unity tests** in `test/test_main.c`
 
 #### 2. New AST Node Type
 
@@ -158,37 +181,62 @@ Compiler/
 2. Update `TypeDefs` mapping if applicable
 3. Modify `ASTGenerator()` logic
 4. Update `printASTTree()` for display
-5. Add tests
+5. **Add Unity tests**
 
 #### 3. New Error Type
 
 1. Add to `ErrorCode` enum in `src/errorHandling/errorHandling.h`
 2. Add entry to `errorList` array
 3. Use `repError()` where appropriate
-4. Test error conditions
+4. **Test error conditions with Unity**
 
-## Testing Strategy
+## Unity Testing Strategy
 
 ### Test Categories
 
 1. **Basic Cases**: Valid syntax that should compile
-2. **Error Cases**: Invalid syntax that should fail gracefully
+2. **Error Cases**: Invalid syntax that should fail gracefully (when type checking is enabled)
 3. **Edge Cases**: Boundary conditions
 4. **Integration Tests**: Full compilation pipeline
 
-### Writing Good Tests
+### Writing Good Unity Tests
 
 ```c
-void testExample(void) {
-    // Test valid case
-    testCase("Valid float declaration", 
-             "float pi = 3.14;", 
-             1);  // Should pass
+void test_example_feature(void) {
+    // Test valid case - should succeed
+    Input res = splitter("int x = 5;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
     
-    // Test error case
-    testCase("Invalid float format", 
-             "float bad = 3.14.15;", 
-             0);  // Should fail
+    TEST_ASSERT_NOT_NULL(ast);           // AST should be created
+    TEST_ASSERT_FALSE(hasErrors());       // No compilation errors
+    
+    // Clean up memory
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_token_counting(void) {
+    // Test tokenization accuracy
+    Input res = splitter("int sum = a + b;");
+    
+    TEST_ASSERT_EQUAL_INT(7, res->n);    // Exact token count
+    
+    freeInput(res);
+}
+
+void test_error_case(void) {
+    // Test error detection (when type checking enabled)
+    Input res = splitter("invalid syntax here");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+    
+    TEST_ASSERT_TRUE(hasErrors());        // Should detect errors
+    
+    freeInput(res);
+    freeTokenList(tokens);
+    if (ast) freeAST(ast);
 }
 ```
 
@@ -196,13 +244,46 @@ void testExample(void) {
 
 ```bash
 # From build directory
-./compiler --test
+./test_runner
+
+# With detailed output
+ctest --output-on-failure --verbose
 
 # Check for memory leaks
-valgrind --leak-check=full ./compiler --test
+valgrind --leak-check=full ./test_runner
 
 # Static analysis (if available)
 cppcheck --enable=all ../src/
+```
+
+### Unity Assertions Reference
+
+```c
+// Basic assertions
+TEST_ASSERT_TRUE(condition)
+TEST_ASSERT_FALSE(condition)
+TEST_ASSERT(condition)
+
+// Null/Not Null
+TEST_ASSERT_NULL(pointer)
+TEST_ASSERT_NOT_NULL(pointer)
+
+// Integer comparisons
+TEST_ASSERT_EQUAL_INT(expected, actual)
+TEST_ASSERT_NOT_EQUAL_INT(expected, actual)
+TEST_ASSERT_GREATER_THAN_INT(threshold, actual)
+
+// String comparisons
+TEST_ASSERT_EQUAL_STRING(expected, actual)
+TEST_ASSERT_EQUAL_CHAR_ARRAY(expected, actual, num_elements)
+
+// Float comparisons
+TEST_ASSERT_EQUAL_FLOAT(expected, actual)
+TEST_ASSERT_FLOAT_WITHIN(delta, expected, actual)
+
+// Custom messages
+TEST_ASSERT_TRUE_MESSAGE(condition, "Custom failure message")
+TEST_ASSERT_EQUAL_INT_MESSAGE(expected, actual, "Numbers should match")
 ```
 
 ## Commit Guidelines
@@ -221,7 +302,7 @@ cppcheck --enable=all ../src/
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
-- `test`: Adding or updating tests
+- `test`: Adding or updating Unity tests
 - `refactor`: Code refactoring
 - `style`: Code style changes
 - `perf`: Performance improvements
@@ -234,18 +315,19 @@ feat(lexer): add support for hexadecimal integers
 
 - Add HEX_LITERAL token type
 - Update tokenization logic
-- Include comprehensive tests
+- Include comprehensive Unity tests
 - Document hex format in README
 
 Fixes #23
 ```
 
 ```bash
-fix(parser): handle empty expression in variable assignment
+test(parser): add Unity tests for increment operators
 
-- Add null check before creating value node
-- Improve error message for empty assignments
-- Add regression test
+- Add test_prefix_increment() 
+- Add test_postfix_decrement()
+- Verify AST node generation
+- Ensure memory cleanup
 
 Closes #45
 ```
@@ -254,11 +336,11 @@ Closes #45
 
 ### Before Submitting PR
 
-- [ ] All tests pass (`./compiler --test`)
+- [ ] All Unity tests pass (`./test_runner`)
 - [ ] Code builds without warnings
-- [ ] No memory leaks (`valgrind ./compiler --test`)
+- [ ] No memory leaks (`valgrind ./test_runner`)
 - [ ] Documentation updated
-- [ ] New tests added for changes
+- [ ] New Unity tests added for changes
 - [ ] Clear commit messages
 
 ### PR Description Template
@@ -273,14 +355,15 @@ Brief description of changes...
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Documentation update
-- [ ] Test improvements
+- [ ] Unity test improvements
 - [ ] Code refactoring
 
 ## Testing
 
-- [ ] Added new tests
+- [ ] Added new Unity tests
 - [ ] All existing tests pass
 - [ ] Manual testing performed
+- [ ] Memory leak testing completed
 
 ## Screenshots/Examples
 
@@ -293,13 +376,14 @@ If applicable, add examples or screenshots...
 - [ ] Comments added for complex code
 - [ ] Documentation updated
 - [ ] No breaking changes (or documented)
+- [ ] Unity tests cover new functionality
 ```
 
 ## Development Workflow
 
 1. **Create Issue**: Discuss feature/bug before coding
 2. **Fork & Branch**: Work on dedicated feature branch
-3. **Code & Test**: Implement with comprehensive tests
+3. **Code & Test**: Implement with comprehensive Unity tests
 4. **Review**: Self-review and test thoroughly
 5. **Submit PR**: Clear description and passing tests
 6. **Iterate**: Address review feedback
@@ -314,18 +398,18 @@ This project uses **CMake** as its build system. Key commands:
 rm -rf build
 mkdir build && cd build
 cmake ..
-make
+cmake --build .
 
 # Debug build
 cmake -DCMAKE_BUILD_TYPE=Debug ..
-make
+cmake --build .
 
 # Release build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+cmake --build .
 
 # Verbose build (see compilation commands)
-make VERBOSE=1
+cmake --build . --verbose
 ```
 
 ### Adding New Files
@@ -333,21 +417,61 @@ make VERBOSE=1
 When adding new `.c` files, update `CMakeLists.txt`:
 
 ```cmake
-# Add your new source file
-set(SOURCES
-    src/main.c
+# Add your new source file to LIB_SOURCES
+set(LIB_SOURCES
     src/lexer/lexer.c
     src/parser/parser.c
     src/errorHandling/errorHandling.c
-    src/testing/testing.c
     src/your_new_file.c  # Add here
 )
 ```
 
+### Unity Integration
+
+The CMakeLists.txt automatically detects Unity and builds tests:
+
+```cmake
+# Unity is detected and linked automatically
+if(EXISTS "${CMAKE_SOURCE_DIR}/test/unity/src/unity.c")
+    # Unity library and test_runner are created
+    add_executable(test_runner test/test_main.c)
+    target_link_libraries(test_runner compiler_lib unity)
+endif()
+```
+
+## CI/CD Integration
+
+### GitHub Actions
+
+The project includes automated CI/CD that:
+
+- ✅ Builds on multiple compilers (GCC, Clang)
+- ✅ Tests on multiple platforms (Linux, macOS)
+- ✅ Runs Unity test suite
+- ✅ Checks for memory leaks with Valgrind
+- ✅ Reports test results
+
+### Local CI Testing
+
+Test your changes like CI does:
+
+```bash
+# Test with different compilers
+CC=gcc cmake .. && cmake --build . && ./test_runner
+CC=clang cmake .. && cmake --build . && ./test_runner
+
+# Memory leak detection
+valgrind --leak-check=full --error-exitcode=1 ./test_runner
+
+# Static analysis
+cppcheck --enable=all --error-exitcode=1 ../src/
+```
+
 ## Learning Resources
 
-New to compiler development? Start here:
+New to compiler development or Unity testing? Start here:
 
+### Compiler Development
 - **Books**:
   - "Crafting Interpreters" by Robert Nystrom
   - "Modern Compiler Implementation in C" by Andrew Appel
@@ -356,6 +480,12 @@ New to compiler development? Start here:
   - Stanford CS143: Compilers
   - Coursera: Compilers Course
 
+### Unity Testing Framework
+- **Official Docs**: [Unity Documentation](https://github.com/ThrowTheSwitch/Unity)
+- **Examples**: Check `test/unity/examples/`
+- **Best Practices**: Unity testing patterns and conventions
+
+### C Development
 - **Tutorials**:
   - [Let's Build a Compiler](https://compilers.iecc.com/crenshaw/)
   - [Compiler Tutorial in C](https://github.com/DoctorWkt/acwj)
@@ -388,3 +518,15 @@ We're committed to providing a welcoming environment:
 Thank you for contributing to Compiler!
 
 Every contribution, no matter how small, helps make this project better for the community.
+
+### Quick Checklist for Contributors
+
+Before submitting your PR:
+
+- [ ] Unity submodule is properly initialized
+- [ ] All Unity tests pass (`./test_runner`)
+- [ ] New features have corresponding Unity tests
+- [ ] Memory management is handled correctly
+- [ ] Code follows project style guidelines
+- [ ] Documentation is updated
+- [ ] Commit messages are clear and descriptive
