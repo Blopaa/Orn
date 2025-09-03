@@ -40,6 +40,7 @@ NodeTypes getCompoundNodeType(TokenType tokenType) {
 //creates a new node given a value and a type
 ASTNode createNode(char *val, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
+    if (node == NULL) return NULL;
     node->value = val ? strdup(val) : NULL;;
     node->NodeType = type;
     node->brothers = NULL;
@@ -212,7 +213,6 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         }
         valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
-
         // ISSUE
         // MAJOR-FEATURE, REFACTOR
         // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
@@ -226,7 +226,6 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         // }
         valNod = createNode(val, INT_LIT);
     } else if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) {
-
         // ISSUE
         // MAJOR-FEATURE, REFACTOR
         // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
@@ -281,6 +280,8 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     ASTNode node = createValNode((*current)->value, fatherType);
     if (node != NULL) {
         *current = (*current)->next;
+    } else {
+        return NULL;
     }
     return node;
 }
@@ -311,6 +312,7 @@ ASTNode parseUnary(Token *current, NodeTypes fatherType) {
 
     // Not a unary operator, parse as primary
     ASTNode result = parsePrimaryExp(current, fatherType);
+    if (result == NULL) return NULL;
 
     // Postfix operators x++, x--
     if (*current != NULL && ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement)) {
@@ -363,6 +365,7 @@ ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
 
 // generates AST
 ASTNode ASTGenerator(Token token) {
+    if (token == NULL) return NULL;
     ASTNode programNode = createNode("PROGRAM", null_NODE);
     ASTNode crrntStat = NULL; // current statement
     ASTNode ls = NULL; // last statement
@@ -381,9 +384,8 @@ ASTNode ASTGenerator(Token token) {
                     if (token->next != NULL) {
                         token = token->next;
                         ASTNode valNod = ExpParser(&token, type);
-                        if (valNod) {
-                            crrntStat->children = valNod;
-                        }
+                        if (valNod == NULL) return NULL;
+                        crrntStat->children = valNod;
                     }
                 }
                 while (token && token->type != TokenPunctuation) {
@@ -404,6 +406,7 @@ ASTNode ASTGenerator(Token token) {
                 if (token->next != NULL) {
                     token = token->next;
                     ASTNode valNod = ExpParser(&token, type);
+                    if (valNod == NULL) return NULL;
                     crrntStat->children = valNod;
                 }
                 //handles compound assignements like += -= ...
@@ -415,6 +418,7 @@ ASTNode ASTGenerator(Token token) {
                 if (token->next != NULL) {
                     token = token->next;
                     ASTNode valNod = ExpParser(&token, null_NODE); // No type constraint for assignments
+                    if (valNod == NULL) return NULL;
                     crrntStat->children = valNod;
                 }
             }
@@ -431,6 +435,8 @@ ASTNode ASTGenerator(Token token) {
                 }
                 ls = crrntStat;
             }
+        } else {
+            return NULL;
         }
     }
     return programNode;
