@@ -17,12 +17,13 @@ int isSpecialChar(char c) {
     return 0;
 }
 
-char *generateTwoCharTokens(const char *buffer, Input in, int i) {
+void generateTwoCharTokens(const char *buffer, Input in, int *i) {
     char *token = malloc(3 * sizeof(char));
-    token[0] = buffer[i];
-    token[1] = buffer[i + 1];
+    token[0] = buffer[*i];
+    token[1] = buffer[*i + 1];
     token[2] = '\0';
-    return token;
+    in->input[in->n++] = token;
+    *i += 2;
 }
 
 /*
@@ -53,22 +54,8 @@ Input splitter(const char *input) {
             }
             continue;
         } // issue REFACTOR: dup code
-        if (input[i] == '&' && input[i + 1] == '&') {
-            // tokens[in->n++] = generateTwoCharin->input(input, in, i);
-            // i += 2;
-            char *token = malloc(3 * sizeof(char));
-            token[0] = input[i];
-            token[1] = input[i + 1];
-            token[2] = '\0';
-            in->input[in->n++] = token;
-            i += 2;
-        } else if (input[i] == '|' && input[i + 1] == '|') {
-            char *token = malloc(3 * sizeof(char));
-            token[0] = input[i];
-            token[1] = input[i + 1];
-            token[2] = '\0';
-            in->input[in->n++] = token;
-            i += 2;
+        if ((input[i] == '&' && input[i + 1] == '&') || (input[i] == '|' && input[i + 1] == '|')) {
+            generateTwoCharTokens(input, in, &i);
         }
         if (input[i] == '\"') {
             int j = i;
@@ -91,22 +78,8 @@ Input splitter(const char *input) {
              * in order to not mix sub from a -5 we have to check previous in->input like = or operations
              */
         } else if (input[i] == '-') {
-            if (input[i + 1] == '=') {
-                // Handle -= compound operator
-                char *token = malloc(3 * sizeof(char));
-                token[0] = input[i];
-                token[1] = input[i + 1];
-                token[2] = '\0';
-                in->input[in->n++] = token;
-                i += 2;
-            } else if (input[i + 1] == '-') {
-                // Handle -- decrement operator
-                char *token = malloc(3 * sizeof(char));
-                token[0] = input[i];
-                token[1] = input[i + 1];
-                token[2] = '\0';
-                in->input[in->n++] = token;
-                i += 2;
+            if (input[i + 1] == '=' || input[i + 1] == '-') {
+                generateTwoCharTokens(input, in, &i);
             } else {
                 int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
@@ -154,12 +127,7 @@ Input splitter(const char *input) {
             (input[i] == '/' && input[i + 1] == '=')
         ) {
             // Handle compound assignment and increment operators: ++, +=, *=, /=
-            char *token = malloc(3 * sizeof(char));
-            token[0] = input[i];
-            token[1] = input[i + 1];
-            token[2] = '\0';
-            in->input[in->n++] = token;
-            i += 2;
+            generateTwoCharTokens(input, in, &i);
         } else if (isSpecialChar(input[i])) {
             char *token = malloc(2 * sizeof(char));
             token[0] = input[i];
