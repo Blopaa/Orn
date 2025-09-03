@@ -53,7 +53,7 @@ Input splitter(const char *input) {
                 i++;
             }
             continue;
-        } // issue REFACTOR: dup code
+        }
         if ((input[i] == '&' && input[i + 1] == '&') || (input[i] == '|' && input[i + 1] == '|')) {
             generateTwoCharTokens(input, in, &i);
         }
