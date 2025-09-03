@@ -200,17 +200,22 @@ ASTNode createValNode(char *val, NodeTypes fatherType) {
         if (!validateFloatLit(val)) {
             return NULL;
         }
-        if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
-            ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
-                                      ? ERROR_TYPE_MISMATCH_FLOAT_TO_STRING
-                                      : ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL;
-            repError(errorType, val);
-            return NULL;
-        }
-        if (fatherType == INT_VARIABLE_DEFINITION) {
-            repError(ERROR_TYPE_MISMATCH_FLOAT_TO_INT, val);
-            return NULL;
-        }
+
+        // ISSUE
+        // MAJOR-FEATURE, REFACTOR
+        // THIS WILL BE DONE AFTER AST GENERATION AS A SEMANTIC ANALYZER
+
+        // if (fatherType == STRING_VARIABLE_DEFINITION || fatherType == BOOL_VARIABLE_DEFINITION) {
+        //     ErrorCode errorType = (fatherType == STRING_VARIABLE_DEFINITION)
+        //                               ? ERROR_TYPE_MISMATCH_FLOAT_TO_STRING
+        //                               : ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL;
+        //     repError(errorType, val);
+        //     return NULL;
+        // }
+        // if (fatherType == INT_VARIABLE_DEFINITION) {
+        //     repError(ERROR_TYPE_MISMATCH_FLOAT_TO_INT, val);
+        //     return NULL;
+        // }
         valNod = createNode(val, FLOAT_LIT);
     } else if (isIntLit(val)) {
         // ISSUE
