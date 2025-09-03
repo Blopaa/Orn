@@ -18,7 +18,7 @@ int isSpecialChar(char c) {
 }
 
 void generateCustomLengthToken(const char *buffer, Input in, int *i,const int length) {
-    if (in == NULL) return;
+    if (in == NULL || buffer == NULL || i == NULL || length < 0) return;
     char *token = malloc((length+1) * sizeof(char));
     for (int j = 0; j < length; j++) {
         token[j] = buffer[j+(*i)];
