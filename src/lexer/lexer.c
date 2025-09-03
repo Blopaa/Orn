@@ -17,6 +17,14 @@ int isSpecialChar(char c) {
     return 0;
 }
 
+char *generateTwoCharTokens(const char *buffer, Input in, int i) {
+    char *token = malloc(3 * sizeof(char));
+    token[0] = buffer[i];
+    token[1] = buffer[i + 1];
+    token[2] = '\0';
+    return token;
+}
+
 /*
  * the way of splitting works by saving the current position of were we are working, work to the desire spot, and then
  * get what would be the token lenght and splitting that content
@@ -29,8 +37,7 @@ Input splitter(const char *input) {
         tokenCount++;
     }
     in->n = 0;
-    char **tokens = malloc((tokenCount + 1) * sizeof(char *));
-    in->input = tokens;
+    in->input = malloc((tokenCount + 1) * sizeof(char *));
 
     int i = 0;
 
@@ -47,18 +54,20 @@ Input splitter(const char *input) {
             continue;
         } // issue REFACTOR: dup code
         if (input[i] == '&' && input[i + 1] == '&') {
+            // tokens[in->n++] = generateTwoCharin->input(input, in, i);
+            // i += 2;
             char *token = malloc(3 * sizeof(char));
             token[0] = input[i];
             token[1] = input[i + 1];
             token[2] = '\0';
-            tokens[in->n++] = token;
+            in->input[in->n++] = token;
             i += 2;
         } else if (input[i] == '|' && input[i + 1] == '|') {
             char *token = malloc(3 * sizeof(char));
             token[0] = input[i];
             token[1] = input[i + 1];
             token[2] = '\0';
-            tokens[in->n++] = token;
+            in->input[in->n++] = token;
             i += 2;
         }
         if (input[i] == '\"') {
@@ -74,12 +83,12 @@ Input splitter(const char *input) {
             char *token = malloc((strLength + 1) * sizeof(char));
             strncpy(token, input + j, strLength);
             token[strLength] = '\0';
-            tokens[in->n++] = token;
+            in->input[in->n++] = token;
 
             // negative number handling
             /*
              * works by assumption of its context:
-             * in order to not mix sub from a -5 we have to check previous tokens like = or operations
+             * in order to not mix sub from a -5 we have to check previous in->input like = or operations
              */
         } else if (input[i] == '-') {
             if (input[i + 1] == '=') {
@@ -88,7 +97,7 @@ Input splitter(const char *input) {
                 token[0] = input[i];
                 token[1] = input[i + 1];
                 token[2] = '\0';
-                tokens[in->n++] = token;
+                in->input[in->n++] = token;
                 i += 2;
             } else if (input[i + 1] == '-') {
                 // Handle -- decrement operator
@@ -96,14 +105,14 @@ Input splitter(const char *input) {
                 token[0] = input[i];
                 token[1] = input[i + 1];
                 token[2] = '\0';
-                tokens[in->n++] = token;
+                in->input[in->n++] = token;
                 i += 2;
             } else {
                 int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
                     if (in->n == 0) isNegativeNumber = 1;
                     else {
-                        char *lastToken = tokens[in->n - 1];
+                        char *lastToken = in->input[in->n - 1];
                         if (strcmp(lastToken, "=") == 0 ||
                             strcmp(lastToken, "+") == 0 ||
                             strcmp(lastToken, "-") == 0 ||
@@ -125,14 +134,14 @@ Input splitter(const char *input) {
                         char *token = malloc((tokenLength + 1) * sizeof(char));
                         strncpy(token, input + j, tokenLength);
                         token[tokenLength] = '\0';
-                        tokens[in->n++] = token;
+                        in->input[in->n++] = token;
                     }
                 } else {
                     // NOT a negative number, treat as subtraction operator
                     char *token = malloc(2 * sizeof(char));
                     token[0] = input[i];
                     token[1] = '\0';
-                    tokens[in->n++] = token;
+                    in->input[in->n++] = token;
                     i++;
                 }
             }
@@ -149,13 +158,13 @@ Input splitter(const char *input) {
             token[0] = input[i];
             token[1] = input[i + 1];
             token[2] = '\0';
-            tokens[in->n++] = token;
+            in->input[in->n++] = token;
             i += 2;
         } else if (isSpecialChar(input[i])) {
             char *token = malloc(2 * sizeof(char));
             token[0] = input[i];
             token[1] = '\0';
-            tokens[in->n++] = token;
+            in->input[in->n++] = token;
             i++;
         } else {
             int j = i;
@@ -168,12 +177,12 @@ Input splitter(const char *input) {
                 char *token = malloc((tokenLength + 1) * sizeof(char));
                 strncpy(token, input + j, tokenLength);
                 token[tokenLength] = '\0';
-                tokens[in->n++] = token;
+                in->input[in->n++] = token;
             }
         }
     }
 
-    tokens[in->n] = NULL;
+    in->input[in->n] = NULL;
     return in;
 }
 
