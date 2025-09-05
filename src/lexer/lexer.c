@@ -89,7 +89,7 @@ Input splitter(const char *input) {
                 generateCustomLengthToken(input, in, &i, 2);
             } else {
                 int isNegativeNumber = 0;
-                if (input[i + 1] != '\0' && (isdigit(input[i + 1]))) {
+                if (input[i + 1] != '\0' && (isdigit(input[i + 1]) || (input[i + 1] == '.' && isdigit(input[i + 2])))) {
                     if (in->n == 0) isNegativeNumber = 1;
                     else {
                         char *lastToken = in->input[in->n - 1];
@@ -105,6 +105,19 @@ Input splitter(const char *input) {
                 if (isNegativeNumber) {
                     int j = i;
                     i++;
+                    
+                    // Consume all digits before a potential decimal point
+                    while(isdigit(input[i])){
+                        i++;
+                    }
+
+                    //Check for and consume a decimal part
+                    if(input[i] == '.' && isdigit(input[i+1])){
+                        i++;
+                        while (isdigit(input[i])){
+                            i++;
+                        }
+                    }
                     while (!isspace(input[i]) && input[i] != '\n' && !isSpecialChar(input[i]) && input[i] != '\0') {
                         i++;
                     }
