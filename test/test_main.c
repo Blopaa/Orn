@@ -1045,6 +1045,325 @@ void test_newlines_in_code(void) {
     freeInput(res);
 }
 
+// ========== BLOCK STATEMENT TESTS ==========
+
+void test_empty_block(void) {
+    Input res = splitter("{}");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    // Should have one child (the block)
+    TEST_ASSERT_NOT_NULL(ast->children);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+
+    // Block should have no children (empty)
+    TEST_ASSERT_NULL(ast->children->children);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_block_with_single_statement(void) {
+    Input res = splitter("{ int x = 5; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    // Should have one child (the block)
+    TEST_ASSERT_NOT_NULL(ast->children);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+
+    // Block should have one child (the statement)
+    TEST_ASSERT_NOT_NULL(ast->children->children);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_block_with_multiple_statements(void) {
+    Input res = splitter("{ int x = 5; string name = \"test\"; bool flag = true; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode block = ast->children;
+    TEST_ASSERT_NOT_NULL(block);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+
+    // Check first statement
+    ASTNode stmt1 = block->children;
+    TEST_ASSERT_NOT_NULL(stmt1);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+
+    // Check second statement
+    ASTNode stmt2 = stmt1->brothers;
+    TEST_ASSERT_NOT_NULL(stmt2);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, stmt2->NodeType);
+
+    // Check third statement
+    ASTNode stmt3 = stmt2->brothers;
+    TEST_ASSERT_NOT_NULL(stmt3);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt3->NodeType);
+
+    // Should be no more statements
+    TEST_ASSERT_NULL(stmt3->brothers);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_nested_blocks(void) {
+    Input res = splitter("{ int x = 5; { string name = \"nested\"; } }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode outerBlock = ast->children;
+    TEST_ASSERT_NOT_NULL(outerBlock);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+
+    // First child should be the int declaration
+    ASTNode stmt1 = outerBlock->children;
+    TEST_ASSERT_NOT_NULL(stmt1);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+
+    // Second child should be the inner block
+    ASTNode innerBlock = stmt1->brothers;
+    TEST_ASSERT_NOT_NULL(innerBlock);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock->NodeType);
+
+    // Inner block should have one statement
+    ASTNode innerStmt = innerBlock->children;
+    TEST_ASSERT_NOT_NULL(innerStmt);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_block_with_assignments(void) {
+    Input res = splitter("{ x = 10; y += 5; z *= 2; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode block = ast->children;
+    TEST_ASSERT_NOT_NULL(block);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+
+    // Check assignment
+    ASTNode assign = block->children;
+    TEST_ASSERT_NOT_NULL(assign);
+    TEST_ASSERT_EQUAL_INT(ASSIGNMENT, assign->NodeType);
+
+    // Check compound assignments
+    ASTNode compoundAdd = assign->brothers;
+    TEST_ASSERT_NOT_NULL(compoundAdd);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, compoundAdd->NodeType);
+
+    ASTNode compoundMul = compoundAdd->brothers;
+    TEST_ASSERT_NOT_NULL(compoundMul);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_block_with_expressions(void) {
+    Input res = splitter("{ int result = a + b * c; bool check = x >= y; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode block = ast->children;
+    TEST_ASSERT_NOT_NULL(block);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+
+    // Check first statement with arithmetic expression
+    ASTNode stmt1 = block->children;
+    TEST_ASSERT_NOT_NULL(stmt1);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+
+    // Check second statement with comparison expression
+    ASTNode stmt2 = stmt1->brothers;
+    TEST_ASSERT_NOT_NULL(stmt2);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_multiple_top_level_blocks(void) {
+    Input res = splitter("{ int x = 1; } { string y = \"test\"; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    // Should have two top-level blocks
+    ASTNode block1 = ast->children;
+    TEST_ASSERT_NOT_NULL(block1);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block1->NodeType);
+
+    ASTNode block2 = block1->brothers;
+    TEST_ASSERT_NOT_NULL(block2);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block2->NodeType);
+
+    // First block should have int declaration
+    TEST_ASSERT_NOT_NULL(block1->children);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, block1->children->NodeType);
+
+    // Second block should have string declaration
+    TEST_ASSERT_NOT_NULL(block2->children);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ISSUE BUG CANT USE ++ -- OPERATORS WITHOUT ASSIGNMENT OR VARIABLE DECLARATION
+
+// void test_block_with_increment_decrement(void) {
+//     Input res = splitter("{ ++counter; value--; int result = ++x + y--; }");
+//     Token tokens = tokenization(res);
+//     ASTNode ast = ASTGenerator(tokens);
+//
+//     TEST_ASSERT_NOT_NULL(ast);
+//     TEST_ASSERT_FALSE(hasErrors());
+//
+//     ASTNode block = ast->children;
+//     TEST_ASSERT_NOT_NULL(block);
+//     TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+//
+//     freeInput(res);
+//     freeTokenList(tokens);
+//     freeAST(ast);
+// }
+
+// ========== BLOCK TOKEN COUNT TESTS ==========
+
+void test_empty_block_token_count(void) {
+    Input res = splitter("{}");
+    TEST_ASSERT_EQUAL_INT(2, res->n); // { and }
+    freeInput(res);
+}
+
+void test_block_with_statement_token_count(void) {
+    Input res = splitter("{ int x = 5; }");
+    TEST_ASSERT_EQUAL_INT(7, res->n); // {, int, x, =, 5, ;, }
+    freeInput(res);
+}
+
+void test_nested_block_token_count(void) {
+    Input res = splitter("{ { } }");
+    TEST_ASSERT_EQUAL_INT(4, res->n); // {, {, }, }
+    freeInput(res);
+}
+
+// ========== COMPLEX BLOCK SCENARIOS ==========
+
+void test_deeply_nested_blocks(void) {
+    Input res = splitter("{ int a = 1; { float b = 2.5; { bool c = true; } } }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    // Navigate through the nested structure
+    ASTNode level1 = ast->children;
+    TEST_ASSERT_NOT_NULL(level1);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level1->NodeType);
+
+    ASTNode stmt1 = level1->children;
+    TEST_ASSERT_NOT_NULL(stmt1);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+
+    ASTNode level2 = stmt1->brothers;
+    TEST_ASSERT_NOT_NULL(level2);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->NodeType);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_block_with_mixed_statements(void) {
+    Input res = splitter("{ int x = 5; y = x + 10; z += y; bool flag = x > 0; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode block = ast->children;
+    TEST_ASSERT_NOT_NULL(block);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+
+    // Should have 4 statements in the block
+    ASTNode stmt = block->children;
+    int stmtCount = 0;
+    while (stmt != NULL) {
+        stmtCount++;
+        stmt = stmt->brothers;
+    }
+    TEST_ASSERT_EQUAL_INT(4, stmtCount);
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_empty_nested_blocks(void) {
+    Input res = splitter("{ {} {} }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode outerBlock = ast->children;
+    TEST_ASSERT_NOT_NULL(outerBlock);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+
+    // Should have two empty inner blocks
+    ASTNode innerBlock1 = outerBlock->children;
+    TEST_ASSERT_NOT_NULL(innerBlock1);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock1->NodeType);
+    TEST_ASSERT_NULL(innerBlock1->children); // Should be empty
+
+    ASTNode innerBlock2 = innerBlock1->brothers;
+    TEST_ASSERT_NOT_NULL(innerBlock2);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->NodeType);
+    TEST_ASSERT_NULL(innerBlock2->children); // Should be empty
+
+    freeInput(res);
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
 // ========== MAIN TEST RUNNER ==========
 
 int main(void) {
@@ -1175,6 +1494,26 @@ int main(void) {
     RUN_TEST(test_mixed_whitespace_and_tabs);
     RUN_TEST(test_no_spaces_between_operators);
     RUN_TEST(test_newlines_in_code);
+
+    printf("\n=== BLOCK STATEMENT TESTS ===\n");
+    RUN_TEST(test_empty_block);
+    RUN_TEST(test_block_with_single_statement);
+    RUN_TEST(test_block_with_multiple_statements);
+    RUN_TEST(test_nested_blocks);
+    RUN_TEST(test_block_with_assignments);
+    RUN_TEST(test_block_with_expressions);
+    RUN_TEST(test_multiple_top_level_blocks);
+    // RUN_TEST(test_block_with_increment_decrement);
+
+    printf("\n=== BLOCK TOKEN COUNT TESTS ===\n");
+    RUN_TEST(test_empty_block_token_count);
+    RUN_TEST(test_block_with_statement_token_count);
+    RUN_TEST(test_nested_block_token_count);
+
+    printf("\n=== COMPLEX BLOCK SCENARIOS ===\n");
+    RUN_TEST(test_deeply_nested_blocks);
+    RUN_TEST(test_block_with_mixed_statements);
+    RUN_TEST(test_empty_nested_blocks);
 
     return UNITY_END();
 }

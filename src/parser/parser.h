@@ -41,6 +41,7 @@ typedef enum {
     COMPOUND_SUB_ASSIGN,
     COMPOUND_MUL_ASSIGN,
     COMPOUND_DIV_ASSIGN,
+    BLOCK_STATEMENT,
     null_NODE
 } NodeTypes;
 

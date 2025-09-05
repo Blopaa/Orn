@@ -295,9 +295,9 @@ ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (*current == NULL) return NULL;
 
     // Handle unary minus
-    if ((*current)->type == TokenSub){
+    if ((*current)->type == TokenSub) {
         *current = (*current)->next;
-        ASTNode operand = parseUnary(current,fatherType);
+        ASTNode operand = parseUnary(current, fatherType);
         if (operand == NULL) return NULL;
 
         ASTNode opNode = createNode("-", UNARY_MINUS_OP);
@@ -379,6 +379,152 @@ ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
     return parseExpression(crrnt, fatherType, PREC_OR);
 }
 
+ASTNode parseStatement(Token *current);
+
+ASTNode parseBlock(Token *current) {
+    if (*current == NULL || (*current)->type != TokenLeftBrace) return NULL;
+    *current = (*current)->next; // skip "{"
+    ASTNode block = createNode(NULL, BLOCK_STATEMENT);
+    if (block == NULL) return NULL;
+    // both this nodes work as checkpoints
+    ASTNode firstChild = NULL;
+    ASTNode lastChild = NULL;
+
+    while (*current != NULL && (*current)->type != TokenRightBrace) {
+        ASTNode statement = parseStatement(current);
+
+        if (statement == NULL) {
+            // If we can't parse a statement, try to recover by skipping to next semicolon or brace,
+            // so it continues instead of blowing up
+            while (*current != NULL && (*current)->type != TokenPunctuation &&
+                   (*current)->type != TokenRightBrace && (*current)->type != TokenLeftBrace) {
+                *current = (*current)->next;
+            }
+            if (*current != NULL && (*current)->type == TokenPunctuation) {
+                *current = (*current)->next; // Skip the semicolon
+            }
+            continue;
+        }
+        // Add statement to block's children
+        if (firstChild == NULL) {
+            firstChild = statement;
+            block->children = firstChild;
+            lastChild = firstChild;
+        } else {
+            lastChild->brothers = statement;
+            lastChild = statement;
+        }
+    }
+
+    if (*current == NULL) {
+        repError(ERROR_UNMATCHED_LEFT_BRACE, "Missing closing brace '}'");
+        return NULL;
+    }
+    if ((*current)->type == TokenRightBrace) {
+        *current = (*current)->next; // skip "}"
+    } else {
+        repError(ERROR_UNMATCHED_LEFT_BRACE, "Missing closing brace '}'");
+        return NULL;
+    }
+
+    return block;
+}
+
+ASTNode parseStatement(Token *current) {
+    if (*current == NULL) return NULL;
+
+    // Check for block statement
+    if ((*current)->type == TokenLeftBrace) {
+        return parseBlock(current); // ✅ REUSE!
+    }
+
+    // Check for variable declaration
+    NodeTypes type = getDecType((*current)->type);
+    if (type != null_NODE) {
+        ASTNode statement = createNode(NULL, type);
+        if (*current != NULL) {
+            *current = (*current)->next;
+            if (*current != NULL) {
+                statement->value = strdup((*current)->value);
+                if ((*current)->next != NULL && (*current)->next->type == TokenAssignement) {
+                    *current = (*current)->next; // skip variable name
+                    *current = (*current)->next; // skip '='
+                    if (*current != NULL) {
+                        ASTNode valNode = ExpParser(current, type);
+                        if (valNode == NULL) {
+                            freeAST(statement);
+                            return NULL;
+                        }
+                        statement->children = valNode;
+                    }
+                }
+                // Skip to semicolon
+                while (*current && (*current)->type != TokenPunctuation) {
+                    *current = (*current)->next;
+                }
+                if (*current && (*current)->type == TokenPunctuation) {
+                    *current = (*current)->next; // Skip semicolon
+                }
+            }
+        }
+        return statement;
+    }
+
+    // Check for assignment or compound assignment
+    if ((*current)->type == TokenLiteral) {
+        if ((*current)->next != NULL && (*current)->next->type == TokenAssignement) {
+            ASTNode statement = createNode(strdup((*current)->value), ASSIGNMENT);
+            *current = (*current)->next; // skip variable name
+            *current = (*current)->next; // skip '='
+            if (*current != NULL) {
+                ASTNode valNode = ExpParser(current, null_NODE);
+                if (valNode == NULL) {
+                    freeAST(statement);
+                    return NULL;
+                }
+                statement->children = valNode;
+            }
+            // Skip to semicolon
+            while (*current && (*current)->type != TokenPunctuation) {
+                *current = (*current)->next;
+            }
+            if (*current && (*current)->type == TokenPunctuation) {
+                *current = (*current)->next; // Skip semicolon
+            }
+            return statement;
+        }
+        // handle compound assignements
+        if ((*current)->next != NULL && isCompoundAssignType((*current)->next->type)) {
+            NodeTypes compoundType = getCompoundNodeType((*current)->next->type);
+            // saves variable name so it can be skipped
+            ASTNode statement = createNode(strdup((*current)->value), compoundType);
+            *current = (*current)->next; // skip variable name
+            *current = (*current)->next; // skip compound operator
+            if (*current != NULL) {
+                ASTNode valNode = ExpParser(current, null_NODE);
+                if (valNode == NULL) {
+                    freeAST(statement);
+                    return NULL;
+                }
+                statement->children = valNode;
+            }
+            // Skip to semicolon
+            while (*current && (*current)->type != TokenPunctuation) {
+                *current = (*current)->next;
+            }
+            if (*current && (*current)->type == TokenPunctuation) {
+                *current = (*current)->next; // Skip semicolon
+            }
+            return statement;
+        }
+    }
+
+    // If we can't parse anything, report error
+    repError(ERROR_INVALID_EXPRESSION, (*current)->value);
+    return NULL;
+}
+
+
 // generates AST
 ASTNode ASTGenerator(Token token) {
     if (token == NULL) return NULL;
@@ -386,75 +532,33 @@ ASTNode ASTGenerator(Token token) {
     ASTNode crrntStat = NULL; // current statement
     ASTNode ls = NULL; // last statement
 
-    while (token && token->next != NULL) {
+    // Skip the head node (if it exists)
+    if (token->next != NULL) {
         token = token->next;
+    }
 
-        NodeTypes type = getDecType(token->type);
-        if (type != null_NODE) {
-            crrntStat = createNode(NULL, type);
-            if (token->next != NULL) {
-                token = token->next;
-                crrntStat->value = strdup(token->value);
-                if (token->next != NULL && token->next->type == TokenAssignement) {
-                    token = token->next;
-                    if (token->next != NULL) {
-                        token = token->next;
-                        ASTNode valNod = ExpParser(&token, type);
-                        if (valNod == NULL) return NULL;
-                        crrntStat->children = valNod;
-                    }
-                }
-                while (token && token->type != TokenPunctuation) {
-                    token = token->next;
-                }
-            }
+    while (token != NULL) {
+        crrntStat = parseStatement(&token);
+
+        if (crrntStat != NULL) {
             if (programNode->children == NULL) {
                 programNode->children = crrntStat;
             } else {
                 ls->brothers = crrntStat;
             }
             ls = crrntStat;
-            //handles variable assignements NOT declarations, dec is top if
-        } else if (token->type == TokenLiteral) {
-            if (token->next != NULL && token->next->type == TokenAssignement) {
-                crrntStat = createNode(strdup(token->value), ASSIGNMENT);
-                token = token->next;
-                if (token->next != NULL) {
-                    token = token->next;
-                    ASTNode valNod = ExpParser(&token, type);
-                    if (valNod == NULL) return NULL;
-                    crrntStat->children = valNod;
-                }
-                //handles compound assignements like += -= ...
-            } else if (token->next != NULL && isCompoundAssignType(token->next->type)) {
-                // Compound assignment (x += 5;, x -= 3;, etc.)
-                NodeTypes compoundType = getCompoundNodeType(token->next->type);
-                crrntStat = createNode(strdup(token->value), compoundType);
-                token = token->next; // skip compound operator
-                if (token->next != NULL) {
-                    token = token->next;
-                    ASTNode valNod = ExpParser(&token, null_NODE); // No type constraint for assignments
-                    if (valNod == NULL) return NULL;
-                    crrntStat->children = valNod;
-                }
-            }
-            // Add to AST if we created a statement
-            if (crrntStat != NULL) {
-                // Advance to semicolons
-                while (token && token->type != TokenPunctuation) {
-                    token = token->next;
-                }
-                if (programNode->children == NULL) {
-                    programNode->children = crrntStat;
-                } else {
-                    ls->brothers = crrntStat;
-                }
-                ls = crrntStat;
-            }
         } else {
-            return NULL;
+            // Skip to next potential statement if parsing failed
+            while (token != NULL && token->type != TokenPunctuation &&
+                   token->type != TokenLeftBrace && token->type != TokenRightBrace) {
+                token = token->next;
+                   }
+            if (token != NULL) {
+                token = token->next;
+            }
         }
     }
+
     return programNode;
 }
 
@@ -528,6 +632,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case GREATER_EQUAL_OP: nodeTypeStr = "GREATER_EQUAL_OP";
             break;
         case UNARY_MINUS_OP: nodeTypeStr = "UNARY_MINUS_OP";
+            break;
+        case BLOCK_STATEMENT: nodeTypeStr = "BLOCK_STATEMENT";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;
