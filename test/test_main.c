@@ -791,18 +791,18 @@ void test_float_integer_part_only(void) {
 
 // ISSUE #42
 
-// void test_negative_float_without_leading_zero(void) {
-//     Input res = splitter("float value = -.5;");
-//     Token tokens = tokenization(res);
-//     ASTNode ast = ASTGenerator(tokens);
-//
-//     TEST_ASSERT_NOT_NULL(ast);
-//     TEST_ASSERT_FALSE(hasErrors());
-//
-//     freeInput(res);
-//     freeTokenList(tokens);
-//     freeAST(ast);
-// }
+void test_negative_float_without_leading_zero(void) {
+     Input res = splitter("float value = -.5;");
+     Token tokens = tokenization(res);
+     ASTNode ast = ASTGenerator(tokens);
+
+     TEST_ASSERT_NOT_NULL(ast);
+     TEST_ASSERT_FALSE(hasErrors());
+
+     freeInput(res);
+     freeTokenList(tokens);
+     freeAST(ast);
+ }
 
 // ========== ERROR HANDLING TESTS (MISSING) ==========
 
@@ -1142,7 +1142,7 @@ int main(void) {
     printf("\n=== FLOAT VALIDATION TESTS ===\n");
     RUN_TEST(test_float_with_leading_zero);
     RUN_TEST(test_float_integer_part_only);
-    // RUN_TEST(test_negative_float_without_leading_zero); ISSUE #42
+    RUN_TEST(test_negative_float_without_leading_zero);
 
     printf("\n=== ERROR HANDLING TESTS ===\n");
     RUN_TEST(test_invalid_float_multiple_decimals);

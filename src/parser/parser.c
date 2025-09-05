@@ -293,6 +293,17 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
 
 ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (*current == NULL) return NULL;
+
+    // Handle unary minus
+    if ((*current)->type == TokenSub){
+        *current = (*current)->next;
+        ASTNode operand = parseUnary(current,fatherType);
+        if (operand == NULL) return NULL;
+
+        ASTNode opNode = createNode("-", UNARY_MINUS_OP);
+        opNode->children = operand;
+        return opNode;
+    }
     // Handle logical NOT operator
     if ((*current)->type == TokenNot) {
         *current = (*current)->next;
@@ -515,6 +526,8 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
         case LESS_EQUAL_OP: nodeTypeStr = "LESS_EQUAL_OP";
             break;
         case GREATER_EQUAL_OP: nodeTypeStr = "GREATER_EQUAL_OP";
+            break;
+        case UNARY_MINUS_OP: nodeTypeStr = "UNARY_MINUS_OP";
             break;
         default: nodeTypeStr = "UNKNOWN";
             break;
