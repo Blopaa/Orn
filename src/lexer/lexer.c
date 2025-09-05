@@ -88,7 +88,7 @@ Input splitter(const char *input) {
             if (input[i + 1] == '=' || input[i + 1] == '-') {
                 generateCustomLengthToken(input, in, &i, 2);
             } else {
-                int isNegativeNumber = 0;
+                /* int isNegativeNumber = 0;
                 if (input[i + 1] != '\0' && (isdigit(input[i + 1]) || (input[i + 1] == '.' && isdigit(input[i + 2])))) {
                     if (in->n == 0) isNegativeNumber = 1;
                     else {
@@ -129,10 +129,10 @@ Input splitter(const char *input) {
                         token[tokenLength] = '\0';
                         in->input[in->n++] = token;
                     }
-                } else {
+                } else { */
                     // NOT a negative number, treat as subtraction operator
                     generateCustomLengthToken(input, in, &i, 1);
-                }
+                // }
             }
         } else if (
             // Handle ++ and += for '+'
