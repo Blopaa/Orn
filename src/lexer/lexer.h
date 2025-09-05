@@ -35,6 +35,8 @@
 #define GREATER_THAN_OPERATOR ">"
 #define LESS_EQUAL_OPERATOR "<="
 #define GREATER_EQUAL_OPERATOR ">="
+#define RIGHT_BRACE "}"
+#define LEFT_BRACE "{"
 #include <stddef.h>
 
 
@@ -71,6 +73,8 @@ typedef enum {
     TokenGreater, // >
     TokenLessEqual, // <=
     TokenGreaterEqual, // >=
+    TokenLeftBrace, // {
+    TokenRightBrace, // }
 
     TokenNULL
 } TokenType;
@@ -95,6 +99,8 @@ static const char *SpecialCharMap[] = {
     LOGICAL_NOT,
     LESS_THAN_OPERATOR,
     GREATER_THAN_OPERATOR,
+    LEFT_BRACE,
+    RIGHT_BRACE,
     NULL
 };
 
@@ -129,6 +135,8 @@ static const TokenMap tokenMapping[] = {
     {GREATER_THAN_OPERATOR, TokenGreater},
     {LESS_EQUAL_OPERATOR, TokenLessEqual},
     {GREATER_EQUAL_OPERATOR, TokenGreaterEqual},
+    {LEFT_BRACE, TokenLeftBrace},
+    {RIGHT_BRACE, TokenRightBrace},
     {NULL, TokenLiteral}
 };
 

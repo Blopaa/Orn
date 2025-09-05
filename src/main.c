@@ -37,7 +37,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "float result = -.24;";
+    char *input = "{int a = 1; int c = 23; {int b = ++a + --c;}}";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
