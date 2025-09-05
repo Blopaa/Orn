@@ -37,7 +37,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "bool result = a + b >= c * 2;";
+    char *input = "float result = -.24;";
     printf("Input: %s\n\n", input);
 
     printf("1. SPLITTING:\n");
