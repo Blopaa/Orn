@@ -1243,7 +1243,7 @@ void test_multiple_top_level_blocks(void) {
     freeAST(ast);
 }
 
-// ISSUE BUG CANT USE ++ -- OPERATORS WITHOUT ASSIGNEMENT OR VARIABLE DECLARATION
+// ISSUE BUG CANT USE ++ -- OPERATORS WITHOUT ASSIGNMENT OR VARIABLE DECLARATION
 
 // void test_block_with_increment_decrement(void) {
 //     Input res = splitter("{ ++counter; value--; int result = ++x + y--; }");
