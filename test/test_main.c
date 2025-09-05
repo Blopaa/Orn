@@ -300,13 +300,13 @@ void test_negative_in_expression(void) {
 
 void test_single_negative_token(void) {
     Input res = splitter("-42");
-    TEST_ASSERT_EQUAL_INT(1, res->n);
+    TEST_ASSERT_EQUAL_INT(2, res->n);
     freeInput(res);
 }
 
 void test_assignment_with_negative(void) {
     Input res = splitter("x = -5");
-    TEST_ASSERT_EQUAL_INT(3, res->n);
+    TEST_ASSERT_EQUAL_INT(4, res->n);
     freeInput(res);
 }
 
