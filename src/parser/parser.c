@@ -417,12 +417,14 @@ ASTNode parseBlock(Token *current) {
     }
 
     if (*current == NULL) {
-        // MISSING "}" ERROR
+        repError(ERROR_UNMATCHED_LEFT_BRACE, "Missing closing brace '}'");
+        return NULL;
     }
     if ((*current)->type == TokenRightBrace) {
         *current = (*current)->next; // skip "}"
     } else {
-        // MISSING "}" ERROR
+        repError(ERROR_UNMATCHED_LEFT_BRACE, "Missing closing brace '}'");
+        return NULL;
     }
 
     return block;
