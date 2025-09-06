@@ -9,6 +9,7 @@ set(LIB_SOURCES
         src/lexer/lexer.c
         src/parser/parser.c
         src/errorHandling/errorHandling.c
+        src/parser/parserHelpers.c
 )
 
 # Create compiler library

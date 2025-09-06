@@ -1,107 +1,54 @@
-//
-// Created by pablo on 20/05/2025.
-//
+/**
+* @file parser.c
+ * @brief Implementation of recursive descent parser with operator precedence.
+ *
+ * Implements a hybrid parsing approach combining:
+ * - Recursive descent parsing for statements and declarations
+ * - Pratt parser (operator precedence parser) for expressions
+ *
+ * Key features:
+ * - Proper operator precedence and associativity handling
+ * - Block statement parsing with nested scopes
+ * - Error recovery and detailed error reporting
+ * - Memory-safe AST construction and cleanup
+ * - Support for complex expressions with mixed operators
+ *
+ * The parser transforms a stream of tokens from the lexer into a complete
+ * Abstract Syntax Tree (AST) ready for semantic analysis or code generation.
+ */
 
 #include "parser.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
 
 ASTNode parseStatement(Token *current); // Forward declaration
 
-// --- HELPER FUNCTIONS ---
-NodeTypes getDecType(TokenType type) {
-    for (int i = 0; TypeDefs[i].TkType != TokenNULL; i++) {
-        if (TypeDefs[i].TkType == type) return TypeDefs[i].type;
-    }
-    return null_NODE;
-}
 
-ASTNode createNode(Token token, NodeTypes type) {
-    ASTNode node = malloc(sizeof(struct ASTNode));
-    if (node == NULL) return NULL;
-
-    node->value = (token && token->value) ? strdup(token->value) : NULL;
-    node->NodeType = type;
-
-    if (token) {
-        node->line = token->line;
-        node->column = token->column;
-    } else {
-        node->line = 0;
-        node->column = 0;
-    }
-    
-    node->brothers = NULL;
-    node->children = NULL;
-    return node;
-}
-
-// --- VALIDATION FUNCTIONS ---
-int isFloatLit(char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (val[i] == '.') return 1;
-    }
-    return 0;
-}
-
-int isValidVariable(char *val) {
-    if (val == NULL || (!isalpha(val[0]) && val[0] != '_')) {
-        return 0;
-    }
-    for (int i = 1; val[i] != '\0'; i++) {
-        if (!isalnum(val[i]) && val[i] != '_') {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int isIntLit(char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (!isdigit(val[i])) return 0;
-    }
-    return 1;
-}
-
-int isValidStringLit(char *val) {
-    if (val == NULL) return 0;
-    size_t len = strlen(val);
-    return (len >= 2 && val[0] == '"' && val[len - 1] == '"');
-}
-
-ASTNode createValNode(Token current_token, NodeTypes fatherType) {
-    (void)fatherType;
-    if (current_token == NULL) return NULL;
-    char *val = current_token->value;
-    if (isValidStringLit(val)) return createNode(current_token, STRING_LIT);
-    if (isFloatLit(val)) return createNode(current_token, FLOAT_LIT);
-    if (isIntLit(val)) return createNode(current_token, INT_LIT);
-    if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) return createNode(current_token, BOOL_LIT);
-    if (isValidVariable(val)) return createNode(current_token, VARIABLE);
-    repError(ERROR_INVALID_EXPRESSION, val);
-    return NULL;
-}
-
-const OperatorInfo *getOperatorInfo(TokenType type) {
-    for (int i = 0; operators[i].token != TokenNULL; i++) {
-        if (operators[i].token == type) return &operators[i];
-    }
-    return NULL;
-}
 
 // --- PARSER IMPLEMENTATION ---
+/**
+ * @brief Parses primary expressions (literals, identifiers, parentheses).
+ *
+ * Handles the lowest level of expression parsing for atomic values:
+ * - Integer and float literals
+ * - String literals
+ * - Boolean literals
+ * - Variable identifiers
+ * - Parenthesized expressions (future enhancement)
+ *
+ * This is the base case for the recursive expression parser, handling
+ * the fundamental building blocks of expressions.
+ *
+ * @param current Pointer to current token (updated after consumption)
+ * @param fatherType Parent node type for context
+ * @return AST node for the primary expression or NULL on error
+ *
+ * @note Advances the token pointer past the consumed token
+ */
 ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     if (current == NULL || *current == NULL) return NULL;
     ASTNode node = createValNode(*current, fatherType);
@@ -111,6 +58,29 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     return node;
 }
 
+/**
+ * @brief Parses unary expressions and postfix operators.
+ *
+ * Handles prefix unary operators and postfix increment/decrement:
+ * - Prefix: !, ++, --, unary -
+ * - Postfix: ++, --
+ *
+ * Uses recursive calls for prefix operators to handle nested unary expressions
+ * (e.g., !!x, ++--y) and iterative approach for postfix operators to maintain
+ * correct precedence and associativity.
+ *
+ * @param current Pointer to current token (updated during parsing)
+ * @param fatherType Parent node type for context
+ * @return AST node representing the unary expression
+ *
+ * Grammar supported:
+ * ```
+ * UnaryExpr := ('!' | '++' | '--' | '-') UnaryExpr
+ *            | PrimaryExpr ('++' | '--')?
+ * ```
+ *
+ * @note Prefix operators have higher precedence than postfix operators
+ */
 ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (current == NULL || *current == NULL) return NULL;
     if ((*current)->type == TokenSub || (*current)->type == TokenNot || 
@@ -140,6 +110,29 @@ ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     return node;
 }
 
+/**
+ * @brief Parses expressions using operator precedence climbing algorithm.
+ *
+ * Implements the Pratt parser algorithm for handling operator precedence
+ * and associativity correctly. This is the core of expression parsing,
+ * supporting complex nested expressions with proper precedence rules.
+ *
+ * Algorithm:
+ * 1. Parse left operand (unary expression)
+ * 2. While current operator has sufficient precedence:
+ *    a. Determine minimum precedence for right operand
+ *    b. Parse right operand recursively
+ *    c. Create binary operator node
+ *    d. Continue with the result as new left operand
+ *
+ * @param current Pointer to current token (advanced during parsing)
+ * @param fatherType Parent node type for context
+ * @param minPrec Minimum precedence level required for operators
+ * @return AST node representing the parsed expression
+ *
+ * @note Handles both left-associative (a+b+c = (a+b)+c) and
+ *       right-associative (a=b=c = a=(b=c)) operators correctly
+ */
 ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec) {
     if (current == NULL || *current == NULL) return NULL;
     ASTNode left = parseUnary(current, fatherType);
@@ -163,10 +156,44 @@ ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec
     return left;
 }
 
+/**
+ * @brief Entry point for expression parsing with default precedence.
+ *
+ * Convenient wrapper around parseExpression() that starts with the
+ * lowest precedence level (PREC_NONE), allowing all operators to be parsed.
+ *
+ * @param crrnt Pointer to current token (advanced during parsing)
+ * @param fatherType Parent node type for context
+ * @return AST node representing the complete expression
+ *
+ * @note This is the main interface used by statement parsers to parse
+ *       expressions in assignments, declarations, and standalone expressions.
+ */
 ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
     return parseExpression(crrnt, fatherType, PREC_NONE);
 }
 
+/**
+ * @brief Parses block statements enclosed in curly braces.
+ *
+ * Handles block structure parsing for scoped statements:
+ * - Creates BLOCK_STATEMENT node
+ * - Parses all statements within the block
+ * - Links statements as siblings under the block
+ * - Validates proper brace matching
+ *
+ * Supports:
+ * - Empty blocks: {}
+ * - Single statement blocks: { x = 5; }
+ * - Multi-statement blocks: { int x = 1; y = x + 2; }
+ * - Nested blocks: { int x = 1; { int y = 2; } }
+ *
+ * @param current Pointer to current token (advanced during parsing)
+ * @return BLOCK_STATEMENT AST node containing all parsed statements
+ *
+ * @note Reports ERROR_INVALID_EXPRESSION for missing closing brace
+ *       and performs proper cleanup on error conditions
+ */
 ASTNode parseBlock(Token *current) {
     if (current == NULL || *current == NULL || (*current)->type != TokenLeftBrace) return NULL;
     *current = (*current)->next;
@@ -189,6 +216,34 @@ ASTNode parseBlock(Token *current) {
     return block;
 }
 
+/**
+ * @brief Parses individual statements (declarations, assignments, expressions).
+ *
+ * Main statement parsing function that handles:
+ * - Variable declarations: int x = 5;
+ * - Block statements: { ... }
+ * - Expression statements: x = y + z;
+ * - Assignment operations: x += 10;
+ * - Empty statements: ;
+ *
+ * Implements error recovery by continuing parsing after invalid statements
+ * and provides detailed error reporting for syntax issues.
+ *
+ * @param current Pointer to current token (advanced during parsing)
+ * @return AST node for the parsed statement or NULL for empty/invalid statements
+ *
+ * Grammar supported:
+ * ```
+ * Statement := VarDecl | Block | ExprStatement | EmptyStatement
+ * VarDecl   := Type IDENTIFIER ('=' Expression)? ';'
+ * Block     := '{' Statement* '}'
+ * ExprStatement := Expression ';'
+ * EmptyStatement := ';'
+ * ```
+ *
+ * @note Returns NULL for empty statements (standalone semicolons) which
+ *       are silently skipped by the caller
+ */
 ASTNode parseStatement(Token *current) {
     if (current == NULL || *current == NULL) return NULL;
 
@@ -252,6 +307,27 @@ ASTNode parseStatement(Token *current) {
     return NULL;
 }
 
+/**
+ * @brief Main AST generation function - parses complete token stream.
+ *
+ * Creates the root PROGRAM node and parses all statements in the token stream.
+ * Handles multiple statements by linking them as siblings under the program node.
+ * Implements error recovery by skipping invalid statements and continuing parsing.
+ *
+ * Process:
+ * 1. Create PROGRAM root node
+ * 2. Skip dummy head token from tokenization
+ * 3. Parse statements sequentially until end of tokens
+ * 4. Link valid statements as siblings under program
+ * 5. Handle error recovery for invalid statements
+ *
+ * @param token Token linked list from tokenization (with dummy head)
+ * @return Root PROGRAM node containing all parsed statements
+ *
+ * @note Returns a PROGRAM node even if parsing fails - check hasErrors()
+ *       to determine if parsing was successful. The dummy head token from
+ *       tokenization() is automatically skipped.
+ */
 ASTNode ASTGenerator(Token token) {
     if (token == NULL) return NULL;
     ASTNode programNode = createNode(NULL, PROGRAM); 
@@ -276,49 +352,37 @@ ASTNode ASTGenerator(Token token) {
     return programNode;
 }
 
-// --- UTILITY FUNCTIONS ---
+/**
+ * @brief Recursively prints AST tree structure with visual formatting.
+ *
+ * Creates a visual tree representation using Unicode box-drawing characters
+ * for clear hierarchical display. Handles both child and sibling relationships
+ * to show the complete tree structure.
+ *
+ * @param node Current AST node to print
+ * @param prefix String prefix for indentation and tree lines
+ * @param isLast Flag indicating if this is the last sibling (affects formatting)
+ *
+ * Output format uses Unicode characters:
+ * - ├── for non-terminal siblings
+ * - └── for terminal siblings
+ * - │   for continuation lines
+ * - (space) for final indentation
+ *
+ * Example output:
+ * ```
+ * ├── INT_VAR_DEF: x
+ * │   └── ADD_OP
+ * │       ├── INT_LIT: 5
+ * │       └── INT_LIT: 3
+ * └── ASSIGNMENT: y
+ *     └── VARIABLE: x
+ * ```
+ */
 void printASTTree(ASTNode node, char *prefix, int isLast) {
     if (node == NULL) return;
-    char *nodeTypeStr;
-    switch (node->NodeType) {
-        case PROGRAM: nodeTypeStr = "PROGRAM"; break;
-        case STRING_VARIABLE_DEFINITION: nodeTypeStr = "STRING_VAR_DEF"; break;
-        case INT_VARIABLE_DEFINITION: nodeTypeStr = "INT_VAR_DEF"; break;
-        case FLOAT_VARIABLE_DEFINITION: nodeTypeStr = "FLOAT_VAR_DEF"; break;
-        case BOOL_VARIABLE_DEFINITION: nodeTypeStr = "BOOL_VAR_DEF"; break;
-        case STRING_LIT: nodeTypeStr = "STRING_LIT"; break;
-        case INT_LIT: nodeTypeStr = "INT_LIT"; break;
-        case ADD_OP: nodeTypeStr = "ADD_OP"; break;
-        case SUB_OP: nodeTypeStr = "SUB_OP"; break;
-        case MUL_OP: nodeTypeStr = "MUL_OP"; break;
-        case DIV_OP: nodeTypeStr = "DIV_OP"; break;
-        case MOD_OP: nodeTypeStr = "MOD_OP"; break;
-        case VARIABLE: nodeTypeStr = "VARIABLE"; break;
-        case FLOAT_LIT: nodeTypeStr = "FLOAT_LIT"; break;
-        case BOOL_LIT: nodeTypeStr = "BOOL_LIT"; break;
-        case ASSIGNMENT: nodeTypeStr = "ASSIGNMENT"; break;
-        case PRE_INCREMENT: nodeTypeStr = "PRE_INCREMENT"; break;
-        case PRE_DECREMENT: nodeTypeStr = "PRE_DECREMENT"; break;
-        case POST_INCREMENT: nodeTypeStr = "POST_INCREMENT"; break;
-        case POST_DECREMENT: nodeTypeStr = "POST_DECREMENT"; break;
-        case COMPOUND_ADD_ASSIGN: nodeTypeStr = "COMPOUND_ADD_ASSIGN"; break;
-        case COMPOUND_SUB_ASSIGN: nodeTypeStr = "COMPOUND_SUB_ASSIGN"; break;
-        case COMPOUND_MUL_ASSIGN: nodeTypeStr = "COMPOUND_MULT_ASSIGN"; break;
-        case COMPOUND_DIV_ASSIGN: nodeTypeStr = "COMPOUND_DIV_ASSIGN"; break;
-        case LOGIC_AND: nodeTypeStr = "LOGIC_AND"; break;
-        case LOGIC_OR: nodeTypeStr = "LOGIC_OR"; break;
-        case LOGIC_NOT: nodeTypeStr = "LOGIC_NOT"; break;
-        case EQUAL_OP: nodeTypeStr = "EQUAL_OP"; break;
-        case NOT_EQUAL_OP: nodeTypeStr = "NOT_EQUAL_OP"; break;
-        case LESS_THAN_OP: nodeTypeStr = "LESS_THAN_OP"; break;
-        case GREATER_THAN_OP: nodeTypeStr = "GREATER_THAN_OP"; break;
-        case LESS_EQUAL_OP: nodeTypeStr = "LESS_EQUAL_OP"; break;
-        case GREATER_EQUAL_OP: nodeTypeStr = "GREATER_EQUAL_OP"; break;
-        case UNARY_MINUS_OP: nodeTypeStr = "UNARY_MINUS_OP"; break;
-        case BLOCK_STATEMENT: nodeTypeStr = "BLOCK_STATEMENT"; break;
-        case null_NODE: nodeTypeStr = "PROGRAM_ROOT"; break;
-        default: nodeTypeStr = "UNKNOWN"; break;
-    }
+
+    const char *nodeTypeStr = getNodeTypeName(node->NodeType);
 
     printf("%s%s%s", prefix, isLast ? "└── " : "├── ", nodeTypeStr);
     if (node->value) {
@@ -336,6 +400,20 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
     }
 }
 
+/**
+ * @brief Main AST printing function with validation and formatting.
+ *
+ * Provides the main interface for displaying AST trees with proper
+ * validation and error handling. Ensures the AST is valid before
+ * attempting to print and provides clear error messages for invalid trees.
+ *
+ * @param node Root AST node to print (typically PROGRAM node)
+ * @param depth Indentation depth (maintained for compatibility, unused)
+ *
+ * @note The depth parameter is maintained for backward compatibility
+ *       but is not used in the current tree-printing implementation.
+ *       Only prints trees rooted at PROGRAM or null_NODE types.
+ */
 void printAST(ASTNode node, int depth) {
     (void)depth; // depth is unused
     if (node == NULL || (node->NodeType != PROGRAM && node->NodeType != null_NODE)) {
@@ -350,6 +428,26 @@ void printAST(ASTNode node, int depth) {
     }
 }
 
+/**
+ * @brief Recursively frees an AST and all associated memory.
+ *
+ * Performs deep deallocation of the entire AST structure using
+ * post-order traversal to ensure all child nodes are freed before
+ * their parents. Handles arbitrary tree structures with both
+ * child and sibling relationships.
+ *
+ * Memory freed includes:
+ * - All child nodes (recursive)
+ * - All sibling nodes (recursive)
+ * - Node value string (if present)
+ * - Node structure itself
+ *
+ * @param node Root node to free (can be NULL)
+ *
+ * @note Safe to call on NULL pointer. Uses post-order traversal
+ *       to ensure proper cleanup order. All strings created with
+ *       strdup() in createNode() are properly freed.
+ */
 void freeAST(ASTNode node) {
     if (node == NULL) return;
 

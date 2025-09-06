@@ -1,13 +1,32 @@
-//
-// Created by pablo on 13/03/2025.
-//
+/**
+* @file lexer.c
+ * @brief Implementation of lexical analysis functions for the C compiler.
+ *
+ * Provides a two-phase lexical analysis system:
+ * 1. Splitting: Raw character-level parsing with position tracking
+ * 2. Tokenization: Type classification and linked list construction
+ *
+ * Handles comprehensive token recognition including multi-character operators,
+ * string literals, numeric literals, comments, and proper error reporting.
+ */
 
 #include "lexer.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-// finds the type of the token by keys if didnt found a type for the key its considered a literal
+/**
+ * @brief Finds the token type for a given string value.
+ *
+ * Performs linear search through the static tokenMapping array to classify
+ * the input string. This function is the core of token type determination.
+ *
+ * @param val Null-terminated string to classify
+ * @return TokenType corresponding to the string, or TokenLiteral if not found
+ *
+ * @note Time complexity is O(n) where n is the number of entries in tokenMapping.
+ *       For better performance with many tokens, consider hash table lookup.
+ */
 TokenType findTokenType(const char *val) {
     for (int i = 0; tokenMapping[i].value != NULL; i++) {
         if (strcmp(tokenMapping[i].value, val) == 0) {
@@ -18,8 +37,26 @@ TokenType findTokenType(const char *val) {
 }
 
 /**
- * Scans the input string and splits it into a list of raw tokens,
- * capturing the value, line, and column for each.
+ * @brief Scans input string and splits it into raw tokens with position info.
+ *
+ * Performs the first phase of lexical analysis by character-level scanning.
+ * Handles whitespace, comments, and complex token boundary detection.
+ * Maintains line and column information for error reporting.
+ *
+ * Key features:
+ * - Dynamic array allocation with capacity management
+ * - Accurate position tracking (line/column)
+ * - Comment removal (single-line // comments)
+ * - String literal parsing with quote handling
+ * - Multi-character operator recognition
+ * - Number parsing (integers and floats)
+ * - Identifier and keyword recognition
+ *
+ * @param input Source code string to tokenize
+ * @return Input structure containing dynamic array of raw tokens
+ *
+ * @note The returned Input structure owns all allocated memory and must be
+ *       passed to tokenization() or freed with freeInput().
  */
 Input splitter(const char *input) {
     Input in = malloc(sizeof(struct Input));
@@ -116,9 +153,29 @@ Input splitter(const char *input) {
         }
     }
     return in;
-}/**
- * Converts the intermediate list of raw tokens from the splitter into
- * the final linked list of typed Tokens for the parser.
+}
+
+/**
+ * @brief Converts raw tokens to typed tokens in a linked list structure.
+ *
+ * Performs the second phase of lexical analysis by taking the raw tokens
+ * from splitter() and classifying them into specific token types using
+ * the tokenMapping lookup table. Creates a linked list suitable for
+ * sequential parser consumption.
+ *
+ * Process:
+ * 1. Creates dummy head node for easier list manipulation
+ * 2. Transfers string ownership from InputToken to Token
+ * 3. Classifies each token using findTokenType()
+ * 4. Preserves position information for error reporting
+ * 5. Frees the intermediate Input structure
+ *
+ * @param in Input structure from splitter() (ownership transferred)
+ * @return Token linked list with dummy head node
+ *
+ * @note The input parameter 'in' is consumed and freed by this function.
+ *       The returned Token list owns all string memory and should be
+ *       freed with freeTokenList() when no longer needed.
  */
 Token tokenization(Input in) {
     if (in == NULL) return NULL;
@@ -151,8 +208,16 @@ Token tokenization(Input in) {
 }
 
 /**
- * Frees the intermediate Input struct. Use this only if you call splitter()
- * but decide NOT to call tokenization().
+ * @brief Frees an Input structure without converting to tokens.
+ *
+ * Use this function only if you call splitter() but decide not to proceed
+ * with tokenization(). This prevents memory leaks in error conditions or
+ * when tokenization is not needed.
+ *
+ * @param in Input structure to free (can be NULL)
+ *
+ * @warning Do not call this if you have already called tokenization(),
+ *          as tokenization() consumes and frees the Input structure.
  */
 void freeInput(Input in) {
     if (in == NULL) return;
@@ -164,7 +229,15 @@ void freeInput(Input in) {
 }
 
 /**
- * Frees the final linked list of Tokens.
+ * @brief Frees a complete Token linked list and all associated memory.
+ *
+ * Traverses the entire linked list, freeing each Token node and its
+ * associated string memory. Safe to call on NULL pointer or empty list.
+ *
+ * @param token Head of Token linked list (including dummy head node)
+ *
+ * @note This function properly handles the dummy head node created by
+ *       tokenization() and frees all memory associated with the token list.
  */
 void freeTokenList(Token token) {
     Token current = token;
