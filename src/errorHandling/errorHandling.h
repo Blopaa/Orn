@@ -1,14 +1,25 @@
-//
-// Created by pablo on 31/08/2025.
-//
+/**
+ * @file errorHandling.h
+ * @brief Error handling system for the C compiler.
+ *
+ * Provides comprehensive error reporting with categorized error codes,
+ * severity levels, and detailed error tracking functionality.
+ * Supports warning, error, and fatal error types with context information.
+ */
 
-#ifndef UNTITLED22_ERRORHANDLING_H
-#define UNTITLED22_ERRORHANDLING_H
+#ifndef ERRORHANDLING_H
+#define ERRORHANDLING_H
 
-
-// 2000s var errors
-// 4000s logic errors
-// 5000s system errors
+/**
+ * @brief Error code enumeration categorized by type.
+ *
+ * Error codes are organized in ranges:
+ * - 1000s: Type mismatch errors
+ * - 2000s: Variable errors (reserved for future use)
+ * - 3000s: Syntax errors
+ * - 4000s: Logic errors (reserved for future use)
+ * - 5000s: System errors (reserved for future use)
+ */
 typedef enum {
     ERROR_OK = 0,
     // 1000S type errors
@@ -32,13 +43,27 @@ typedef enum {
     ERROR_UNMATCHED_LEFT_BRACE = 3006,
 } ErrorCode;
 
-// WARING -> ERROR -> FATAL
+/**
+ * @brief Error severity levels in ascending order of severity.
+ *
+ * Determines the handling behavior:
+ * - WARNING: Logged but compilation continues
+ * - ERROR: Logged, compilation continues but will fail
+ * - FATAL: Logged and compilation immediately aborted
+ */
 typedef enum {
     WARNING,
     ERROR,
     FATAL
 } ErrorLevel;
 
+/**
+ * @brief Detailed error information structure.
+ *
+ * Contains comprehensive error context including location,
+ * message, and additional context information.
+ * Used for future enhancement of error reporting.
+ */
 typedef struct {
     ErrorCode code;
     ErrorLevel level;
@@ -47,12 +72,24 @@ typedef struct {
     int line; // for future
 } Error;
 
+/**
+ * @brief Static error definition entry.
+ *
+ * Maps error codes to their severity levels and messages.
+ * Used in the static error lookup table for efficient error reporting.
+ */
 typedef struct {
     ErrorCode code;
     ErrorLevel level;
     const char *message;
 } ErrorEntry;
 
+/**
+ * @brief Static lookup table mapping error codes to error information.
+ *
+ * Provides O(n) lookup for error details. The array is terminated
+ * with an ERROR_OK entry that serves as the "unknown error" fallback.
+ */
 static const ErrorEntry errorList[] = {
     {ERROR_TYPE_MISMATCH_STRING_TO_INT, ERROR, "Cannot assign string literal to int variable"},
     {ERROR_TYPE_MISMATCH_INT_TO_STRING, ERROR, "Cannot assign int literal to string variable"},
@@ -76,21 +113,13 @@ static const ErrorEntry errorList[] = {
 };
 
 const ErrorEntry *getErrorEntry(ErrorCode code);
-
 void repError(ErrorCode code, const char *context);
-
 void printErrorSummary(void);
-
 int hasErrors(void);
-
 int hasFatalErrors(void);
-
 int getErrorCount(void);
-
 int getWarningCount(void);
-
 int getFatalCount(void);
-
 void resetErrorCount(void);
 
 #endif

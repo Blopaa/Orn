@@ -1,13 +1,29 @@
-//
-// Created by pablo on 20/05/2025.
-//
+/**
+* @file parser.h
+ * @brief Parser interface and Abstract Syntax Tree definitions for the C compiler.
+ *
+ * Defines the AST node types, data structures, and function prototypes for
+ * parsing tokens into an Abstract Syntax Tree. Implements operator precedence
+ * parsing using a Pratt parser approach for expression handling.
+ */
 
 #ifndef PARSER_H
 #define PARSER_H
 
 #include "../lexer/lexer.h"
 
-// Enum for the different types of nodes in the AST
+/**
+ * @brief Enumeration of all Abstract Syntax Tree node types.
+ *
+ * Organized by category for better maintainability:
+ * - Program structure nodes
+ * - Variable declaration nodes
+ * - Literal value nodes
+ * - Expression nodes (operators, assignments)
+ * - Statement nodes (blocks, control flow)
+ *
+ * Each node type represents a distinct syntactic construct in the language.
+ */
 typedef enum {
     null_NODE,
     PROGRAM,
@@ -47,7 +63,80 @@ typedef enum {
     BLOCK_STATEMENT
 } NodeTypes;
 
-// Structure for an Abstract Syntax Tree node
+/**
+ * @brief Abstract Syntax Tree node structure.
+ *
+ * Represents a single node in the AST with support for:
+ * - Tree structure (parent-child relationships)
+ * - Sibling linkage (multiple children of same parent)
+ * - Position tracking for error reporting
+ * - Type and value information
+ *
+ * Tree structure:
+ * - children: First child node
+ * - brothers: Next sibling node (children are linked as siblings)
+ *
+ * Memory management:
+ * - value: Dynamically allocated string (must be freed)
+ * - Recursive structure requires recursive freeing
+ */
+typedef struct {
+    NodeTypes nodeType;
+    const char *displayName;
+} NodeTypeMap;
+
+/**
+ * @brief Maps token types to AST node types for variable declarations.
+ *
+ * Used to convert type definition tokens (int, string, float, bool)
+ * into their corresponding variable declaration node types.
+ */
+static const NodeTypeMap nodeTypeMapping[] = {
+    {PROGRAM, "PROGRAM"},
+    {STRING_VARIABLE_DEFINITION, "STRING_VAR_DEF"},
+    {INT_VARIABLE_DEFINITION, "INT_VAR_DEF"},
+    {FLOAT_VARIABLE_DEFINITION, "FLOAT_VAR_DEF"},
+    {BOOL_VARIABLE_DEFINITION, "BOOL_VAR_DEF"},
+    {STRING_LIT, "STRING_LIT"},
+    {INT_LIT, "INT_LIT"},
+    {FLOAT_LIT, "FLOAT_LIT"},
+    {BOOL_LIT, "BOOL_LIT"},
+    {VARIABLE, "VARIABLE"},
+    {ASSIGNMENT, "ASSIGNMENT"},
+    {COMPOUND_ADD_ASSIGN, "COMPOUND_ADD_ASSIGN"},
+    {COMPOUND_SUB_ASSIGN, "COMPOUND_SUB_ASSIGN"},
+    {COMPOUND_MUL_ASSIGN, "COMPOUND_MULT_ASSIGN"},
+    {COMPOUND_DIV_ASSIGN, "COMPOUND_DIV_ASSIGN"},
+    {ADD_OP, "ADD_OP"},
+    {SUB_OP, "SUB_OP"},
+    {MUL_OP, "MUL_OP"},
+    {DIV_OP, "DIV_OP"},
+    {MOD_OP, "MOD_OP"},
+    {UNARY_MINUS_OP, "UNARY_MINUS_OP"},
+    {PRE_INCREMENT, "PRE_INCREMENT"},
+    {PRE_DECREMENT, "PRE_DECREMENT"},
+    {POST_INCREMENT, "POST_INCREMENT"},
+    {POST_DECREMENT, "POST_DECREMENT"},
+    {LOGIC_AND, "LOGIC_AND"},
+    {LOGIC_OR, "LOGIC_OR"},
+    {LOGIC_NOT, "LOGIC_NOT"},
+    {EQUAL_OP, "EQUAL_OP"},
+    {NOT_EQUAL_OP, "NOT_EQUAL_OP"},
+    {LESS_THAN_OP, "LESS_THAN_OP"},
+    {GREATER_THAN_OP, "GREATER_THAN_OP"},
+    {LESS_EQUAL_OP, "LESS_EQUAL_OP"},
+    {GREATER_EQUAL_OP, "GREATER_EQUAL_OP"},
+    {BLOCK_STATEMENT, "BLOCK_STATEMENT"},
+    {null_NODE, "PROGRAM_ROOT"},
+    {null_NODE, NULL} // Sentinel - must be last
+};
+
+/**
+ * @brief Static mapping table for type definitions.
+ *
+ * Terminated with TokenNULL entry for easy iteration.
+ * Used by getDecType() to convert tokens to AST node types.
+ */
 struct ASTNode {
     char *value;
     NodeTypes NodeType;
@@ -59,7 +148,12 @@ struct ASTNode {
 
 typedef struct ASTNode *ASTNode;
 
-// Struct to map token types to node types for declarations
+/**
+ * @brief Static mapping table for type definitions.
+ *
+ * Terminated with TokenNULL entry for easy iteration.
+ * Used by getDecType() to convert tokens to AST node types.
+ */
 typedef struct {
     TokenType TkType;
     NodeTypes type;
@@ -73,7 +167,22 @@ static const TypeDefMap TypeDefs[] = {
     {TokenNULL, null_NODE}
 };
 
-// Operator precedence for Pratt parser
+/**
+ * @brief Operator precedence levels for Pratt parser.
+ *
+ * Higher numeric values indicate higher precedence.
+ * Used to resolve operator precedence during expression parsing.
+ *
+ * Precedence hierarchy (low to high):
+ * - PREC_ASSIGN: Assignment operators (=, +=, -=, etc.)
+ * - PREC_OR: Logical OR (||)
+ * - PREC_AND: Logical AND (&&)
+ * - PREC_EQUALITY: Equality operators (==, !=)
+ * - PREC_COMPARISON: Comparison operators (<, >, <=, >=)
+ * - PREC_TERM: Additive operators (+, -)
+ * - PREC_FACTOR: Multiplicative operators (*, /, %)
+ * - PREC_UNARY: Unary operators (!, ++, --, unary -)
+ */
 typedef enum {
     PREC_NONE,
     PREC_ASSIGN,
@@ -86,6 +195,15 @@ typedef enum {
     PREC_UNARY
 } Precedence;
 
+/**
+ * @brief Operator information for precedence parsing.
+ *
+ * Contains all information needed for Pratt parser to handle operators:
+ * - Token type recognition
+ * - AST node type mapping
+ * - Precedence level
+ * - Associativity information
+ */
 typedef struct {
     TokenType token;
     NodeTypes nodeType;
@@ -93,6 +211,15 @@ typedef struct {
     int isRightAssociative; // Flag for right-associative operators like '='
 } OperatorInfo;
 
+/**
+ * @brief Static operator information table.
+ *
+ * Defines all operators supported by the parser with their precedence
+ * and associativity information. Used by getOperatorInfo() during parsing.
+ *
+ * @note Assignment operators are right-associative (x = y = z evaluates as x = (y = z))
+ *       All other operators are left-associative (a + b + c evaluates as (a + b) + c)
+ */
 static const OperatorInfo operators[] = {
     {TokenAssignement, ASSIGNMENT, PREC_ASSIGN, 1},
     {TokenPlusAssign, COMPOUND_ADD_ASSIGN, PREC_ASSIGN, 1},
@@ -116,9 +243,31 @@ static const OperatorInfo operators[] = {
 };
 
 
+// --- HELPER FUNCTION DECLARATIONS ---
+NodeTypes getDecType(TokenType type);
+
+ASTNode createNode(Token token, NodeTypes type);
+
+const char *getNodeTypeName(NodeTypes nodeType);
+
+// --- VALIDATION FUNCTION DECLARATIONS ---
+int isFloatLit(char *val);
+
+int isValidVariable(char *val);
+
+int isIntLit(char *val);
+
+int isValidStringLit(char *val);
+
+ASTNode createValNode(Token current_token, NodeTypes fatherType);
+
+const OperatorInfo *getOperatorInfo(TokenType type);
+
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
+
 void printAST(ASTNode node, int depth);
+
 void freeAST(ASTNode node);
 
 #endif //PARSER_H
