@@ -63,34 +63,12 @@ typedef enum {
     BLOCK_STATEMENT
 } NodeTypes;
 
-/**
- * @brief Abstract Syntax Tree node structure.
- *
- * Represents a single node in the AST with support for:
- * - Tree structure (parent-child relationships)
- * - Sibling linkage (multiple children of same parent)
- * - Position tracking for error reporting
- * - Type and value information
- *
- * Tree structure:
- * - children: First child node
- * - brothers: Next sibling node (children are linked as siblings)
- *
- * Memory management:
- * - value: Dynamically allocated string (must be freed)
- * - Recursive structure requires recursive freeing
- */
+
 typedef struct {
     NodeTypes nodeType;
     const char *displayName;
 } NodeTypeMap;
 
-/**
- * @brief Maps token types to AST node types for variable declarations.
- *
- * Used to convert type definition tokens (int, string, float, bool)
- * into their corresponding variable declaration node types.
- */
 static const NodeTypeMap nodeTypeMapping[] = {
     {PROGRAM, "PROGRAM"},
     {STRING_VARIABLE_DEFINITION, "STRING_VAR_DEF"},
@@ -131,12 +109,6 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {null_NODE, NULL} // Sentinel - must be last
 };
 
-/**
- * @brief Static mapping table for type definitions.
- *
- * Terminated with TokenNULL entry for easy iteration.
- * Used by getDecType() to convert tokens to AST node types.
- */
 struct ASTNode {
     char *value;
     NodeTypes NodeType;
