@@ -93,15 +93,15 @@ Input splitter(const char *input) {
         if (strchr("(){}[];,", input[i])) {
             token_len = 1;
         } else if (strchr("=!<>", input[i])) {
-            if (input[i+1] == '=') token_len = 2;
+            if (input[i + 1] == '=') token_len = 2;
             else token_len = 1;
         } else if (strchr("+-*/%&|", input[i])) {
-            if ((input[i] == '+' && (input[i+1] == '+' || input[i+1] == '=')) ||
-                (input[i] == '-' && (input[i+1] == '-' || input[i+1] == '=')) ||
-                (input[i] == '&' && input[i+1] == '&') ||
-                (input[i] == '|' && input[i+1] == '|') ||
-                (input[i] == '*' && input[i+1] == '=') ||
-                (input[i] == '/' && input[i+1] == '=')) {
+            if ((input[i] == '+' && (input[i + 1] == '+' || input[i + 1] == '=')) ||
+                (input[i] == '-' && (input[i + 1] == '-' || input[i + 1] == '=')) ||
+                (input[i] == '&' && input[i + 1] == '&') ||
+                (input[i] == '|' && input[i + 1] == '|') ||
+                (input[i] == '*' && input[i + 1] == '=') ||
+                (input[i] == '/' && input[i + 1] == '=')) {
                 token_len = 2;
             } else {
                 token_len = 1;
@@ -114,7 +114,7 @@ Input splitter(const char *input) {
             if (input[i] == '\"') i++; // Skip closing quote
             token_len = i - start;
             // Don't reset i here - keep the new position
-        } else if (isdigit(input[i]) || (input[i] == '.' && isdigit(input[i+1]))) {
+        } else if (isdigit(input[i]) || (input[i] == '.' && isdigit(input[i + 1]))) {
             int start = i;
             if (input[i] != '.') while (isdigit(input[i])) i++;
             if (input[i] == '.') {
@@ -133,7 +133,9 @@ Input splitter(const char *input) {
         if (token_len > 0) {
             if (in->n >= in->capacity) {
                 in->capacity *= 2;
-                in->tokens = realloc(in->tokens, in->capacity * sizeof(InputToken));
+                InputToken *newTokens = realloc(in->tokens, in->capacity * sizeof(InputToken));
+                if (newTokens == NULL) return NULL;
+                in->tokens = newTokens;
             }
 
             InputToken *raw_token = &in->tokens[in->n++];
@@ -187,9 +189,9 @@ Token tokenization(Input in) {
 
     for (int i = 0; i < in->n; i++) {
         InputToken *raw_token = &in->tokens[i];
-        
+
         Token new_token = malloc(sizeof(struct Token));
-        
+
         new_token->value = raw_token->value; // Transfer ownership of the string
         new_token->type = findTokenType(new_token->value);
         new_token->line = raw_token->line;

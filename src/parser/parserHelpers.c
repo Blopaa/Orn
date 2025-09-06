@@ -117,7 +117,7 @@ ASTNode createNode(Token token, NodeTypes type) {
  * - "42" -> 0 (integer, not float)
  * - NULL -> 0 (invalid)
  */
-int isFloatLit(char *val) {
+int isFloatLit(const char *val) {
     if (val == NULL) return 0;
     int start = (val[0] == '-') ? 1 : 0;
     if (val[start] == '\0') return 0;
@@ -143,7 +143,7 @@ int isFloatLit(char *val) {
  * - "123invalid" -> 0 (starts with digit)
  * - "my-var" -> 0 (contains hyphen)
  */
-int isValidVariable(char *val) {
+int isValidVariable(const char *val) {
     if (val == NULL || (!isalpha(val[0]) && val[0] != '_')) {
         return 0;
     }
@@ -170,7 +170,7 @@ int isValidVariable(char *val) {
  * - "3.14" -> 0 (contains decimal)
  * - "abc" -> 0 (non-numeric)
  */
-int isIntLit(char *val) {
+int isIntLit(const char *val) {
     if (val == NULL) return 0;
     int start = (val[0] == '-') ? 1 : 0;
     if (val[start] == '\0') return 0;
@@ -194,7 +194,7 @@ int isIntLit(char *val) {
  * - "hello" -> 0 (missing quotes)
  * - "\"unclosed -> 0 (missing closing quote)
  */
-int isValidStringLit(char *val) {
+int isValidStringLit(const char *val) {
     if (val == NULL) return 0;
     size_t len = strlen(val);
     return (len >= 2 && val[0] == '"' && val[len - 1] == '"');

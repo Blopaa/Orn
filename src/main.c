@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "errorHandling/errorHandling.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 
