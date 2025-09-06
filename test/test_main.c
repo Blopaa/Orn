@@ -1,4 +1,3 @@
-// test/test_main.c
 #include "unity.h"
 #include "lexer.h"
 #include "parser.h"
@@ -21,7 +20,6 @@ void test_basic_int_declaration(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -34,7 +32,6 @@ void test_basic_string_declaration(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -47,7 +44,6 @@ void test_basic_float_declaration(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -60,7 +56,6 @@ void test_basic_bool_true_declaration(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -73,7 +68,6 @@ void test_basic_bool_false_declaration(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -86,7 +80,6 @@ void test_variable_reassignment(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -133,7 +126,6 @@ void test_simple_addition(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -146,7 +138,6 @@ void test_simple_subtraction(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -159,7 +150,6 @@ void test_simple_multiplication(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -172,7 +162,6 @@ void test_simple_division(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -185,7 +174,6 @@ void test_modulo_operation(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -200,7 +188,6 @@ void test_precedence_multiply_first(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -213,7 +200,6 @@ void test_multiple_multiplications(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -226,7 +212,6 @@ void test_left_associativity_subtraction(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -239,7 +224,6 @@ void test_division_associativity(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -252,7 +236,6 @@ void test_complex_precedence(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -267,7 +250,6 @@ void test_basic_negative_int(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -280,7 +262,6 @@ void test_basic_negative_float(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -293,7 +274,6 @@ void test_negative_in_expression(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -326,7 +306,6 @@ void test_prefix_increment(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -339,7 +318,6 @@ void test_prefix_decrement(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -352,7 +330,6 @@ void test_postfix_increment(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -365,7 +342,6 @@ void test_postfix_decrement(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -392,7 +368,6 @@ void test_compound_add_assign(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -405,7 +380,6 @@ void test_compound_sub_assign(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -418,7 +392,6 @@ void test_compound_mult_assign(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -431,7 +404,6 @@ void test_compound_div_assign(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -446,7 +418,6 @@ void test_zero_assignment(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -459,7 +430,6 @@ void test_float_without_leading_zero(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -472,7 +442,6 @@ void test_empty_string(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -485,7 +454,6 @@ void test_string_with_spaces(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -517,7 +485,7 @@ void test_empty_input(void) {
 }
 
 void test_only_whitespace(void) {
-    Input res = splitter("   \n  \t  ");
+    Input res = splitter("    \n  \t  ");
     TEST_ASSERT_EQUAL_INT(0, res->n);
     freeInput(res);
 }
@@ -544,7 +512,6 @@ void test_logical_and_operation(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -557,7 +524,6 @@ void test_logical_or_operation(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -570,7 +536,6 @@ void test_logical_not_operation(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -583,7 +548,6 @@ void test_complex_logical_expression(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -596,7 +560,6 @@ void test_logical_precedence(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -611,7 +574,6 @@ void test_equal_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -624,7 +586,6 @@ void test_not_equal_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -637,7 +598,6 @@ void test_less_than_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -650,7 +610,6 @@ void test_greater_than_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -663,7 +622,6 @@ void test_less_equal_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -676,7 +634,6 @@ void test_greater_equal_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -689,7 +646,6 @@ void test_chained_comparisons(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -702,7 +658,6 @@ void test_comparison_with_arithmetic(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -717,7 +672,6 @@ void test_logical_and_precedence_over_or(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -730,7 +684,6 @@ void test_comparison_precedence_over_logical(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -743,7 +696,6 @@ void test_arithmetic_precedence_over_comparison(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -756,7 +708,6 @@ void test_unary_precedence_over_arithmetic(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -771,7 +722,6 @@ void test_float_with_leading_zero(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -784,25 +734,21 @@ void test_float_integer_part_only(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
 
-// ISSUE #42
-
 void test_negative_float_without_leading_zero(void) {
-     Input res = splitter("float value = -.5;");
-     Token tokens = tokenization(res);
-     ASTNode ast = ASTGenerator(tokens);
+   Input res = splitter("float value = -.5;");
+   Token tokens = tokenization(res);
+   ASTNode ast = ASTGenerator(tokens);
 
-     TEST_ASSERT_NOT_NULL(ast);
-     TEST_ASSERT_FALSE(hasErrors());
+   TEST_ASSERT_NOT_NULL(ast);
+   TEST_ASSERT_FALSE(hasErrors());
 
-     freeInput(res);
-     freeTokenList(tokens);
-     freeAST(ast);
- }
+   freeTokenList(tokens);
+   freeAST(ast);
+}
 
 // ========== ERROR HANDLING TESTS (MISSING) ==========
 
@@ -815,7 +761,6 @@ void test_invalid_float_multiple_decimals(void) {
     TEST_ASSERT_TRUE(hasErrors());
     TEST_ASSERT_EQUAL_INT(1, getErrorCount());
 
-    freeInput(res);
     freeTokenList(tokens);
     if (ast) freeAST(ast);
 }
@@ -828,7 +773,6 @@ void test_invalid_float_no_digits(void) {
 
     TEST_ASSERT_TRUE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     if (ast) freeAST(ast);
 }
@@ -841,7 +785,6 @@ void test_invalid_float_invalid_char(void) {
 
     TEST_ASSERT_TRUE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     if (ast) freeAST(ast);
 }
@@ -854,7 +797,6 @@ void test_invalid_string_missing_quote(void) {
 
     TEST_ASSERT_TRUE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     if (ast) freeAST(ast);
 }
@@ -867,7 +809,6 @@ void test_invalid_expression(void) {
 
     TEST_ASSERT_TRUE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     if (ast) freeAST(ast);
 }
@@ -882,7 +823,6 @@ void test_complex_mixed_operations(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -895,7 +835,6 @@ void test_multiple_logical_operators(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -908,7 +847,6 @@ void test_nested_increment_operations(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -921,7 +859,6 @@ void test_complex_compound_assignment(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -936,7 +873,6 @@ void test_multiple_statements(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -949,7 +885,6 @@ void test_long_variable_names(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -962,7 +897,6 @@ void test_underscore_variable_names(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -975,7 +909,6 @@ void test_numbers_with_multiple_digits(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -988,7 +921,6 @@ void test_very_long_string(void) {
     TEST_ASSERT_NOT_NULL(ast);
     TEST_ASSERT_FALSE(hasErrors());
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1022,7 +954,7 @@ void test_multiple_compound_assignments_token_count(void) {
 // ========== WHITESPACE AND FORMATTING TESTS (MISSING) ==========
 
 void test_extra_whitespace_handling(void) {
-    Input res = splitter("   int    x   =    5   ;   ");
+    Input res = splitter("    int     x   =    5   ;    ");
     TEST_ASSERT_EQUAL_INT(5, res->n);
     freeInput(res);
 }
@@ -1062,7 +994,6 @@ void test_empty_block(void) {
     // Block should have no children (empty)
     TEST_ASSERT_NULL(ast->children->children);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1083,7 +1014,6 @@ void test_block_with_single_statement(void) {
     TEST_ASSERT_NOT_NULL(ast->children->children);
     TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1118,7 +1048,6 @@ void test_block_with_multiple_statements(void) {
     // Should be no more statements
     TEST_ASSERT_NULL(stmt3->brothers);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1150,7 +1079,6 @@ void test_nested_blocks(void) {
     TEST_ASSERT_NOT_NULL(innerStmt);
     TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1181,7 +1109,6 @@ void test_block_with_assignments(void) {
     TEST_ASSERT_NOT_NULL(compoundMul);
     TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1208,7 +1135,6 @@ void test_block_with_expressions(void) {
     TEST_ASSERT_NOT_NULL(stmt2);
     TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1238,29 +1164,9 @@ void test_multiple_top_level_blocks(void) {
     TEST_ASSERT_NOT_NULL(block2->children);
     TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
-
-// ISSUE BUG CANT USE ++ -- OPERATORS WITHOUT ASSIGNMENT OR VARIABLE DECLARATION
-
-// void test_block_with_increment_decrement(void) {
-//     Input res = splitter("{ ++counter; value--; int result = ++x + y--; }");
-//     Token tokens = tokenization(res);
-//     ASTNode ast = ASTGenerator(tokens);
-//
-//     TEST_ASSERT_NOT_NULL(ast);
-//     TEST_ASSERT_FALSE(hasErrors());
-//
-//     ASTNode block = ast->children;
-//     TEST_ASSERT_NOT_NULL(block);
-//     TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
-//
-//     freeInput(res);
-//     freeTokenList(tokens);
-//     freeAST(ast);
-// }
 
 // ========== BLOCK TOKEN COUNT TESTS ==========
 
@@ -1305,7 +1211,6 @@ void test_deeply_nested_blocks(void) {
     TEST_ASSERT_NOT_NULL(level2);
     TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->NodeType);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1331,7 +1236,6 @@ void test_block_with_mixed_statements(void) {
     }
     TEST_ASSERT_EQUAL_INT(4, stmtCount);
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1359,7 +1263,6 @@ void test_empty_nested_blocks(void) {
     TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->NodeType);
     TEST_ASSERT_NULL(innerBlock2->children); // Should be empty
 
-    freeInput(res);
     freeTokenList(tokens);
     freeAST(ast);
 }
@@ -1434,8 +1337,8 @@ int main(void) {
     RUN_TEST(test_only_whitespace);
     RUN_TEST(test_code_with_inline_comment);
     RUN_TEST(test_comment_then_code);
-    printf("\n=== LOGICAL OPERATORS TESTS ===\n");
 
+    printf("\n=== LOGICAL OPERATORS TESTS ===\n");
     RUN_TEST(test_logical_and_operation);
     RUN_TEST(test_logical_or_operation);
     RUN_TEST(test_logical_not_operation);
@@ -1503,7 +1406,6 @@ int main(void) {
     RUN_TEST(test_block_with_assignments);
     RUN_TEST(test_block_with_expressions);
     RUN_TEST(test_multiple_top_level_blocks);
-    // RUN_TEST(test_block_with_increment_decrement);
 
     printf("\n=== BLOCK TOKEN COUNT TESTS ===\n");
     RUN_TEST(test_empty_block_token_count);
