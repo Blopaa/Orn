@@ -230,7 +230,9 @@ ASTNode createValNode(Token current_token, NodeTypes fatherType);
 const OperatorInfo *getOperatorInfo(TokenType type);
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
+
 void printAST(ASTNode node, int depth);
+
 void freeAST(ASTNode node);
 
 #endif //PARSER_H
