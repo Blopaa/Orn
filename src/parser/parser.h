@@ -105,7 +105,6 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {LESS_EQUAL_OP, "LESS_EQUAL_OP"},
     {GREATER_EQUAL_OP, "GREATER_EQUAL_OP"},
     {BLOCK_STATEMENT, "BLOCK_STATEMENT"},
-    {null_NODE, "PROGRAM_ROOT"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 

@@ -1,3 +1,20 @@
+/**
+* @file parserHelpers.c
+ * @brief Helper functions and utilities for the parser module.
+ *
+ * Contains validation functions, AST node creation utilities, and lookup
+ * functions that support the main parser implementation. These functions
+ * provide:
+ * - Token type to AST node type conversion
+ * - Literal value validation and classification
+ * - AST node construction and initialization
+ * - Operator precedence lookup for Pratt parser
+ * - Node type name mapping for debugging output
+ *
+ * This module isolates commonly used utility functions to improve
+ * code organization and maintainability.
+ */
+
 #include "parser.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -25,7 +42,19 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
-
+/**
+ * @brief Converts AST node type to human-readable string for debugging.
+ *
+ * Looks up the node type in the nodeTypeMapping table to find the
+ * corresponding display name. Used primarily for AST visualization
+ * and debugging output to provide meaningful node type names.
+ *
+ * @param nodeType AST node type to convert
+ * @return Human-readable string representation of the node type
+ *
+ * @note Returns "UNKNOWN" for unrecognized node types. The nodeTypeMapping
+ *       table should be kept in sync with the NodeTypes enumeration.
+ */
 const char *getNodeTypeName(NodeTypes nodeType) {
     for (int i = 0; nodeTypeMapping[i].displayName != NULL; i++) {
         if (nodeTypeMapping[i].nodeType == nodeType) {
