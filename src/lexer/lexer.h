@@ -5,7 +5,9 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#define COMMENT "//"
+#include <stddef.h>
+
+// --- Defines ---
 #define ASSIGNEMENT "="
 #define PUNCTUATION ";"
 #define INT_DEFINITION "int"
@@ -37,89 +39,43 @@
 #define GREATER_EQUAL_OPERATOR ">="
 #define RIGHT_BRACE "}"
 #define LEFT_BRACE "{"
-#include <stddef.h>
+#define LEFT_PAREN "("
+#define RIGHT_PAREN ")"
+#define COMMA ","
 
-
-// ammount of types of tokens there can be
+// --- Enums ---
 typedef enum {
-    TokenAssignement, // =
-    TokenLiteral,
-    TokenIntDefinition, // int
-    TokenStringDefinition, // string
-    TokenFloatDefinition, // float
-    TokenBoolDefinition, // bool
-    TokenPunctuation, // ;
-    TokenQuotes, // "
-    TokenTrue, // true
-    TokenFalse, // false
-    TokenSum, // +
-    TokenSub, // -
-    TokenMult, // *
-    TokenDiv, // /
-    TokenMod, // %
-    TokenIncrement, // ++
-    TokenDecrement, // --
-    TokenAnd, // &&
-    TokenOr, // ||
-    TokenNot, // !
-    TokenString,
-    TokenPlusAssign, // +=
-    TokenSubAssign, // -=
-    TokenMultAssign, // *=
-    TokenDivAssign, // /=
-    TokenEqual, // ==
-    TokenNotEqual, // !=
-    TokenLess, // <
-    TokenGreater, // >
-    TokenLessEqual, // <=
-    TokenGreaterEqual, // >=
-    TokenLeftBrace, // {
-    TokenRightBrace, // }
-
-    TokenNULL
+    TokenAssignement, TokenLiteral, TokenIntDefinition, TokenStringDefinition,
+    TokenFloatDefinition, TokenBoolDefinition, TokenPunctuation, TokenQuotes,
+    TokenTrue, TokenFalse, TokenSum, TokenSub, TokenMult, TokenDiv, TokenMod,
+    TokenIncrement, TokenDecrement, TokenAnd, TokenOr, TokenNot, TokenString,
+    TokenPlusAssign, TokenSubAssign, TokenMultAssign, TokenDivAssign,
+    TokenEqual, TokenNotEqual, TokenLess, TokenGreater, TokenLessEqual,
+    TokenGreaterEqual, TokenLeftBrace, TokenRightBrace, 
+    TokenLeftParen, TokenRightParen, TokenComma, TokenNULL
 } TokenType;
 
-
-// Mapping type to quick find types by key
 typedef struct {
     char *value;
     TokenType type;
 } TokenMap;
 
-
-// reserved chars
-static const char *SpecialCharMap[] = {
-    PUNCTUATION,
-    ASSIGNEMENT,
-    SUM_OPERATOR,
-    SUB_OPERATOR,
-    MULTIPLY_OPERATOR,
-    DIVIDE_OPERATOR,
-    MODULUS_OPERATOR,
-    LOGICAL_NOT,
-    LESS_THAN_OPERATOR,
-    GREATER_THAN_OPERATOR,
-    LEFT_BRACE,
-    RIGHT_BRACE,
-    NULL
-};
-
-// Map by key to quick find types
+// --- Mapping Array ---
 static const TokenMap tokenMapping[] = {
     {INT_DEFINITION, TokenIntDefinition},
     {STRING_DEFINITION, TokenStringDefinition},
     {FLOAT_DEFINITION, TokenFloatDefinition},
     {BOOL_DEFINITION, TokenBoolDefinition},
+    {TRUE_STATEMENT, TokenTrue},
+    {FALSE_STATEMENT, TokenFalse},
     {ASSIGNEMENT, TokenAssignement},
     {PUNCTUATION, TokenPunctuation},
     {QUOTES, TokenQuotes},
-    {TRUE_STATEMENT, TokenTrue},
-    {FALSE_STATEMENT, TokenFalse},
     {SUM_OPERATOR, TokenSum},
     {SUB_OPERATOR, TokenSub},
     {MULTIPLY_OPERATOR, TokenMult},
-    {MODULUS_OPERATOR, TokenMod},
     {DIVIDE_OPERATOR, TokenDiv},
+    {MODULUS_OPERATOR, TokenMod},
     {PLUS_ASSIGN, TokenPlusAssign},
     {SUB_ASSIGN, TokenSubAssign},
     {MULTIPLY_ASSIGN, TokenMultAssign},
@@ -137,31 +93,41 @@ static const TokenMap tokenMapping[] = {
     {GREATER_EQUAL_OPERATOR, TokenGreaterEqual},
     {LEFT_BRACE, TokenLeftBrace},
     {RIGHT_BRACE, TokenRightBrace},
-    {NULL, TokenLiteral}
+    {LEFT_PAREN, TokenLeftParen},
+    {RIGHT_PAREN, TokenRightParen},
+    {COMMA, TokenComma},
+    {NULL, TokenLiteral} // This MUST be the last entry
 };
 
-// Input send by splitter, it is the splitted content and its legth
+// --- Intermediate Structs ---
+typedef struct {
+    char* value;
+    int line;
+    int column;
+} InputToken;
+
 struct Input {
-    char **input;
+    InputToken* tokens;
     int n;
+    int capacity;
 };
-
 typedef struct Input *Input;
 
+// --- Final Token Struct ---
 struct Token {
     TokenType type;
     char *value;
+    int line;
+    int column;
     struct Token *next;
 };
-
 typedef struct Token *Token;
 
+// --- Function Prototypes ---
 Input splitter(const char *input);
-
 Token tokenization(Input in);
-
+TokenType findTokenType(const char *val);
 void freeInput(Input in);
-
 void freeTokenList(Token token);
 
 #endif //LEXER_H
