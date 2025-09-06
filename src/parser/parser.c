@@ -181,7 +181,7 @@ ASTNode parseBlock(Token *current) {
         }
     }
     if (*current == NULL || (*current)->type != TokenRightBrace) {
-         repError(ERROR_INVALID_EXPRESSION, "Unmatched '{'");
+         repError(ERROR_INVALID_EXPRESSION, "Missing closing brace '}'");
          freeAST(block);
          return NULL;
     }
