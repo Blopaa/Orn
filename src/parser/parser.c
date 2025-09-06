@@ -141,7 +141,7 @@ ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec
         const OperatorInfo *opInfo = getOperatorInfo((*current)->type);
         if (opInfo == NULL || opInfo->precedence < minPrec) break;
 
-        int nextMinPrec = opInfo->isRightAssociative ? opInfo->precedence : opInfo->precedence + 1;
+        Precedence nextMinPrec = opInfo->isRightAssociative ? opInfo->precedence : opInfo->precedence + 1;
 
         Token opToken = *current;
         *current = (*current)->next;
@@ -203,7 +203,7 @@ ASTNode parseBlock(Token *current) {
         ASTNode statement = parseStatement(current);
         if (statement != NULL) {
             if (block->children == NULL) block->children = statement;
-            else lastChild->brothers = statement;
+            else if (lastChild != NULL) lastChild->brothers = statement;
             lastChild = statement;
         }
     }
@@ -338,7 +338,7 @@ ASTNode ASTGenerator(Token token) {
         if (currentStatement != NULL) { // Only add non-NULL statements
             if (programNode->children == NULL) {
                 programNode->children = currentStatement;
-            } else {
+            } else if (lastStatement != NULL) {
                 lastStatement->brothers = currentStatement;
             }
             

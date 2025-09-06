@@ -222,23 +222,15 @@ ASTNode createNode(Token token, NodeTypes type);
 const char *getNodeTypeName(NodeTypes nodeType);
 
 // --- VALIDATION FUNCTION DECLARATIONS ---
-int isFloatLit(char *val);
-
-int isValidVariable(char *val);
-
-int isIntLit(char *val);
-
-int isValidStringLit(char *val);
-
+int isFloatLit(const char *val);
+int isValidVariable(const char *val);
+int isIntLit(const char *val);
+int isValidStringLit(const char *val);
 ASTNode createValNode(Token current_token, NodeTypes fatherType);
-
 const OperatorInfo *getOperatorInfo(TokenType type);
-
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
-
 void printAST(ASTNode node, int depth);
-
 void freeAST(ASTNode node);
 
 #endif //PARSER_H
