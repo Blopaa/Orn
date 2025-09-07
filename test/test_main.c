@@ -1862,7 +1862,7 @@ int main(void) {
     printf("\n=== NESTING ===\n");
     RUN_TEST(test_nested_conditionals);
     RUN_TEST(test_nested_in_blocks);
-    RUN_TEST(test_multiple_statements);
+    RUN_TEST(test_multiple_conditional_statements);
 
     printf("\n=== TYPES ===\n");
     RUN_TEST(test_string_conditionals);
