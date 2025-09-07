@@ -13,44 +13,6 @@
 
 #include <stddef.h>
 
-// --- Defines ---
-#define ASSIGNEMENT "="
-#define PUNCTUATION ";"
-#define INT_DEFINITION "int"
-#define STRING_DEFINITION "string"
-#define FLOAT_DEFINITION "float"
-#define BOOL_DEFINITION "bool"
-#define TRUE_STATEMENT "true"
-#define FALSE_STATEMENT "false"
-#define QUOTES "\""
-#define SUM_OPERATOR "+"
-#define SUB_OPERATOR "-"
-#define MULTIPLY_OPERATOR "*"
-#define DIVIDE_OPERATOR "/"
-#define COLON ":"
-#define QUESTION_MARK "?"
-#define MODULUS_OPERATOR "%"
-#define PLUS_ASSIGN "+="
-#define SUB_ASSIGN "-="
-#define MULTIPLY_ASSIGN "*="
-#define DIVIDE_ASSIGN "/="
-#define INCREMENT_OPERATOR "++"
-#define DECREMENT_OPERATOR "--"
-#define LOGICAL_AND "&&"
-#define LOGICAL_OR "||"
-#define LOGICAL_NOT "!"
-#define EQUAL_OPERATOR "=="
-#define NOT_EQUAL_OPERATOR "!="
-#define LESS_THAN_OPERATOR "<"
-#define GREATER_THAN_OPERATOR ">"
-#define LESS_EQUAL_OPERATOR "<="
-#define GREATER_EQUAL_OPERATOR ">="
-#define RIGHT_BRACE "}"
-#define LEFT_BRACE "{"
-#define LEFT_PAREN "("
-#define RIGHT_PAREN ")"
-#define COMMA ","
-
 /**
  * @brief Enumeration of all possible token types in the language.
  *
@@ -64,6 +26,7 @@ typedef enum {
     TokenBoolDefinition,
     TokenPunctuation,
     TokenQuotes,
+    TokenWhileLoop,
     TokenTrue,
     TokenFalse,
     TokenSum,
@@ -118,42 +81,51 @@ typedef struct {
  * @note The array MUST be terminated with a {NULL, TokenLiteral} entry.
  */
 static const TokenMap tokenMapping[] = {
-    {INT_DEFINITION, TokenIntDefinition},
-    {STRING_DEFINITION, TokenStringDefinition},
-    {FLOAT_DEFINITION, TokenFloatDefinition},
-    {BOOL_DEFINITION, TokenBoolDefinition},
-    {TRUE_STATEMENT, TokenTrue},
-    {FALSE_STATEMENT, TokenFalse},
-    {ASSIGNEMENT, TokenAssignement},
-    {PUNCTUATION, TokenPunctuation},
-    {QUOTES, TokenQuotes},
-    {SUM_OPERATOR, TokenSum},
-    {SUB_OPERATOR, TokenSub},
-    {MULTIPLY_OPERATOR, TokenMult},
-    {DIVIDE_OPERATOR, TokenDiv},
-    {MODULUS_OPERATOR, TokenMod},
-    {PLUS_ASSIGN, TokenPlusAssign},
-    {SUB_ASSIGN, TokenSubAssign},
-    {MULTIPLY_ASSIGN, TokenMultAssign},
-    {DIVIDE_ASSIGN, TokenDivAssign},
-    {INCREMENT_OPERATOR, TokenIncrement},
-    {DECREMENT_OPERATOR, TokenDecrement},
-    {LOGICAL_AND, TokenAnd},
-    {LOGICAL_OR, TokenOr},
-    {LOGICAL_NOT, TokenNot},
-    {EQUAL_OPERATOR, TokenEqual},
-    {NOT_EQUAL_OPERATOR, TokenNotEqual},
-    {LESS_THAN_OPERATOR, TokenLess},
-    {GREATER_THAN_OPERATOR, TokenGreater},
-    {LESS_EQUAL_OPERATOR, TokenLessEqual},
-    {GREATER_EQUAL_OPERATOR, TokenGreaterEqual},
-    {LEFT_BRACE, TokenLeftBrace},
-    {RIGHT_BRACE, TokenRightBrace},
-    {LEFT_PAREN, TokenLeftParen},
-    {RIGHT_PAREN, TokenRightParen},
-    {COMMA, TokenComma},
-    {QUESTION_MARK, TokenQuestion},
-    {COLON, TokenColon},
+    // Keywords
+    {"int", TokenIntDefinition},
+    {"string", TokenStringDefinition},
+    {"float", TokenFloatDefinition},
+    {"bool", TokenBoolDefinition},
+    {"true", TokenTrue},
+    {"false", TokenFalse},
+    {"@", TokenWhileLoop},
+
+    // Multi-character operators (must come before single-char versions)
+    {"+=", TokenPlusAssign},
+    {"-=", TokenSubAssign},
+    {"*=", TokenMultAssign},
+    {"/=", TokenDivAssign},
+    {"++", TokenIncrement},
+    {"--", TokenDecrement},
+    {"&&", TokenAnd},
+    {"||", TokenOr},
+    {"==", TokenEqual},
+    {"!=", TokenNotEqual},
+    {"<=", TokenLessEqual},
+    {">=", TokenGreaterEqual},
+
+    // Single-character operators
+    {"=", TokenAssignement},
+    {"+", TokenSum},
+    {"-", TokenSub},
+    {"*", TokenMult},
+    {"/", TokenDiv},
+    {"%", TokenMod},
+    {"!", TokenNot},
+    {"<", TokenLess},
+    {">", TokenGreater},
+
+    // Delimiters
+    {";", TokenPunctuation},
+    {"\"", TokenQuotes},
+    {"{", TokenLeftBrace},
+    {"}", TokenRightBrace},
+    {"(", TokenLeftParen},
+    {")", TokenRightParen},
+    {",", TokenComma},
+    {"?", TokenQuestion},
+    {":", TokenColon},
+
     {NULL, TokenLiteral} // This MUST be the last entry
 };
 
@@ -202,13 +174,9 @@ typedef struct Token *Token;
 
 // --- Function Prototypes ---
 Input splitter(const char *input);
-
 Token tokenization(Input in);
-
 TokenType findTokenType(const char *val);
-
 void freeInput(Input in);
-
 void freeTokenList(Token token);
 
 #endif //LEXER_H

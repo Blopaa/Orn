@@ -1664,6 +1664,31 @@ void test_negative_numbers(void) {
     freeAST(ast);
 }
 
+// loops
+
+void test_basic_while_loop(void) {
+    Input res = splitter("@ x > 0 { x--; }");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode whileLoop = ast->children;
+    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->NodeType);
+
+    // Check condition
+    ASTNode condition = whileLoop->children;
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
+
+    // Check body
+    ASTNode body = condition->brothers;
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
 // ========== TOKEN COUNT TESTS ==========
 
 void test_classic_ternary_tokens(void) {
@@ -1880,6 +1905,9 @@ int main(void) {
     RUN_TEST(test_if_only_tokens);
     RUN_TEST(test_block_tokens);
     RUN_TEST(test_nested_tokens);
+
+    printf("\n=== LOOPS ===\n");
+    RUN_TEST(test_basic_while_loop);
 
     return UNITY_END();
 }
