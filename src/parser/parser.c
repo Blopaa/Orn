@@ -28,7 +28,6 @@
 ASTNode parseStatement(Token *current); // Forward declaration
 
 
-
 // --- PARSER IMPLEMENTATION ---
 /**
  * @brief Parses primary expressions (literals, identifiers, parentheses).
@@ -75,7 +74,7 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
  *
  * Grammar supported:
  * ```
- * UnaryExpr := ('!' | '++' | '--' | '-') UnaryExpr
+ * UnaryExpr := ('!' | '++' | '--' | '-' | '+') UnaryExpr
  *            | PrimaryExpr ('++' | '--')?
  * ```
  *
@@ -83,14 +82,15 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
  */
 ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (current == NULL || *current == NULL) return NULL;
-    if ((*current)->type == TokenSub || (*current)->type == TokenNot || 
-        (*current)->type == TokenIncrement || (*current)->type == TokenDecrement) {
+    if ((*current)->type == TokenSub || (*current)->type == TokenNot ||
+        (*current)->type == TokenIncrement || (*current)->type == TokenDecrement || (*current)->type == TokenSum) {
         Token opToken = *current;
         *current = (*current)->next;
         ASTNode operand = parseUnary(current, fatherType);
         if (operand == NULL) return NULL;
         NodeTypes opType;
-        if(opToken->type == TokenSub) opType = UNARY_MINUS_OP;
+        if (opToken->type == TokenSub) opType = UNARY_MINUS_OP;
+        else if (opToken->type == TokenSum) opType = UNARY_PLUS_OP;
         else if (opToken->type == TokenNot) opType = LOGIC_NOT;
         else if (opToken->type == TokenIncrement) opType = PRE_INCREMENT;
         else opType = PRE_DECREMENT;
@@ -99,7 +99,8 @@ ASTNode parseUnary(Token *current, NodeTypes fatherType) {
         return opNode;
     }
     ASTNode node = parsePrimaryExp(current, fatherType);
-    if (node != NULL && *current != NULL && ((*current)->type == TokenIncrement || (*current)->type == TokenDecrement)) {
+    if (node != NULL && *current != NULL && ((*current)->type == TokenIncrement || (*current)->type ==
+                                             TokenDecrement)) {
         Token opToken = *current;
         *current = (*current)->next;
         NodeTypes opType = (opToken->type == TokenIncrement) ? POST_INCREMENT : POST_DECREMENT;
@@ -208,9 +209,9 @@ ASTNode parseBlock(Token *current) {
         }
     }
     if (*current == NULL || (*current)->type != TokenRightBrace) {
-         repError(ERROR_INVALID_EXPRESSION, "Missing closing brace '}'");
-         freeAST(block);
-         return NULL;
+        repError(ERROR_INVALID_EXPRESSION, "Missing closing brace '}'");
+        freeAST(block);
+        return NULL;
     }
     *current = (*current)->next;
     return block;
@@ -263,7 +264,7 @@ ASTNode parseStatement(Token *current) {
         if (*current != NULL && (*current)->type == TokenAssignement) {
             *current = (*current)->next;
             decNode->children = ExpParser(current, decType);
-            if(decNode->children == NULL) {
+            if (decNode->children == NULL) {
                 freeAST(decNode);
                 return NULL;
             }
@@ -287,7 +288,7 @@ ASTNode parseStatement(Token *current) {
     }
 
     ASTNode expressionNode = ExpParser(current, null_NODE);
-    if(expressionNode) {
+    if (expressionNode) {
         if (*current != NULL && (*current)->type == TokenPunctuation) {
             *current = (*current)->next;
         } else {
@@ -298,7 +299,7 @@ ASTNode parseStatement(Token *current) {
         }
         return expressionNode;
     }
-    
+
     // If we reach here, we couldn't parse anything valid
     if (*current != NULL) {
         // Skip the problematic token to avoid infinite loops
@@ -330,18 +331,19 @@ ASTNode parseStatement(Token *current) {
  */
 ASTNode ASTGenerator(Token token) {
     if (token == NULL) return NULL;
-    ASTNode programNode = createNode(NULL, PROGRAM); 
+    ASTNode programNode = createNode(NULL, PROGRAM);
     ASTNode lastStatement = NULL;
     Token current = token->next;
     while (current != NULL) {
         ASTNode currentStatement = parseStatement(&current);
-        if (currentStatement != NULL) { // Only add non-NULL statements
+        if (currentStatement != NULL) {
+            // Only add non-NULL statements
             if (programNode->children == NULL) {
                 programNode->children = currentStatement;
             } else if (lastStatement != NULL) {
                 lastStatement->brothers = currentStatement;
             }
-            
+
             ASTNode tail = currentStatement;
             while (tail != NULL && tail->brothers != NULL) tail = tail->brothers;
             lastStatement = tail;
@@ -415,7 +417,7 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
  *       Only prints trees rooted at PROGRAM or null_NODE types.
  */
 void printAST(ASTNode node, int depth) {
-    (void)depth; // depth is unused
+    (void) depth; // depth is unused
     if (node == NULL || (node->NodeType != PROGRAM && node->NodeType != null_NODE)) {
         printf("Empty or invalid AST.\n");
         return;

@@ -47,6 +47,7 @@ typedef enum {
     DIV_OP,
     MOD_OP,
     UNARY_MINUS_OP,
+    UNARY_PLUS_OP,
     PRE_INCREMENT,
     PRE_DECREMENT,
     POST_INCREMENT,
@@ -91,6 +92,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {DIV_OP, "DIV_OP"},
     {MOD_OP, "MOD_OP"},
     {UNARY_MINUS_OP, "UNARY_MINUS_OP"},
+    {UNARY_PLUS_OP, "UNARY_PLUS_OP"},
     {PRE_INCREMENT, "PRE_INCREMENT"},
     {PRE_DECREMENT, "PRE_DECREMENT"},
     {POST_INCREMENT, "POST_INCREMENT"},
@@ -223,11 +225,17 @@ const char *getNodeTypeName(NodeTypes nodeType);
 
 // --- VALIDATION FUNCTION DECLARATIONS ---
 int isFloatLit(const char *val);
+
 int isValidVariable(const char *val);
+
 int isIntLit(const char *val);
+
 int isValidStringLit(const char *val);
+
 ASTNode createValNode(Token current_token, NodeTypes fatherType);
+
 const OperatorInfo *getOperatorInfo(TokenType type);
+
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
 
