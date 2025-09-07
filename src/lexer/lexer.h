@@ -27,6 +27,8 @@
 #define SUB_OPERATOR "-"
 #define MULTIPLY_OPERATOR "*"
 #define DIVIDE_OPERATOR "/"
+#define COLON ":"
+#define QUESTION_MARK "?"
 #define MODULUS_OPERATOR "%"
 #define PLUS_ASSIGN "+="
 #define SUB_ASSIGN "-="
@@ -90,6 +92,8 @@ typedef enum {
     TokenLeftParen,
     TokenRightParen,
     TokenComma,
+    TokenQuestion,
+    TokenColon,
     TokenNULL
 } TokenType;
 
@@ -148,6 +152,8 @@ static const TokenMap tokenMapping[] = {
     {LEFT_PAREN, TokenLeftParen},
     {RIGHT_PAREN, TokenRightParen},
     {COMMA, TokenComma},
+    {QUESTION_MARK, TokenQuestion},
+    {COLON, TokenColon},
     {NULL, TokenLiteral} // This MUST be the last entry
 };
 

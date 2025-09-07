@@ -41,6 +41,9 @@ typedef enum {
     ERROR_MISSING_QUOTE = 3004,
     ERROR_INVALID_EXPRESSION = 3005,
     ERROR_UNMATCHED_LEFT_BRACE = 3006,
+    ERROR_TERNARY_MISSING_TRUE_BRANCH = 3007,
+    ERROR_TERNARY_MISSING_FALSE_BRANCH = 3008,
+    ERROR_TERNARY_INVALID_CONDITION = 3009,
 } ErrorCode;
 
 /**
@@ -107,19 +110,30 @@ static const ErrorEntry errorList[] = {
     {ERROR_INVALID_FLOAT_NO_DIGITS, ERROR, "Float literal must contain at least one digit"},
     {ERROR_INVALID_EXPRESSION, ERROR, "Invalid expression or operator used as value"},
     {ERROR_MISSING_QUOTE, ERROR, "Invalid string expression"},
+    {ERROR_TERNARY_MISSING_TRUE_BRANCH, ERROR, "Expected expression or block after '?' in ternary"},
+    {ERROR_TERNARY_MISSING_FALSE_BRANCH, ERROR, "Expected expression or block after ':' in ternary"},
+    {ERROR_TERNARY_INVALID_CONDITION, ERROR, "Invalid condition in ternary expression"},
 
 
     {ERROR_OK, ERROR, "Unknown error"}
 };
 
 const ErrorEntry *getErrorEntry(ErrorCode code);
+
 void repError(ErrorCode code, const char *context);
+
 void printErrorSummary(void);
+
 int hasErrors(void);
+
 int hasFatalErrors(void);
+
 int getErrorCount(void);
+
 int getWarningCount(void);
+
 int getFatalCount(void);
+
 void resetErrorCount(void);
 
 #endif

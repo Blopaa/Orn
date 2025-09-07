@@ -26,7 +26,7 @@
 #include "../lexer/lexer.h"
 
 ASTNode parseStatement(Token *current); // Forward declaration
-
+ASTNode parseConditional(Token *current, ASTNode condition);
 
 // --- PARSER IMPLEMENTATION ---
 /**
@@ -139,6 +139,11 @@ ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec
     ASTNode left = parseUnary(current, fatherType);
     if (left == NULL) return NULL;
     while (*current != NULL) {
+        if ((*current)->type == TokenQuestion && PREC_TERNARY >= minPrec) {
+            left = parseConditional(current, left);
+            if (left == NULL) return NULL;
+            continue;
+        }
         const OperatorInfo *opInfo = getOperatorInfo((*current)->type);
         if (opInfo == NULL || opInfo->precedence < minPrec) break;
 
@@ -215,6 +220,100 @@ ASTNode parseBlock(Token *current) {
     }
     *current = (*current)->next;
     return block;
+}
+
+/**
+ * @brief Converts existing BLOCK_STATEMENT to BLOCK_EXPRESSION for ternary use.
+ *
+ * Reuses existing parseBlock() function and converts the node type
+ * to BLOCK_EXPRESSION for use in ternary operators.
+ *
+ * @param current Pointer to current token (advanced during parsing)
+ * @return BLOCK_EXPRESSION AST node or NULL on error
+ */
+ASTNode parseBlockExpression(Token *current) {
+    ASTNode block = parseBlock(current);
+    if (block == NULL) return NULL;
+
+    // Convert BLOCK_STATEMENT to BLOCK_EXPRESSION so later on it differences
+    // enhanced ternary from block statements
+    block->NodeType = BLOCK_EXPRESSION;
+    return block;
+}
+
+/**
+* @brief Parses conditional expressions with optional else clause (? syntax).
+*
+* Handles if-else constructs using ? syntax:
+* - condition ? action (if-only)
+* - condition ? action1 : action2 (if-else)
+* - condition ? { block } : { block } (with blocks)
+*/
+ASTNode parseConditional(Token *current, ASTNode condition) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenQuestion) return NULL;
+
+    Token questionToken = *current;
+    *current = (*current)->next; // skip ?
+    ASTNode trueBranch = NULL;
+    if (*current != NULL && (*current)->type == TokenLeftBrace) {
+        trueBranch = parseBlockExpression(current);
+    } else {
+        trueBranch = parseExpression(current, null_NODE, PREC_TERNARY + 1);
+    }
+
+    if (trueBranch == NULL) {
+        repError(ERROR_TERNARY_INVALID_CONDITION, NULL);
+        freeAST(condition);
+        return NULL;
+    };
+    ASTNode falseBranch = NULL;
+    if (*current != NULL && (*current)->type == TokenColon) {
+        *current = (*current)->next; //skip :
+        if (*current != NULL && (*current)->type == TokenLeftBrace) {
+            falseBranch = parseBlockExpression(current);
+        } else {
+            falseBranch = parseExpression(current, null_NODE, PREC_TERNARY);
+        }
+
+        if (falseBranch == NULL) {
+            repError(ERROR_TERNARY_MISSING_FALSE_BRANCH, NULL);
+            freeAST(condition);
+            freeAST(trueBranch);
+            return NULL;
+        }
+    }
+    ASTNode conditionalNode = createNode(questionToken, IF_CONDITIONAL);
+    if (conditionalNode == NULL) {
+        repError(ERROR_TERNARY_INVALID_CONDITION, "failed to create a conditional node");
+        freeAST(condition);
+        freeAST(trueBranch);
+        if (falseBranch) freeAST(falseBranch);
+        return NULL;
+    }
+    conditionalNode->children = condition;
+    ASTNode trueBranchWrap = createNode(NULL, IF_TRUE_BRANCH);
+    if (trueBranchWrap == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
+        freeAST(condition);
+        freeAST(trueBranch);
+        if (falseBranch)freeAST(falseBranch);
+        return NULL;
+    }
+    trueBranchWrap->children = trueBranch;
+    condition->brothers = trueBranchWrap;
+    if (falseBranch != NULL) {
+        ASTNode falseBranchWrap = createNode(NULL, ELSE_BRANCH);
+        if (falseBranchWrap == NULL) {
+            repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
+            freeAST(trueBranch);
+            freeAST(falseBranch);
+            return NULL;
+        }
+        falseBranchWrap->children = falseBranch;
+        trueBranchWrap->brothers = falseBranchWrap;
+    }
+
+    return conditionalNode;
 }
 
 /**

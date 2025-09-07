@@ -90,7 +90,7 @@ Input splitter(const char *input) {
         int token_len = 0;
 
         // Logic to determine token length
-        if (strchr("(){}[];,", input[i])) {
+        if (strchr("(){}[];,?:", input[i])) {
             token_len = 1;
         } else if (strchr("=!<>", input[i])) {
             if (input[i + 1] == '=') token_len = 2;

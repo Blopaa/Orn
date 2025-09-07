@@ -39,8 +39,8 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int a = +4; \nint b = -3;";
-    printf("Input: %s\n\n", input);
+    char *input = "int x = 2;\nstring text;\nx > 0 ? \n{text = \"true block\";}:\n{text = \"false block\";};";
+    printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
     printf("1. SPLITTING:\n");
