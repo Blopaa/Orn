@@ -61,7 +61,11 @@ typedef enum {
     GREATER_THAN_OP,
     LESS_EQUAL_OP,
     GREATER_EQUAL_OP,
-    BLOCK_STATEMENT
+    BLOCK_STATEMENT,
+    IF_CONDITIONAL,
+    IF_TRUE_BRANCH,
+    ELSE_BRANCH,
+    BLOCK_EXPRESSION,
 } NodeTypes;
 
 
@@ -107,6 +111,10 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {LESS_EQUAL_OP, "LESS_EQUAL_OP"},
     {GREATER_EQUAL_OP, "GREATER_EQUAL_OP"},
     {BLOCK_STATEMENT, "BLOCK_STATEMENT"},
+    {IF_CONDITIONAL, "IF_CONDITIONAL"},
+    {IF_TRUE_BRANCH, "IF_TRUE_BRANCH"},
+    {ELSE_BRANCH, "ELSE_BRANCH"},
+    {BLOCK_EXPRESSION, "BLOCK_EXPRESSION"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -159,6 +167,7 @@ static const TypeDefMap TypeDefs[] = {
 typedef enum {
     PREC_NONE,
     PREC_ASSIGN,
+    PREC_TERNARY,
     PREC_OR,
     PREC_AND,
     PREC_EQUALITY,
@@ -218,29 +227,20 @@ static const OperatorInfo operators[] = {
 
 // --- HELPER FUNCTION DECLARATIONS ---
 NodeTypes getDecType(TokenType type);
-
 ASTNode createNode(Token token, NodeTypes type);
-
 const char *getNodeTypeName(NodeTypes nodeType);
 
 // --- VALIDATION FUNCTION DECLARATIONS ---
 int isFloatLit(const char *val);
-
 int isValidVariable(const char *val);
-
 int isIntLit(const char *val);
-
 int isValidStringLit(const char *val);
-
 ASTNode createValNode(Token current_token, NodeTypes fatherType);
-
 const OperatorInfo *getOperatorInfo(TokenType type);
 
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
-
 void printAST(ASTNode node, int depth);
-
 void freeAST(ASTNode node);
 
 #endif //PARSER_H
