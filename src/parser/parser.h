@@ -66,6 +66,7 @@ typedef enum {
     IF_TRUE_BRANCH,
     ELSE_BRANCH,
     BLOCK_EXPRESSION,
+    LOOP_STATEMENT,
 } NodeTypes;
 
 
@@ -115,6 +116,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {IF_TRUE_BRANCH, "IF_TRUE_BRANCH"},
     {ELSE_BRANCH, "ELSE_BRANCH"},
     {BLOCK_EXPRESSION, "BLOCK_EXPRESSION"},
+    {LOOP_STATEMENT, "LOOP_STATEMENT"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 

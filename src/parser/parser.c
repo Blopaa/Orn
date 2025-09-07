@@ -82,8 +82,11 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
  */
 ASTNode parseUnary(Token *current, NodeTypes fatherType) {
     if (current == NULL || *current == NULL) return NULL;
-    if ((*current)->type == TokenSub || (*current)->type == TokenNot ||
-        (*current)->type == TokenIncrement || (*current)->type == TokenDecrement || (*current)->type == TokenSum) {
+    if ((*current)->type == TokenSub ||
+        (*current)->type == TokenNot ||
+        (*current)->type == TokenIncrement ||
+        (*current)->type == TokenDecrement ||
+        (*current)->type == TokenSum) {
         Token opToken = *current;
         *current = (*current)->next;
         ASTNode operand = parseUnary(current, fatherType);
@@ -317,6 +320,58 @@ ASTNode parseConditional(Token *current, ASTNode condition) {
 }
 
 /**
+* @brief Parses while loop statements using @ syntax.
+*
+* Handles while loop constructs:
+* - @ condition { statements } (basic while)
+* - @ complex_expr { body; } (any expression condition)
+*
+* Can be combined with declarations for for-like patterns:
+* int i = 0; @ i < 10; { i++; process(i); }
+*
+* @param current Pointer to current token (advanced during parsing)
+* @return LOOP_STATEMENT AST node or NULL on error
+*
+* @note Condition can be any expression. Body must be block statement.
+*/
+ASTNode parseLoop(Token* current) {
+    if (current == NULL || *current == NULL) return NULL;
+    Token loopToken = *current;
+    *current = (*current)->next;
+
+    ASTNode condition = parseExpression(current, null_NODE, PREC_NONE);
+    if (condition == NULL) {
+        return NULL;
+    }
+
+    if (*current == NULL || (*current)->type != TokenLeftBrace) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected '{' after loop condition");
+        freeAST(condition);
+        return NULL;
+    }
+
+    ASTNode loopBody = parseBlock(current);
+    if (loopBody == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Failed to parse loop body");
+        freeAST(condition);
+        return NULL;
+    }
+
+    ASTNode loopNode = createNode(loopToken, LOOP_STATEMENT);
+    if (loopNode == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
+        freeAST(condition);
+        freeAST(loopBody);
+        return NULL;
+    }
+
+    loopNode->children = condition;
+    condition->brothers = loopBody;
+
+    return loopNode;
+}
+
+/**
  * @brief Parses individual statements (declarations, assignments, expressions).
  *
  * Main statement parsing function that handles:
@@ -347,6 +402,10 @@ ASTNode parseConditional(Token *current, ASTNode condition) {
 ASTNode parseStatement(Token *current) {
     if (current == NULL || *current == NULL) return NULL;
 
+    if ((*current)->type == TokenWhileLoop) {
+        return parseLoop(current);
+    }
+
     if ((*current)->type == TokenLeftBrace) {
         return parseBlock(current);
     }
@@ -371,7 +430,6 @@ ASTNode parseStatement(Token *current) {
         if (*current != NULL && (*current)->type == TokenPunctuation) {
             *current = (*current)->next;
         } else {
-            // FIXED: Don't pass the error message as the invalid expression
             repError(ERROR_INVALID_EXPRESSION, (*current != NULL) ? (*current)->value : "EOF");
             freeAST(decNode);
             return NULL;
@@ -391,7 +449,6 @@ ASTNode parseStatement(Token *current) {
         if (*current != NULL && (*current)->type == TokenPunctuation) {
             *current = (*current)->next;
         } else {
-            // FIXED: Don't pass the error message as the invalid expression
             repError(ERROR_INVALID_EXPRESSION, (*current != NULL) ? (*current)->value : "EOF");
             freeAST(expressionNode);
             return NULL;

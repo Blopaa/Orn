@@ -1,6 +1,6 @@
 # Compiler
 
-A **strong-typed, low-level programming language** with **light syntax** designed for performance and expressiveness. Features enhanced ternary operators that replace traditional if/else statements for cleaner, more concise code.
+A **strong-typed, low-level programming language** with **light syntax** designed for performance and expressiveness. Features enhanced ternary operators and symbol-based loops that replace traditional control flow statements for cleaner, more concise code.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Blopaa/Compiler)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -11,16 +11,16 @@ A **strong-typed, low-level programming language** with **light syntax** designe
 
 - 🎯 **Strong Type System**: Compile-time type checking for `int`, `float`, `string`, `bool`
 - 🔥 **Light Syntax**: Minimal keywords, enhanced ternary replaces if/else
+- 🔄 **Symbol-Based Loops**: `@ x > 0 { x--; }` for while loops, `int i=0; @ i<10; {i++;}` for-like patterns
 - ⚡ **Low-Level Control**: Direct data manipulation without abstraction overhead
 - 🎛️ **Enhanced Ternary**: `condition ? action` and `condition ? action : else`
 - 🔧 **Full Expressions**: Arithmetic, logical, comparison with proper precedence
 - 📦 **Block Statements**: Lightweight scoped code blocks
-- 🧪 **Professional Testing**: 47 Unity tests with full CI/CD integration
+- 🧪 **Professional Testing**: 47+ Unity tests with full CI/CD integration
 
-## 🌟 Enhanced Ternary Syntax
+## 🌟 Enhanced Control Flow Syntax
 
-**No if/else keywords** - Clean conditional syntax:
-
+### Enhanced Ternary (No if/else keywords)
 ```c
 // Traditional if/else:             // Enhanced ternary:
 if (condition) {                    condition ? {
@@ -33,6 +33,23 @@ if (x > 0) {                        x > 0 ? {
 } else {                            } : {
     result = 0;                         result = 0;
 }                                   };
+```
+
+### Symbol-Based Loops (No while/for keywords)
+```c
+// Traditional while:               // Enhanced while:
+while (condition) {                 @ condition {
+    statements;                         statements;
+}                                   }
+
+// Traditional for:                 // Enhanced for pattern:
+for (int i = 0; i < 10; i++) {      int i = 0; @ i < 10; {
+    process(i);                         process(i);
+}                                       i++;
+                                    }
+
+// Inline example:
+@ x > 0 { x--; print(x); }          // While x > 0, decrement and print
 ```
 
 ## 🎯 Language Examples
@@ -88,6 +105,47 @@ score >= 90 ? {
 balance > 0 ? account += interest : account -= fee;
 ```
 
+### Symbol-Based Loops
+```c
+// Basic while loops
+@ x > 0 {
+    x--;
+    process(x);
+}
+
+@ !empty(queue) {
+    item = dequeue();
+    handle(item);
+}
+
+// For-like patterns (declaration + while)
+int i = 0; @ i < 10; {
+    print(i);
+    i++;
+}
+
+float x = 1.0; @ x < 100.0; {
+    result += x;
+    x *= 2;                       // Geometric progression
+}
+
+// Complex conditions
+@ balance > 0 && attempts < 5; {
+    transaction = process_payment();
+    balance -= transaction.amount;
+    attempts++;
+}
+
+// Nested loops
+int row = 0; @ row < height; {
+    int col = 0; @ col < width; {
+        matrix[row][col] = calculate(row, col);
+        col++;
+    }
+    row++;
+}
+```
+
 ### Block Statements
 ```c
 {
@@ -96,6 +154,28 @@ balance > 0 ? account += interest : account -= fee;
     result = temp;
 }
 // local_var and temp out of scope here
+```
+
+### Mixed Control Flow
+```c
+// Combining loops and conditionals
+int count = 0; @ count < 1000; {
+    count % 100 == 0 ? {
+        print("Milestone: " + count);
+        count > 500 ? break;      // Future: break statement
+    };
+    count++;
+}
+
+// Loop with conditional processing
+bool found = false;
+int i = 0; @ i < array_size && !found; {
+    array[i] == target ? {
+        found = true;
+        index = i;
+    };
+    i++;
+}
 ```
 
 ## 🚀 Quick Start
@@ -133,13 +213,14 @@ make
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐
 │   Source    │───▶│    Lexer     │───▶│   Parser    │
-│ "x > 0 ? y" │    │ (Tokenizer)  │    │  (AST Gen)  │
+│"@ x>0{x--;}"│    │ (Tokenizer)  │    │  (AST Gen)  │
 └─────────────┘    └──────────────┘    └─────────────┘
                           │                   │
                           ▼                   ▼
                    ┌──────────────┐    ┌─────────────┐
                    │   Tokens     │    │  AST Tree   │
-                   │ [x,>,0,?,y]  │    └─────────────┘          
+                   │ [@,x,>,0,{,  │    └─────────────┘          
+                   │  x,--,;,}]   │    
                    └──────────────┘    
 ```
 
@@ -153,7 +234,7 @@ Compiler/
 │   └── errorHandling/         # Error management (errorHandling.c/h)
 ├── test/
 │   ├── unity/                 # Unity testing framework (submodule)
-│   └── test_main.c           # Complete test suite (47 tests)
+│   └── test_main.c           # Complete test suite (47+ tests)
 ├── build/                    # Build directory
 ├── CMakeLists.txt           # Build configuration
 └── README.md               # This file
@@ -164,10 +245,10 @@ Compiler/
 Professional Unity testing framework with comprehensive coverage:
 
 ```bash
-# Run all 47 tests
+# Run all tests
 ./test_runner
 
-# Expected output: 47 Tests 0 Failures 0 Ignored - OK
+# Expected output: XX Tests 0 Failures 0 Ignored - OK
 
 # Memory leak detection (Linux/macOS)
 valgrind --leak-check=full ./test_runner
@@ -178,6 +259,7 @@ valgrind --leak-check=full ./test_runner
 - ✅ Arithmetic operations with precedence
 - ✅ Enhanced ternary conditionals
 - ✅ Block statements and scoping
+- ✅ Symbol-based while loops
 - ✅ Logical and comparison operators
 - ✅ Increment/decrement operations
 - ✅ Compound assignments
@@ -188,9 +270,10 @@ valgrind --leak-check=full ./test_runner
 
 ```
 Program           → Statement*
-Statement         → VarDecl | Block | ExprStatement
+Statement         → VarDecl | Block | WhileLoop | ExprStatement
 VarDecl           → Type IDENTIFIER ('=' Expression)? ';'
 Block             → '{' Statement* '}'
+WhileLoop         → '@' Expression Block
 Expression        → EnhancedTernary
 EnhancedTernary   → LogicalOr ('?' (Expression | Block) (':' (Expression | Block))?)?
 LogicalOr         → LogicalAnd ('||' LogicalAnd)*
@@ -202,6 +285,14 @@ Factor            → Unary (('*'|'/'|'%') Unary)*
 Unary             → ('!'|'++'|'--'|'-') Unary | Primary ('++'|'--')?
 Primary           → NUMBER | STRING | BOOLEAN | IDENTIFIER | '(' Expression ')'
 ```
+
+### Control Flow Patterns
+| Pattern | Traditional | Enhanced | Example |
+|---------|-------------|----------|---------|
+| **If-only** | `if (cond) stmt` | `cond ? stmt` | `valid ? process();` |
+| **If-else** | `if (cond) s1 else s2` | `cond ? s1 : s2` | `x > 0 ? pos() : neg();` |
+| **While** | `while (cond) body` | `@ cond body` | `@ i < 10 { print(i); }` |
+| **For-like** | `for(init;cond;inc) body` | `init; @ cond; body` | `int i=0; @ i<10; {code; i++;}` |
 
 ### Operator Precedence (High to Low)
 1. **Postfix/Prefix**: `++`, `--`, `!`, unary `-`
