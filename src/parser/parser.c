@@ -258,7 +258,7 @@ ASTNode parseConditional(Token *current, ASTNode condition) {
     if (*current != NULL && (*current)->type == TokenLeftBrace) {
         trueBranch = parseBlockExpression(current);
     } else {
-        trueBranch = parseExpression(current, null_NODE, PREC_TERNARY + 1);
+        trueBranch = parseExpression(current, null_NODE, PREC_NONE);
     }
 
     if (trueBranch == NULL) {
@@ -272,7 +272,7 @@ ASTNode parseConditional(Token *current, ASTNode condition) {
         if (*current != NULL && (*current)->type == TokenLeftBrace) {
             falseBranch = parseBlockExpression(current);
         } else {
-            falseBranch = parseExpression(current, null_NODE, PREC_TERNARY);
+            falseBranch = parseExpression(current, null_NODE, PREC_NONE);
         }
 
         if (falseBranch == NULL) {

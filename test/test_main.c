@@ -1267,6 +1267,429 @@ void test_empty_nested_blocks(void) {
     freeAST(ast);
 }
 
+// ========== BASIC IF-CONDITIONAL TESTS ==========
+
+void test_classic_ternary_assignment(void) {
+    Input res = splitter("int result = x > 0 ? y + 1 : y - 1;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    ASTNode ifCond = varDef->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_if_only_with_assignment(void) {
+    Input res = splitter("authenticated ? x = 1;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+
+    // Should have true branch only
+    ASTNode trueBranch = ifCond->children->brothers;
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_NULL(trueBranch->brothers);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_if_only_with_block(void) {
+    Input res = splitter("condition ? { x = 5; y++; };");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+
+    ASTNode trueBranch = ifCond->children->brothers;
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_NULL(trueBranch->brothers);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_enhanced_ternary_with_blocks(void) {
+    Input res = splitter("x > 0 ? { result = x * 2; } : { result = 0; };");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+
+    ASTNode trueBranch = ifCond->children->brothers;
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+
+    ASTNode falseBranch = trueBranch->brothers;
+    TEST_ASSERT_EQUAL_INT(ELSE_BRANCH, falseBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== MIXED EXPRESSION TESTS ==========
+
+void test_mixed_block_and_expression(void) {
+    Input res = splitter("error ? { x = 0; y = -1; } : default_value;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+    ASTNode falseBranch = trueBranch->brothers;
+
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_mixed_expression_and_block(void) {
+    Input res = splitter("simple ? value : { result = x + y; count++; };");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+    ASTNode falseBranch = trueBranch->brothers;
+
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== PRECEDENCE TESTS ==========
+
+void test_right_associativity(void) {
+    Input res = splitter("a ? b : c ? d : e;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    // Should parse as: a ? b : (c ? d : e)
+    ASTNode outerIf = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+
+    ASTNode falseBranch = outerIf->children->brothers->brothers;
+    ASTNode innerIf = falseBranch->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, innerIf->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_precedence_with_arithmetic(void) {
+    Input res = splitter("int result = a + b > 0 ? x * 2 : y + 1;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    ASTNode ifCond = varDef->children;
+    ASTNode condition = ifCond->children;
+
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(ADD_OP, condition->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_precedence_with_logical(void) {
+    Input res = splitter("bool result = x > 0 && y < 10 ? true : false;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    ASTNode ifCond = varDef->children;
+    ASTNode condition = ifCond->children;
+
+    TEST_ASSERT_EQUAL_INT(LOGIC_AND, condition->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== COMPOUND OPERATIONS ==========
+
+void test_with_compound_assignments(void) {
+    Input res = splitter("score >= 90 ? grade += 10 : grade -= 5;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+    ASTNode falseBranch = trueBranch->brothers;
+
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_SUB_ASSIGN, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_with_increment_decrement(void) {
+    Input res = splitter("positive ? ++counter : --counter;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+    ASTNode falseBranch = trueBranch->brothers;
+
+    TEST_ASSERT_EQUAL_INT(PRE_INCREMENT, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(PRE_DECREMENT, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_with_postfix_operations(void) {
+    Input res = splitter("flag ? x++ : y--;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+    ASTNode falseBranch = trueBranch->brothers;
+
+    TEST_ASSERT_EQUAL_INT(POST_INCREMENT, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(POST_DECREMENT, falseBranch->children->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== NESTED TESTS ==========
+
+void test_nested_conditionals(void) {
+    Input res = splitter("a ? b ? c : d : e;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode outerIf = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_nested_in_blocks(void) {
+    Input res = splitter("admin ? { permission ? x = 1 : x = 0; } : x = -1;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_multiple_conditional_statements(void) {
+    Input res = splitter("condition1 ? x = 1; condition2 ? y = 2 : z = 3;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode firstIf = ast->children;
+    ASTNode secondIf = firstIf->brothers;
+
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, firstIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, secondIf->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== TYPE-SPECIFIC TESTS ==========
+
+void test_string_conditionals(void) {
+    Input res = splitter("string msg = logged_in ? \"Welcome\" : \"Please login\";");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, varDef->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_float_conditionals(void) {
+    Input res = splitter("float rate = premium ? 2.5 : 1.0;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    TEST_ASSERT_EQUAL_INT(FLOAT_VARIABLE_DEFINITION, varDef->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_bool_conditionals(void) {
+    Input res = splitter("bool active = count > 0 ? true : false;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode varDef = ast->children;
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, varDef->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== EDGE CASES ==========
+
+void test_empty_blocks(void) {
+    Input res = splitter("condition ? {} : {};");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_if_only_empty_block(void) {
+    Input res = splitter("condition ? {};");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode trueBranch = ifCond->children->brothers;
+
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_NULL(trueBranch->brothers);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_complex_boolean_condition(void) {
+    Input res = splitter("x > 0 && y <= 100 || !flag ? result = 1 : result = 0;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    ASTNode ifCond = ast->children;
+    ASTNode condition = ifCond->children;
+
+    TEST_ASSERT_EQUAL_INT(LOGIC_OR, condition->NodeType);
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+void test_negative_numbers(void) {
+    Input res = splitter("x < 0 ? result = -1 : result = -x;");
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+
+    TEST_ASSERT_NOT_NULL(ast);
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeTokenList(tokens);
+    freeAST(ast);
+}
+
+// ========== TOKEN COUNT TESTS ==========
+
+void test_classic_ternary_tokens(void) {
+    Input res = splitter("x > 0 ? y : z");
+    TEST_ASSERT_EQUAL_INT(7, res->n);
+    freeInput(res);
+}
+
+void test_if_only_tokens(void) {
+    Input res = splitter("condition ? x++");
+    TEST_ASSERT_EQUAL_INT(4, res->n);
+    freeInput(res);
+}
+
+void test_block_tokens(void) {
+    Input res = splitter("x ? { a = 1; } : { b = 2; }");
+    TEST_ASSERT_EQUAL_INT(15, res->n);
+    freeInput(res);
+}
+
+void test_nested_tokens(void) {
+    Input res = splitter("a ? b : c ? d : e");
+    TEST_ASSERT_EQUAL_INT(9, res->n);
+    freeInput(res);
+}
+
 // ========== MAIN TEST RUNNER ==========
 
 int main(void) {
@@ -1416,6 +1839,47 @@ int main(void) {
     RUN_TEST(test_deeply_nested_blocks);
     RUN_TEST(test_block_with_mixed_statements);
     RUN_TEST(test_empty_nested_blocks);
+    printf("\n=== IF-CONDITIONAL TESTS ===\n");
+    RUN_TEST(test_classic_ternary_assignment);
+    RUN_TEST(test_if_only_with_assignment);
+    RUN_TEST(test_if_only_with_block);
+    RUN_TEST(test_enhanced_ternary_with_blocks);
+
+    printf("\n=== MIXED EXPRESSIONS ===\n");
+    RUN_TEST(test_mixed_block_and_expression);
+    RUN_TEST(test_mixed_expression_and_block);
+
+    printf("\n=== PRECEDENCE ===\n");
+    RUN_TEST(test_right_associativity);
+    RUN_TEST(test_precedence_with_arithmetic);
+    RUN_TEST(test_precedence_with_logical);
+
+    printf("\n=== COMPOUND OPERATIONS ===\n");
+    RUN_TEST(test_with_compound_assignments);
+    RUN_TEST(test_with_increment_decrement);
+    RUN_TEST(test_with_postfix_operations);
+
+    printf("\n=== NESTING ===\n");
+    RUN_TEST(test_nested_conditionals);
+    RUN_TEST(test_nested_in_blocks);
+    RUN_TEST(test_multiple_statements);
+
+    printf("\n=== TYPES ===\n");
+    RUN_TEST(test_string_conditionals);
+    RUN_TEST(test_float_conditionals);
+    RUN_TEST(test_bool_conditionals);
+
+    printf("\n=== EDGE CASES ===\n");
+    RUN_TEST(test_empty_blocks);
+    RUN_TEST(test_if_only_empty_block);
+    RUN_TEST(test_complex_boolean_condition);
+    RUN_TEST(test_negative_numbers);
+
+    printf("\n=== TOKEN COUNTS ===\n");
+    RUN_TEST(test_classic_ternary_tokens);
+    RUN_TEST(test_if_only_tokens);
+    RUN_TEST(test_block_tokens);
+    RUN_TEST(test_nested_tokens);
 
     return UNITY_END();
 }
