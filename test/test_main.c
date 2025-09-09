@@ -989,7 +989,7 @@ void test_empty_block(void) {
 
     // Should have one child (the block)
     TEST_ASSERT_NOT_NULL(ast->children);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->nodeType);
 
     // Block should have no children (empty)
     TEST_ASSERT_NULL(ast->children->children);
@@ -1008,11 +1008,11 @@ void test_block_with_single_statement(void) {
 
     // Should have one child (the block)
     TEST_ASSERT_NOT_NULL(ast->children);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->nodeType);
 
     // Block should have one child (the statement)
     TEST_ASSERT_NOT_NULL(ast->children->children);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1028,22 +1028,22 @@ void test_block_with_multiple_statements(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check first statement
     ASTNode stmt1 = block->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Check second statement
     ASTNode stmt2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(stmt2);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, stmt2->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, stmt2->nodeType);
 
     // Check third statement
     ASTNode stmt3 = stmt2->brothers;
     TEST_ASSERT_NOT_NULL(stmt3);
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt3->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt3->nodeType);
 
     // Should be no more statements
     TEST_ASSERT_NULL(stmt3->brothers);
@@ -1062,22 +1062,22 @@ void test_nested_blocks(void) {
 
     ASTNode outerBlock = ast->children;
     TEST_ASSERT_NOT_NULL(outerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->nodeType);
 
     // First child should be the int declaration
     ASTNode stmt1 = outerBlock->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Second child should be the inner block
     ASTNode innerBlock = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(innerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock->nodeType);
 
     // Inner block should have one statement
     ASTNode innerStmt = innerBlock->children;
     TEST_ASSERT_NOT_NULL(innerStmt);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1093,21 +1093,21 @@ void test_block_with_assignments(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check assignment
     ASTNode assign = block->children;
     TEST_ASSERT_NOT_NULL(assign);
-    TEST_ASSERT_EQUAL_INT(ASSIGNMENT, assign->NodeType);
+    TEST_ASSERT_EQUAL_INT(ASSIGNMENT, assign->nodeType);
 
     // Check compound assignments
     ASTNode compoundAdd = assign->brothers;
     TEST_ASSERT_NOT_NULL(compoundAdd);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, compoundAdd->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, compoundAdd->nodeType);
 
     ASTNode compoundMul = compoundAdd->brothers;
     TEST_ASSERT_NOT_NULL(compoundMul);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1123,17 +1123,17 @@ void test_block_with_expressions(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check first statement with arithmetic expression
     ASTNode stmt1 = block->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Check second statement with comparison expression
     ASTNode stmt2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(stmt2);
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1150,19 +1150,19 @@ void test_multiple_top_level_blocks(void) {
     // Should have two top-level blocks
     ASTNode block1 = ast->children;
     TEST_ASSERT_NOT_NULL(block1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block1->nodeType);
 
     ASTNode block2 = block1->brothers;
     TEST_ASSERT_NOT_NULL(block2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block2->nodeType);
 
     // First block should have int declaration
     TEST_ASSERT_NOT_NULL(block1->children);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, block1->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, block1->children->nodeType);
 
     // Second block should have string declaration
     TEST_ASSERT_NOT_NULL(block2->children);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1201,15 +1201,15 @@ void test_deeply_nested_blocks(void) {
     // Navigate through the nested structure
     ASTNode level1 = ast->children;
     TEST_ASSERT_NOT_NULL(level1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level1->nodeType);
 
     ASTNode stmt1 = level1->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     ASTNode level2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(level2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1225,7 +1225,7 @@ void test_block_with_mixed_statements(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Should have 4 statements in the block
     ASTNode stmt = block->children;
@@ -1250,17 +1250,17 @@ void test_empty_nested_blocks(void) {
 
     ASTNode outerBlock = ast->children;
     TEST_ASSERT_NOT_NULL(outerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->nodeType);
 
     // Should have two empty inner blocks
     ASTNode innerBlock1 = outerBlock->children;
     TEST_ASSERT_NOT_NULL(innerBlock1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock1->nodeType);
     TEST_ASSERT_NULL(innerBlock1->children); // Should be empty
 
     ASTNode innerBlock2 = innerBlock1->brothers;
     TEST_ASSERT_NOT_NULL(innerBlock2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->nodeType);
     TEST_ASSERT_NULL(innerBlock2->children); // Should be empty
 
     freeTokenList(tokens);
@@ -1279,7 +1279,7 @@ void test_classic_ternary_assignment(void) {
 
     ASTNode varDef = ast->children;
     ASTNode ifCond = varDef->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1294,11 +1294,11 @@ void test_if_only_with_assignment(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     // Should have true branch only
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1314,11 +1314,11 @@ void test_if_only_with_block(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1334,15 +1334,15 @@ void test_enhanced_ternary_with_blocks(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
 
     ASTNode falseBranch = trueBranch->brothers;
-    TEST_ASSERT_EQUAL_INT(ELSE_BRANCH, falseBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(ELSE_BRANCH, falseBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1362,8 +1362,8 @@ void test_mixed_block_and_expression(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
-    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1381,8 +1381,8 @@ void test_mixed_expression_and_block(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1400,11 +1400,11 @@ void test_right_associativity(void) {
 
     // Should parse as: a ? b : (c ? d : e)
     ASTNode outerIf = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->nodeType);
 
     ASTNode falseBranch = outerIf->children->brothers->brothers;
     ASTNode innerIf = falseBranch->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, innerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, innerIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1422,8 +1422,8 @@ void test_precedence_with_arithmetic(void) {
     ASTNode ifCond = varDef->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
-    TEST_ASSERT_EQUAL_INT(ADD_OP, condition->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->nodeType);
+    TEST_ASSERT_EQUAL_INT(ADD_OP, condition->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1441,7 +1441,7 @@ void test_precedence_with_logical(void) {
     ASTNode ifCond = varDef->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(LOGIC_AND, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOGIC_AND, condition->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1461,8 +1461,8 @@ void test_with_compound_assignments(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_SUB_ASSIGN, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_SUB_ASSIGN, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1480,8 +1480,8 @@ void test_with_increment_decrement(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(PRE_INCREMENT, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(PRE_DECREMENT, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(PRE_INCREMENT, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(PRE_DECREMENT, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1499,8 +1499,8 @@ void test_with_postfix_operations(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(POST_INCREMENT, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(POST_DECREMENT, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(POST_INCREMENT, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(POST_DECREMENT, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1517,7 +1517,7 @@ void test_nested_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode outerIf = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1532,7 +1532,7 @@ void test_nested_in_blocks(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1549,8 +1549,8 @@ void test_multiple_conditional_statements(void) {
     ASTNode firstIf = ast->children;
     ASTNode secondIf = firstIf->brothers;
 
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, firstIf->NodeType);
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, secondIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, firstIf->nodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, secondIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1567,7 +1567,7 @@ void test_string_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1582,7 +1582,7 @@ void test_float_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(FLOAT_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(FLOAT_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1597,7 +1597,7 @@ void test_bool_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1628,7 +1628,7 @@ void test_if_only_empty_block(void) {
     ASTNode ifCond = ast->children;
     ASTNode trueBranch = ifCond->children->brothers;
 
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1646,7 +1646,7 @@ void test_complex_boolean_condition(void) {
     ASTNode ifCond = ast->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(LOGIC_OR, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOGIC_OR, condition->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1675,15 +1675,15 @@ void test_basic_while_loop(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode whileLoop = ast->children;
-    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->nodeType);
 
     // Check condition
     ASTNode condition = whileLoop->children;
-    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->nodeType);
 
     // Check body
     ASTNode body = condition->brothers;
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);

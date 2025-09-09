@@ -10,6 +10,10 @@ set(LIB_SOURCES
         src/parser/parser.c
         src/errorHandling/errorHandling.c
         src/parser/parserHelpers.c
+        src/semantic/typeChecker.c
+        src/semantic/typeChecker.h
+        src/semantic/symbolTable.c
+        src/semantic/symbolTable.h
 )
 
 # Create compiler library
@@ -19,6 +23,7 @@ target_include_directories(compiler_lib PUBLIC
         src/lexer
         src/parser
         src/errorHandling
+        src/semantic
 )
 
 # Main executable
@@ -44,6 +49,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/test/unity/src/unity.c")
             src/lexer
             src/parser
             src/errorHandling
+            src/semantic
     )
 
     enable_testing()

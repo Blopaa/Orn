@@ -15,10 +15,10 @@
  *
  * Error codes are organized in ranges:
  * - 1000s: Type mismatch errors
- * - 2000s: Variable errors (reserved for future use)
+ * - 2000s:  Variable/Symbol errors
  * - 3000s: Syntax errors
- * - 4000s: Logic errors (reserved for future use)
- * - 5000s: System errors (reserved for future use)
+ * - 4000s: Logic errors
+ * - 5000s: System errors
  */
 typedef enum {
     ERROR_OK = 0,
@@ -34,6 +34,13 @@ typedef enum {
     ERROR_TYPE_MISMATCH_BOOL_TO_STRING = 1009,
     ERROR_TYPE_MISMATCH_BOOL_TO_INT = 1010,
     ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT = 1011,
+
+    //2000 Variable/Symbol errors
+    ERROR_UNDEFINED_VARIABLE = 2001,
+    ERROR_VARIABLE_REDECLARED = 2002,
+    ERROR_VARIABLE_NOT_INITIALIZED = 2003,
+    ERROR_INVALID_VARIABLE_NAME = 2004,
+
     // 3000s syntax errors
     ERROR_INVALID_FLOAT_MULTIPLE_DECIMALS = 3001,
     ERROR_INVALID_FLOAT_INVALID_CHAR = 3002,
@@ -44,6 +51,18 @@ typedef enum {
     ERROR_TERNARY_MISSING_TRUE_BRANCH = 3007,
     ERROR_TERNARY_MISSING_FALSE_BRANCH = 3008,
     ERROR_TERNARY_INVALID_CONDITION = 3009,
+
+    // 4000s: Logic/Flow errors
+    ERROR_INVALID_ASSIGNMENT_TARGET = 4001,
+    ERROR_INVALID_OPERATION_FOR_TYPE = 4002,
+    ERROR_INCOMPATIBLE_OPERAND_TYPES = 4003,
+    ERROR_INVALID_UNARY_OPERAND = 4004,
+
+    // 5000s: System/Internal errors
+    ERROR_MEMORY_ALLOCATION_FAILED = 5001,
+    ERROR_SYMBOL_TABLE_CREATION_FAILED = 5002,
+    ERROR_CONTEXT_CREATION_FAILED = 5003,
+    ERROR_INTERNAL_PARSER_ERROR = 5004,
 } ErrorCode;
 
 /**
@@ -114,6 +133,23 @@ static const ErrorEntry errorList[] = {
     {ERROR_TERNARY_MISSING_FALSE_BRANCH, ERROR, "Expected expression or block after ':' in ternary"},
     {ERROR_TERNARY_INVALID_CONDITION, ERROR, "Invalid condition in ternary expression"},
 
+    // Variable errors
+    {ERROR_UNDEFINED_VARIABLE, ERROR, "Undefined variable"},
+    {ERROR_VARIABLE_REDECLARED, ERROR, "Variable already declared in current scope"},
+    {ERROR_VARIABLE_NOT_INITIALIZED, WARNING, "Variable used before initialization"},
+    {ERROR_INVALID_VARIABLE_NAME, ERROR, "Invalid variable name"},
+
+    // Logic errors
+    {ERROR_INVALID_ASSIGNMENT_TARGET, ERROR, "Invalid assignment target"},
+    {ERROR_INVALID_OPERATION_FOR_TYPE, ERROR, "Operation not valid for this type"},
+    {ERROR_INCOMPATIBLE_OPERAND_TYPES, ERROR, "Operand types are not compatible"},
+    {ERROR_INVALID_UNARY_OPERAND, ERROR, "Invalid operand for unary operation"},
+
+    // System errors
+    {ERROR_MEMORY_ALLOCATION_FAILED, FATAL, "Memory allocation failed"},
+    {ERROR_SYMBOL_TABLE_CREATION_FAILED, FATAL, "Failed to create symbol table"},
+    {ERROR_CONTEXT_CREATION_FAILED, FATAL, "Failed to create type checking context"},
+    {ERROR_INTERNAL_PARSER_ERROR, FATAL, "Internal parser error"},
 
     {ERROR_OK, ERROR, "Unknown error"}
 };

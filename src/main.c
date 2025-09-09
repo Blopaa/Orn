@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "errorHandling.h"
+#include "typeChecker.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 
@@ -17,6 +19,26 @@ void printTokens(Input in) {
         printf("  Split %d (L%d, C%d): '%s'\n", i, raw_token->line, raw_token->column, raw_token->value);
     }
     printf("Total raw tokens: %d\n", in->n);
+}
+
+void printCompilationStatus(int parseSuccess, int typeCheckSuccess) {
+    printf("=== COMPILATION STATUS ===\n");
+
+    if (parseSuccess && typeCheckSuccess) {
+        printf("✓ COMPILATION SUCCESSFUL\n");
+        printf("   - Parsing: PASSED\n");
+        printf("   - Type checking: PASSED\n");
+    } else if (parseSuccess && !typeCheckSuccess) {
+        printf("✗ COMPILATION FAILED\n");
+        printf("   - Parsing: PASSED\n");
+        printf("   - Type checking: FAILED\n");
+    } else {
+        printf("✗ COMPILATION FAILED\n");
+        printf("   - Parsing: FAILED\n");
+        printf("   - Type checking: SKIPPED\n");
+    }
+
+    printf("\n");
 }
 
 void printTokenList(Token t) {
@@ -39,7 +61,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int x = 1;";
+    char *input = "string x = 10;";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
@@ -56,8 +78,32 @@ int main() {
 
     printf("3. AST GENERATION:\n");
     ASTNode ast = ASTGenerator(t);
+    int parseSuccess = (ast != NULL && !hasErrors());
     printAST(ast, 0);
     printf("\n");
+
+    printf("4. TYPE CHECKING:\n");
+    int typeCheckSuccess = 0;
+
+    if (parseSuccess && ast != NULL) {
+        printf("   Running semantic analysis...\n");
+        typeCheckSuccess = typeCheckAST(ast);
+
+        if (typeCheckSuccess) {
+            printf("   ✅ Type checking PASSED\n");
+        } else {
+            printf("   ❌ Type checking FAILED\n");
+        }
+    } else {
+        printf("   ⚠️ Skipping type checking due to parse errors\n");
+    }
+    printf("\n");
+
+    printf("5. ERROR SUMMARY:\n");
+    printErrorSummary();
+    printf("\n");
+
+    printCompilationStatus(parseSuccess, typeCheckSuccess);
     
     // Free the final data structures.
     freeTokenList(t);
