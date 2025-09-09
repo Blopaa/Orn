@@ -1,23 +1,53 @@
 # Compiler
 
-A **strong-typed, low-level programming language** with **light syntax** designed for performance and expressiveness. Features enhanced ternary operators and symbol-based loops that replace traditional control flow statements for cleaner, more concise code.
+A **strong-typed, low-level programming language** with **light syntax** designed for performance and expressiveness. Features enhanced ternary operators, symbol-based loops, and a robust semantic **type checker** for compile-time safety.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Blopaa/Compiler)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_%28programming_language%29)
 [![Testing](https://img.shields.io/badge/testing-Unity-green.svg)](https://github.com/ThrowTheSwitch/Unity)
+
+---
 
 ## ✨ Core Features
 
-- 🎯 **Strong Type System**: Compile-time type checking for `int`, `float`, `string`, `bool`
-- 🔥 **Light Syntax**: Minimal keywords, enhanced ternary replaces if/else
-- 🔄 **Symbol-Based Loops**: `@ x > 0 { x--; }` for while loops, `int i=0; @ i<10; {i++;}` for-like patterns
-- ⚡ **Low-Level Control**: Direct data manipulation without abstraction overhead
-- 🎛️ **Enhanced Ternary**: `condition ? action` and `condition ? action : else`
-- 🔧 **Full Expressions**: Arithmetic, logical, comparison with proper precedence
-- 📦 **Block Statements**: Lightweight scoped code blocks
-- 🧪 **Professional Testing**: 47+ Unity tests with full CI/CD integration
+* 🎯 **Strong Type System**: Compile-time type checking for `int`, `float`, `string`, `bool`
+* 🔥 **Light Syntax**: Minimal keywords, enhanced ternary replaces if/else
+* 🔄 **Symbol-Based Loops**: `@ x > 0 { x--; }` replaces `while`
+* ⚡ **Low-Level Control**: Direct data manipulation without abstraction overhead
+* 🎛️ **Enhanced Ternary**: `condition ? action` and `condition ? action : else`
+* 🔧 **Full Expressions**: Arithmetic, logical, comparison with proper precedence
+* 📦 **Block Statements**: Lightweight scoped code blocks
+* 🧪 **Professional Testing**: 47+ Unity tests with full CI/CD integration
+* 🔎 **Semantic Analysis**: Symbol table & type checker ensure correctness and prevent runtime surprises
 
+---
+
+## 🌟 Semantic Analysis & Type Checking
+
+After parsing, the compiler performs **semantic validation** through a **type checker** (`src/semantic/typeChecker.c` + `src/semantic/symbolTable.c`).
+
+### Features
+
+* **Symbol Table Management**: Tracks variable declarations, types, scope depth, and initialization status.
+* **Scope Handling**: Global scope plus nested block scopes with shadowing support.
+* **Declaration Validation**: Prevents redeclaration in the same scope, enforces correct initializer types.
+* **Assignment Validation**: Ensures left-hand side is a variable, type-compatible, and initialized.
+* **Expression Validation**:
+
+    * Numeric-only arithmetic operators.
+    * Boolean-only logical operators.
+    * Type promotion (`int → float`).
+* **Error Handling**: Detailed error codes for type mismatches, uninitialized variables, and invalid expressions.
+
+### Example
+
+```c
+int x;            // Declared but not initialized
+x = 5;            // ✅ valid
+float y = x;      // ✅ int → float allowed
+bool b = x;       // ❌ type error: cannot assign int to bool
+```
 ## 🌟 Enhanced Control Flow Syntax
 
 ### Enhanced Ternary (No if/else keywords)
@@ -211,17 +241,18 @@ make
 ## 🗂️ Architecture
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐
-│   Source    │───▶│    Lexer     │───▶│   Parser    │
-│"@ x>0{x--;}"│    │ (Tokenizer)  │    │  (AST Gen)  │
-└─────────────┘    └──────────────┘    └─────────────┘
-                          │                   │
-                          ▼                   ▼
-                   ┌──────────────┐    ┌─────────────┐
-                   │   Tokens     │    │  AST Tree   │
-                   │ [@,x,>,0,{,  │    └─────────────┘          
-                   │  x,--,;,}]   │    
-                   └──────────────┘    
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌───────────────────┐
+│   Source    │───▶│    Lexer     │───▶│   Parser    │───▶│ Semantic Analyzer │
+│"@ x>0{x--;}"│    │ (Tokenizer)  │    │  (AST Gen)  │    │ (Type Checker)    │
+└─────────────┘    └──────────────┘    └─────────────┘    └───────────────────┘
+                          │                   │                       │
+                          ▼                   ▼                       ▼
+                   ┌──────────────┐    ┌─────────────┐        ┌──────────────┐
+                   │   Tokens     │    │  AST Tree   │        │ Checked AST  │
+                   │ [@,x,>,0,{,  │    └─────────────┘        └──────────────┘
+                   │  x,--,;,}]   │
+                   └──────────────┘
+
 ```
 
 ### Project Structure
@@ -229,15 +260,15 @@ make
 Compiler/
 ├── src/
 │   ├── main.c                 # Entry point and demo
-│   ├── lexer/                 # Tokenization (lexer.c/h)
-│   ├── parser/                # AST generation (parser.c/h, parserHelpers.c)
-│   └── errorHandling/         # Error management (errorHandling.c/h)
-├── test/
-│   ├── unity/                 # Unity testing framework (submodule)
-│   └── test_main.c           # Complete test suite (47+ tests)
-├── build/                    # Build directory
-├── CMakeLists.txt           # Build configuration
-└── README.md               # This file
+│   ├── lexer/                 # Tokenization
+│   ├── parser/                # AST generation
+│   ├── semantic/              # Symbol table + type checker
+│   └── errorHandling/         # Error reporting
+├── test/                      # Unity tests
+├── build/                     # Build directory
+├── CMakeLists.txt             # Build configuration
+└── README.md
+
 ```
 
 ## 🧪 Testing
