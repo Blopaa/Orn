@@ -14,7 +14,7 @@
  */
 Symbol createSymbol(const char *name, DataType type, int line, int column) {
     if (name == NULL) return NULL;
-    Symbol symbol = malloc(sizeof(Symbol));
+    Symbol symbol = malloc(sizeof(struct Symbol));
     if (symbol == NULL) return NULL;
     symbol->name = malloc(strlen(name) + 1);
     if (symbol->name == NULL) {
@@ -48,7 +48,7 @@ void freeSymbol(Symbol symbol) {
  * @return Newly created SymbolTable or NULL on allocation failure
  */
 SymbolTable createSymbolTable(SymbolTable parent) {
-    SymbolTable table = malloc(sizeof(SymbolTable));
+    SymbolTable table = malloc(sizeof(struct SymbolTable));
     if (table == NULL) return NULL;
     table->symbols = NULL;
     table->parent = parent;

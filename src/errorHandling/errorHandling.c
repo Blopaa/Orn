@@ -166,7 +166,7 @@ void printErrorSummary(void) {
  *       to indicate process exit status to the operating system.
  */
 int hasErrors(void) {
-    return (errorCount > 0 || fatalCount > 0);
+    return (errorCount > 0 || fatalCount > 0 || warningCount > 0);
 }
 
 /**

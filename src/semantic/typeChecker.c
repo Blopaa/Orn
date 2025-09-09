@@ -54,7 +54,7 @@ TypeCheckContext createTypeCheckContext() {
  */
 void freeTypeCheckContext(TypeCheckContext context) {
     if (context == NULL) return;
-    if (context->global != NULL) free(context->global);
+    if (context->global != NULL) freeSymbolTable(context->global);
     free(context);
 }
 
@@ -125,6 +125,7 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
         case LOGIC_AND:
         case LOGIC_OR:
             if (left == TYPE_BOOL && right == TYPE_BOOL) return TYPE_BOOL;
+            return TYPE_UNKNOWN;
         default: return TYPE_UNKNOWN;
     }
 }
@@ -157,7 +158,11 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             if (symbol == NULL) {
                 repError(ERROR_INVALID_EXPRESSION, node->value);
                 return TYPE_UNKNOWN;
-            };
+            }
+            if (!symbol->isInitialized) {
+                repError(ERROR_VARIABLE_NOT_INITIALIZED, node->value);
+                return TYPE_UNKNOWN;
+            }
             return symbol->type;
         }
         case UNARY_MINUS_OP:
@@ -363,6 +368,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
     if (rightType == TYPE_UNKNOWN) return 0;
     if (!areCompatible(symbol->type, rightType)) {
         repError(variableErrorCompatibleHandling(symbol->type, rightType), left->value);
+        return 0;
     }
 
     if (node->nodeType == ASSIGNMENT) {
