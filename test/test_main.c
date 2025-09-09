@@ -458,22 +458,54 @@ void test_string_with_spaces(void) {
     freeAST(ast);
 }
 
+// ========== MULTI-LINE COMMENT TESTS ==========
+
+void test_simple_multiline_comment(void) {
+    Input res = splitter(":| this is a comment |:");
+    TEST_ASSERT_EQUAL_INT(0, res->n);
+    freeInput(res);
+}
+
+void test_multiline_comment_with_newlines(void) {
+    Input res = splitter(":| this is a\nmulti-line\ncomment |:");
+    TEST_ASSERT_EQUAL_INT(0, res->n);
+    freeInput(res);
+}
+
+void test_multiline_comment_between_code(void) {
+    Input res = splitter("int x = 5; :| comment here |: int y = 10;");
+    TEST_ASSERT_EQUAL_INT(10, res->n); // int x = 5 ; int y = 10 ;
+    freeInput(res);
+}
+
+void test_multiline_comment_at_start(void) {
+    Input res = splitter(":| start comment |: int value = 42;");
+    TEST_ASSERT_EQUAL_INT(5, res->n); // int value = 42 ;
+    freeInput(res);
+}
+
+void test_multiline_comment_at_end(void) {
+    Input res = splitter("bool flag = true; :| end comment |:");
+    TEST_ASSERT_EQUAL_INT(5, res->n); // bool flag = true ;
+    freeInput(res);
+}
+
 // ========== COMMENT TESTS ==========
 
 void test_void_comment(void) {
-    Input res = splitter("// hello world");
+    Input res = splitter(":: hello world");
     TEST_ASSERT_EQUAL_INT(0, res->n);
     freeInput(res);
 }
 
 void test_comment_with_newline(void) {
-    Input res = splitter("// hello world \n");
+    Input res = splitter(":: hello world \n");
     TEST_ASSERT_EQUAL_INT(0, res->n);
     freeInput(res);
 }
 
 void test_multiple_comment_lines(void) {
-    Input res = splitter("// line 1\n// line 2");
+    Input res = splitter(":: line 1\n:: line 2");
     TEST_ASSERT_EQUAL_INT(0, res->n);
     freeInput(res);
 }
@@ -491,13 +523,13 @@ void test_only_whitespace(void) {
 }
 
 void test_code_with_inline_comment(void) {
-    Input res = splitter("int x = 5; // comment");
+    Input res = splitter("int x = 5; :: comment");
     TEST_ASSERT_EQUAL_INT(5, res->n);
     freeInput(res);
 }
 
 void test_comment_then_code(void) {
-    Input res = splitter("// comment\nint y = 10;");
+    Input res = splitter(":: comment\nint y = 10;");
     TEST_ASSERT_EQUAL_INT(5, res->n);
     freeInput(res);
 }
@@ -1675,15 +1707,15 @@ void test_basic_while_loop(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode whileLoop = ast->children;
-    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->nodeType);
+    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->NodeType);
 
     // Check condition
     ASTNode condition = whileLoop->children;
-    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->nodeType);
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
 
     // Check body
     ASTNode body = condition->brothers;
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->NodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1905,6 +1937,13 @@ int main(void) {
     RUN_TEST(test_if_only_tokens);
     RUN_TEST(test_block_tokens);
     RUN_TEST(test_nested_tokens);
+
+    printf("\n=== MULTI-LINE COMMENT TESTS ===\n");
+    RUN_TEST(test_simple_multiline_comment);
+    RUN_TEST(test_multiline_comment_with_newlines);
+    RUN_TEST(test_multiline_comment_between_code);
+    RUN_TEST(test_multiline_comment_at_start);
+    RUN_TEST(test_multiline_comment_at_end);
 
     printf("\n=== LOOPS ===\n");
     RUN_TEST(test_basic_while_loop);

@@ -78,8 +78,28 @@ Input splitter(const char *input) {
             continue;
         }
 
-        if (input[i] == '/' && input[i + 1] == '/') {
+        // Handle Single-line comments ::
+        if (input[i] == ':' && input[i + 1] == ':') {
             while (input[i] != '\n' && input[i] != '\0') {
+                i++;
+            }
+            continue;
+        }
+
+        // Handle multi-line comments :| ... |:
+        if (input[i] == ':' && input[i + 1] == '|') {
+            i += 2; // Skip :|
+
+            while (input[i] != '\0') {
+                if (input[i] == '|' && input[i + 1] == ':') {
+                    i += 2; // Skip |:
+                    break;
+                }
+
+                if (input[i] == '\n') {
+                    line++;
+                    start_of_line = i + 1;
+                }
                 i++;
             }
             continue;
