@@ -2,12 +2,22 @@
 #include "lexer.h"
 #include "parser.h"
 #include "errorHandling.h"
+#include "symbolTable.h"
+#include "typeChecker.h"
 
 void setUp(void) {
     resetErrorCount();
 }
 
 void tearDown(void) {
+}
+
+ASTNode createTestAST(const char *code) {
+    Input res = splitter(code);
+    Token tokens = tokenization(res);
+    ASTNode ast = ASTGenerator(tokens);
+    freeTokenList(tokens);
+    return ast;
 }
 
 // ========== BASIC DECLARATIONS TESTS ==========
@@ -1021,7 +1031,7 @@ void test_empty_block(void) {
 
     // Should have one child (the block)
     TEST_ASSERT_NOT_NULL(ast->children);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->nodeType);
 
     // Block should have no children (empty)
     TEST_ASSERT_NULL(ast->children->children);
@@ -1040,11 +1050,11 @@ void test_block_with_single_statement(void) {
 
     // Should have one child (the block)
     TEST_ASSERT_NOT_NULL(ast->children);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, ast->children->nodeType);
 
     // Block should have one child (the statement)
     TEST_ASSERT_NOT_NULL(ast->children->children);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, ast->children->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1060,22 +1070,22 @@ void test_block_with_multiple_statements(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check first statement
     ASTNode stmt1 = block->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Check second statement
     ASTNode stmt2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(stmt2);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, stmt2->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, stmt2->nodeType);
 
     // Check third statement
     ASTNode stmt3 = stmt2->brothers;
     TEST_ASSERT_NOT_NULL(stmt3);
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt3->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt3->nodeType);
 
     // Should be no more statements
     TEST_ASSERT_NULL(stmt3->brothers);
@@ -1094,22 +1104,22 @@ void test_nested_blocks(void) {
 
     ASTNode outerBlock = ast->children;
     TEST_ASSERT_NOT_NULL(outerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->nodeType);
 
     // First child should be the int declaration
     ASTNode stmt1 = outerBlock->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Second child should be the inner block
     ASTNode innerBlock = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(innerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock->nodeType);
 
     // Inner block should have one statement
     ASTNode innerStmt = innerBlock->children;
     TEST_ASSERT_NOT_NULL(innerStmt);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, innerStmt->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1125,21 +1135,21 @@ void test_block_with_assignments(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check assignment
     ASTNode assign = block->children;
     TEST_ASSERT_NOT_NULL(assign);
-    TEST_ASSERT_EQUAL_INT(ASSIGNMENT, assign->NodeType);
+    TEST_ASSERT_EQUAL_INT(ASSIGNMENT, assign->nodeType);
 
     // Check compound assignments
     ASTNode compoundAdd = assign->brothers;
     TEST_ASSERT_NOT_NULL(compoundAdd);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, compoundAdd->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, compoundAdd->nodeType);
 
     ASTNode compoundMul = compoundAdd->brothers;
     TEST_ASSERT_NOT_NULL(compoundMul);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_MUL_ASSIGN, compoundMul->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1155,17 +1165,17 @@ void test_block_with_expressions(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Check first statement with arithmetic expression
     ASTNode stmt1 = block->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     // Check second statement with comparison expression
     ASTNode stmt2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(stmt2);
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, stmt2->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1182,19 +1192,19 @@ void test_multiple_top_level_blocks(void) {
     // Should have two top-level blocks
     ASTNode block1 = ast->children;
     TEST_ASSERT_NOT_NULL(block1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block1->nodeType);
 
     ASTNode block2 = block1->brothers;
     TEST_ASSERT_NOT_NULL(block2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block2->nodeType);
 
     // First block should have int declaration
     TEST_ASSERT_NOT_NULL(block1->children);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, block1->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, block1->children->nodeType);
 
     // Second block should have string declaration
     TEST_ASSERT_NOT_NULL(block2->children);
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, block2->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1233,15 +1243,15 @@ void test_deeply_nested_blocks(void) {
     // Navigate through the nested structure
     ASTNode level1 = ast->children;
     TEST_ASSERT_NOT_NULL(level1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level1->nodeType);
 
     ASTNode stmt1 = level1->children;
     TEST_ASSERT_NOT_NULL(stmt1);
-    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->NodeType);
+    TEST_ASSERT_EQUAL_INT(INT_VARIABLE_DEFINITION, stmt1->nodeType);
 
     ASTNode level2 = stmt1->brothers;
     TEST_ASSERT_NOT_NULL(level2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, level2->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1257,7 +1267,7 @@ void test_block_with_mixed_statements(void) {
 
     ASTNode block = ast->children;
     TEST_ASSERT_NOT_NULL(block);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, block->nodeType);
 
     // Should have 4 statements in the block
     ASTNode stmt = block->children;
@@ -1282,17 +1292,17 @@ void test_empty_nested_blocks(void) {
 
     ASTNode outerBlock = ast->children;
     TEST_ASSERT_NOT_NULL(outerBlock);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, outerBlock->nodeType);
 
     // Should have two empty inner blocks
     ASTNode innerBlock1 = outerBlock->children;
     TEST_ASSERT_NOT_NULL(innerBlock1);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock1->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock1->nodeType);
     TEST_ASSERT_NULL(innerBlock1->children); // Should be empty
 
     ASTNode innerBlock2 = innerBlock1->brothers;
     TEST_ASSERT_NOT_NULL(innerBlock2);
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, innerBlock2->nodeType);
     TEST_ASSERT_NULL(innerBlock2->children); // Should be empty
 
     freeTokenList(tokens);
@@ -1311,7 +1321,7 @@ void test_classic_ternary_assignment(void) {
 
     ASTNode varDef = ast->children;
     ASTNode ifCond = varDef->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1326,11 +1336,11 @@ void test_if_only_with_assignment(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     // Should have true branch only
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1346,11 +1356,11 @@ void test_if_only_with_block(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1366,15 +1376,15 @@ void test_enhanced_ternary_with_blocks(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     ASTNode trueBranch = ifCond->children->brothers;
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
 
     ASTNode falseBranch = trueBranch->brothers;
-    TEST_ASSERT_EQUAL_INT(ELSE_BRANCH, falseBranch->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(ELSE_BRANCH, falseBranch->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1394,8 +1404,8 @@ void test_mixed_block_and_expression(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
-    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1413,8 +1423,8 @@ void test_mixed_expression_and_block(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->NodeType);
+    TEST_ASSERT_NOT_EQUAL_INT(BLOCK_EXPRESSION, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_EXPRESSION, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1432,11 +1442,11 @@ void test_right_associativity(void) {
 
     // Should parse as: a ? b : (c ? d : e)
     ASTNode outerIf = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->nodeType);
 
     ASTNode falseBranch = outerIf->children->brothers->brothers;
     ASTNode innerIf = falseBranch->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, innerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, innerIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1454,8 +1464,8 @@ void test_precedence_with_arithmetic(void) {
     ASTNode ifCond = varDef->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
-    TEST_ASSERT_EQUAL_INT(ADD_OP, condition->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->nodeType);
+    TEST_ASSERT_EQUAL_INT(ADD_OP, condition->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1473,7 +1483,7 @@ void test_precedence_with_logical(void) {
     ASTNode ifCond = varDef->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(LOGIC_AND, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOGIC_AND, condition->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1493,8 +1503,8 @@ void test_with_compound_assignments(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(COMPOUND_SUB_ASSIGN, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_ADD_ASSIGN, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(COMPOUND_SUB_ASSIGN, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1512,8 +1522,8 @@ void test_with_increment_decrement(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(PRE_INCREMENT, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(PRE_DECREMENT, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(PRE_INCREMENT, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(PRE_DECREMENT, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1531,8 +1541,8 @@ void test_with_postfix_operations(void) {
     ASTNode trueBranch = ifCond->children->brothers;
     ASTNode falseBranch = trueBranch->brothers;
 
-    TEST_ASSERT_EQUAL_INT(POST_INCREMENT, trueBranch->children->NodeType);
-    TEST_ASSERT_EQUAL_INT(POST_DECREMENT, falseBranch->children->NodeType);
+    TEST_ASSERT_EQUAL_INT(POST_INCREMENT, trueBranch->children->nodeType);
+    TEST_ASSERT_EQUAL_INT(POST_DECREMENT, falseBranch->children->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1549,7 +1559,7 @@ void test_nested_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode outerIf = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, outerIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1564,7 +1574,7 @@ void test_nested_in_blocks(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode ifCond = ast->children;
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, ifCond->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1581,8 +1591,8 @@ void test_multiple_conditional_statements(void) {
     ASTNode firstIf = ast->children;
     ASTNode secondIf = firstIf->brothers;
 
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, firstIf->NodeType);
-    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, secondIf->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, firstIf->nodeType);
+    TEST_ASSERT_EQUAL_INT(IF_CONDITIONAL, secondIf->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1599,7 +1609,7 @@ void test_string_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(STRING_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1614,7 +1624,7 @@ void test_float_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(FLOAT_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(FLOAT_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1629,7 +1639,7 @@ void test_bool_conditionals(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode varDef = ast->children;
-    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, varDef->NodeType);
+    TEST_ASSERT_EQUAL_INT(BOOL_VARIABLE_DEFINITION, varDef->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1660,7 +1670,7 @@ void test_if_only_empty_block(void) {
     ASTNode ifCond = ast->children;
     ASTNode trueBranch = ifCond->children->brothers;
 
-    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->NodeType);
+    TEST_ASSERT_EQUAL_INT(IF_TRUE_BRANCH, trueBranch->nodeType);
     TEST_ASSERT_NULL(trueBranch->brothers);
 
     freeTokenList(tokens);
@@ -1678,7 +1688,7 @@ void test_complex_boolean_condition(void) {
     ASTNode ifCond = ast->children;
     ASTNode condition = ifCond->children;
 
-    TEST_ASSERT_EQUAL_INT(LOGIC_OR, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOGIC_OR, condition->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1707,15 +1717,15 @@ void test_basic_while_loop(void) {
     TEST_ASSERT_FALSE(hasErrors());
 
     ASTNode whileLoop = ast->children;
-    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->NodeType);
+    TEST_ASSERT_EQUAL_INT(LOOP_STATEMENT, whileLoop->nodeType);
 
     // Check condition
     ASTNode condition = whileLoop->children;
-    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->NodeType);
+    TEST_ASSERT_EQUAL_INT(GREATER_THAN_OP, condition->nodeType);
 
     // Check body
     ASTNode body = condition->brothers;
-    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->NodeType);
+    TEST_ASSERT_EQUAL_INT(BLOCK_STATEMENT, body->nodeType);
 
     freeTokenList(tokens);
     freeAST(ast);
@@ -1745,6 +1755,472 @@ void test_nested_tokens(void) {
     Input res = splitter("a ? b : c ? d : e");
     TEST_ASSERT_EQUAL_INT(9, res->n);
     freeInput(res);
+}
+
+void test_create_symbol_table(void) {
+    SymbolTable table = createSymbolTable(NULL);
+
+    TEST_ASSERT_NOT_NULL(table);
+    TEST_ASSERT_NULL(table->symbols);
+    TEST_ASSERT_NULL(table->parent);
+    TEST_ASSERT_EQUAL_INT(0, table->scope);
+
+    freeSymbolTable(table);
+}
+
+void test_create_nested_symbol_table(void) {
+    SymbolTable parent = createSymbolTable(NULL);
+    SymbolTable child = createSymbolTable(parent);
+
+    TEST_ASSERT_NOT_NULL(child);
+    TEST_ASSERT_EQUAL_PTR(parent, child->parent);
+    TEST_ASSERT_EQUAL_INT(1, child->scope);
+
+    freeSymbolTable(child);
+    freeSymbolTable(parent);
+}
+
+void test_create_symbol(void) {
+    Symbol symbol = createSymbol("testVar", TYPE_INT, 1, 5);
+
+    TEST_ASSERT_NOT_NULL(symbol);
+    TEST_ASSERT_EQUAL_STRING("testVar", symbol->name);
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, symbol->type);
+    TEST_ASSERT_EQUAL_INT(1, symbol->line);
+    TEST_ASSERT_EQUAL_INT(5, symbol->column);
+    TEST_ASSERT_EQUAL_INT(0, symbol->isInitialized);
+    TEST_ASSERT_NULL(symbol->next);
+
+    freeSymbol(symbol);
+}
+
+void test_add_symbol_to_table(void) {
+    SymbolTable table = createSymbolTable(NULL);
+    Symbol symbol = addSymbol(table, "x", TYPE_INT, 1, 1);
+
+    TEST_ASSERT_NOT_NULL(symbol);
+    TEST_ASSERT_EQUAL_STRING("x", symbol->name);
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, symbol->type);
+    TEST_ASSERT_EQUAL_PTR(symbol, table->symbols);
+
+    freeSymbolTable(table);
+}
+
+void test_add_duplicate_symbol_same_scope(void) {
+    SymbolTable table = createSymbolTable(NULL);
+    Symbol first = addSymbol(table, "x", TYPE_INT, 1, 1);
+    Symbol second = addSymbol(table, "x", TYPE_FLOAT, 2, 1);
+
+    TEST_ASSERT_NOT_NULL(first);
+    TEST_ASSERT_NULL(second); // Should fail due to duplicate
+
+    freeSymbolTable(table);
+}
+
+void test_lookup_symbol_current_scope(void) {
+    SymbolTable table = createSymbolTable(NULL);
+    addSymbol(table, "x", TYPE_INT, 1, 1);
+    addSymbol(table, "y", TYPE_FLOAT, 2, 1);
+
+    Symbol found_x = lookUpSymbolCurrentOnly(table, "x");
+    Symbol found_y = lookUpSymbolCurrentOnly(table, "y");
+    Symbol not_found = lookUpSymbolCurrentOnly(table, "z");
+
+    TEST_ASSERT_NOT_NULL(found_x);
+    TEST_ASSERT_EQUAL_STRING("x", found_x->name);
+    TEST_ASSERT_NOT_NULL(found_y);
+    TEST_ASSERT_EQUAL_STRING("y", found_y->name);
+    TEST_ASSERT_NULL(not_found);
+
+    freeSymbolTable(table);
+}
+
+void test_lookup_symbol_with_parent_scope(void) {
+    SymbolTable parent = createSymbolTable(NULL);
+    SymbolTable child = createSymbolTable(parent);
+
+    addSymbol(parent, "global_var", TYPE_INT, 1, 1);
+    addSymbol(child, "local_var", TYPE_FLOAT, 2, 1);
+
+    Symbol global_from_child = lookupSymbol(child, "global_var");
+    Symbol local_from_child = lookupSymbol(child, "local_var");
+    Symbol not_found = lookupSymbol(child, "nonexistent");
+
+    TEST_ASSERT_NOT_NULL(global_from_child);
+    TEST_ASSERT_EQUAL_STRING("global_var", global_from_child->name);
+    TEST_ASSERT_NOT_NULL(local_from_child);
+    TEST_ASSERT_EQUAL_STRING("local_var", local_from_child->name);
+    TEST_ASSERT_NULL(not_found);
+
+    freeSymbolTable(child);
+    freeSymbolTable(parent);
+}
+
+void test_variable_shadowing(void) {
+    SymbolTable parent = createSymbolTable(NULL);
+    SymbolTable child = createSymbolTable(parent);
+
+    addSymbol(parent, "x", TYPE_INT, 1, 1);
+    addSymbol(child, "x", TYPE_FLOAT, 2, 1); // Shadow parent's x
+
+    Symbol found_in_child = lookupSymbol(child, "x");
+    Symbol found_in_parent = lookupSymbol(parent, "x");
+
+    TEST_ASSERT_NOT_NULL(found_in_child);
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, found_in_child->type);
+    TEST_ASSERT_NOT_NULL(found_in_parent);
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, found_in_parent->type);
+
+    freeSymbolTable(child);
+    freeSymbolTable(parent);
+}
+
+void test_get_data_type_from_node_test(void) {
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getDataTypeFromNode(INT_VARIABLE_DEFINITION));
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getDataTypeFromNode(INT_LIT));
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, getDataTypeFromNode(FLOAT_VARIABLE_DEFINITION));
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, getDataTypeFromNode(FLOAT_LIT));
+    TEST_ASSERT_EQUAL_INT(TYPE_STRING, getDataTypeFromNode(STRING_VARIABLE_DEFINITION));
+    TEST_ASSERT_EQUAL_INT(TYPE_STRING, getDataTypeFromNode(STRING_LIT));
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getDataTypeFromNode(BOOL_VARIABLE_DEFINITION));
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getDataTypeFromNode(BOOL_LIT));
+    TEST_ASSERT_EQUAL_INT(TYPE_UNKNOWN, getDataTypeFromNode(VARIABLE));
+}
+
+// ========== TYPE COMPATIBILITY TESTS ==========
+
+void test_same_type_compatibility_test(void) {
+    TEST_ASSERT_TRUE(areCompatible(TYPE_INT, TYPE_INT));
+    TEST_ASSERT_TRUE(areCompatible(TYPE_FLOAT, TYPE_FLOAT));
+    TEST_ASSERT_TRUE(areCompatible(TYPE_STRING, TYPE_STRING));
+    TEST_ASSERT_TRUE(areCompatible(TYPE_BOOL, TYPE_BOOL));
+}
+
+void test_int_to_float_compatibility_test(void) {
+    TEST_ASSERT_TRUE(areCompatible(TYPE_FLOAT, TYPE_INT));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_INT, TYPE_FLOAT));
+}
+
+void test_incompatible_types_test(void) {
+    TEST_ASSERT_FALSE(areCompatible(TYPE_INT, TYPE_STRING));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_STRING, TYPE_INT));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_BOOL, TYPE_STRING));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_STRING, TYPE_BOOL));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_INT, TYPE_BOOL));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_BOOL, TYPE_INT));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_FLOAT, TYPE_BOOL));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_BOOL, TYPE_FLOAT));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_FLOAT, TYPE_STRING));
+    TEST_ASSERT_FALSE(areCompatible(TYPE_STRING, TYPE_FLOAT));
+}
+
+void test_arithmetic_operation_result_types_test(void) {
+    // int + int = int
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getOperationResultType(TYPE_INT, TYPE_INT, ADD_OP));
+    // float + int = float, int + float = float
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, getOperationResultType(TYPE_FLOAT, TYPE_INT, ADD_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, getOperationResultType(TYPE_INT, TYPE_FLOAT, ADD_OP));
+    // float + float = float
+    TEST_ASSERT_EQUAL_INT(TYPE_FLOAT, getOperationResultType(TYPE_FLOAT, TYPE_FLOAT, ADD_OP));
+
+    // Test all arithmetic operators
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getOperationResultType(TYPE_INT, TYPE_INT, SUB_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getOperationResultType(TYPE_INT, TYPE_INT, MUL_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getOperationResultType(TYPE_INT, TYPE_INT, DIV_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_INT, getOperationResultType(TYPE_INT, TYPE_INT, MOD_OP));
+}
+
+void test_comparison_operation_result_types_test(void) {
+    // Compatible types should result in bool
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getOperationResultType(TYPE_INT, TYPE_INT, EQUAL_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getOperationResultType(TYPE_FLOAT, TYPE_INT, LESS_THAN_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getOperationResultType(TYPE_STRING, TYPE_STRING, NOT_EQUAL_OP));
+
+    // Incompatible types should result in unknown
+    TEST_ASSERT_EQUAL_INT(TYPE_UNKNOWN, getOperationResultType(TYPE_INT, TYPE_STRING, EQUAL_OP));
+    TEST_ASSERT_EQUAL_INT(TYPE_UNKNOWN, getOperationResultType(TYPE_BOOL, TYPE_FLOAT, GREATER_THAN_OP));
+}
+
+void test_logical_operation_result_types_test(void) {
+    // bool && bool = bool
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getOperationResultType(TYPE_BOOL, TYPE_BOOL, LOGIC_AND));
+    TEST_ASSERT_EQUAL_INT(TYPE_BOOL, getOperationResultType(TYPE_BOOL, TYPE_BOOL, LOGIC_OR));
+
+    // Non-bool operands should result in unknown
+    TEST_ASSERT_EQUAL_INT(TYPE_UNKNOWN, getOperationResultType(TYPE_INT, TYPE_BOOL, LOGIC_AND));
+    TEST_ASSERT_EQUAL_INT(TYPE_UNKNOWN, getOperationResultType(TYPE_BOOL, TYPE_INT, LOGIC_OR));
+}
+
+// ========== TYPE CHECKING CONTEXT TESTS ==========
+
+void test_create_type_check_context_test(void) {
+    TypeCheckContext context = createTypeCheckContext();
+
+    TEST_ASSERT_NOT_NULL(context);
+    TEST_ASSERT_NOT_NULL(context->global);
+    TEST_ASSERT_EQUAL_PTR(context->global, context->current);
+    TEST_ASSERT_EQUAL_INT(0, context->global->scope);
+
+    freeTypeCheckContext(context);
+}
+
+// ========== VARIABLE DECLARATION TESTS WITH TYPE CHECKING ==========
+
+void test_valid_int_declaration_without_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_valid_int_declaration_with_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_valid_float_declaration_with_int_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("float x = 5;"); // int to float conversion
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_invalid_int_declaration_with_string_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = \"hello\";");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+    TEST_ASSERT_EQUAL_INT(1, getErrorCount());
+
+    freeAST(ast);
+}
+
+void test_invalid_string_declaration_with_int_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("string x = 42;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_invalid_bool_declaration_with_float_init_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("bool x = 3.14;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_variable_redeclaration_error_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; int x = 10;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_multiple_valid_declarations_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; float y = 3.14; string name = \"test\"; bool flag = true;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+// ========== ASSIGNMENT TESTS WITH TYPE CHECKING ==========
+
+void test_valid_assignment_same_type_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; x = 10;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_valid_assignment_int_to_float_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("float x = 5.0; x = 10;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_invalid_assignment_incompatible_types_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; x = \"hello\";");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_assignment_to_undefined_variable_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("x = 5;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_compound_assignment_valid_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; x += 10;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_compound_assignment_invalid_type_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; x += \"hello\";");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+// ========== VARIABLE USAGE TESTS WITH TYPE CHECKING ==========
+
+void test_valid_variable_usage_after_declaration_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; int y = x;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_valid_variable_usage_after_assignment_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x; x = 5; int y = x;");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_invalid_usage_uninitialized_variable_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x; int y = x;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_invalid_usage_undefined_variable_typechecked(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int y = x;");
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+
+    freeAST(ast);
+}
+
+// ========== INTEGRATION TESTS WITH TYPE CHECKING ==========
+
+void test_full_program_type_checking_test(void) {
+    resetErrorCount();
+    const char* program =
+        "int counter = 0;"
+        "float rate = 1.5;"
+        "bool active = true;"
+        "string name = \"Program\";"
+        "{"
+            "int local = counter + 10;"
+            "active ? counter = counter + 1;"
+            "@ counter < 5 {"
+                "rate = rate * 1.1;"
+                "counter = counter + 1;"
+            "}"
+        "}";
+
+    ASTNode ast = createTestAST(program);
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_program_with_type_errors_test(void) {
+    resetErrorCount();
+    const char* program =
+        "int x = \"invalid\";"          // Error 1: string to int
+        "float y = true;"               // Error 2: bool to float
+        "string z = 42;"                // Error 3: int to string
+        "int a = 5;";
+
+    ASTNode ast = createTestAST(program);
+
+    TEST_ASSERT_FALSE(typeCheckAST(ast));
+    TEST_ASSERT_TRUE(hasErrors());
+    TEST_ASSERT_GREATER_THAN_INT(2, getErrorCount());
+
+    freeAST(ast);
+}
+
+void test_scope_management_with_type_checking(void) {
+    resetErrorCount();
+    ASTNode ast = createTestAST("int x = 5; { int x = 10; x = 15; }");
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
+}
+
+void test_nested_scopes_with_type_checking(void) {
+    resetErrorCount();
+    const char* program =
+        "int global = 1;"
+        "{"
+            "int outer = 2;"
+            "{"
+                "int inner = global + outer;"
+            "}"
+        "}";
+
+    ASTNode ast = createTestAST(program);
+
+    TEST_ASSERT_TRUE(typeCheckAST(ast));
+    TEST_ASSERT_FALSE(hasErrors());
+
+    freeAST(ast);
 }
 
 // ========== MAIN TEST RUNNER ==========
@@ -1945,10 +2421,60 @@ int main(void) {
     RUN_TEST(test_multiline_comment_at_start);
     RUN_TEST(test_multiline_comment_at_end);
 
-
-
     printf("\n=== LOOPS ===\n");
     RUN_TEST(test_basic_while_loop);
+
+    printf("\n=== SYMBOL TABLE TESTS ===\n");
+    RUN_TEST(test_create_symbol_table);
+    RUN_TEST(test_create_nested_symbol_table);
+    RUN_TEST(test_create_symbol);
+    RUN_TEST(test_add_symbol_to_table);
+    RUN_TEST(test_add_duplicate_symbol_same_scope);
+    RUN_TEST(test_lookup_symbol_current_scope);
+    RUN_TEST(test_lookup_symbol_with_parent_scope);
+    RUN_TEST(test_variable_shadowing);
+    RUN_TEST(test_get_data_type_from_node_test);
+
+    printf("\n=== TYPE COMPATIBILITY TESTS ===\n");
+    RUN_TEST(test_same_type_compatibility_test);
+    RUN_TEST(test_int_to_float_compatibility_test);
+    RUN_TEST(test_incompatible_types_test);
+    RUN_TEST(test_arithmetic_operation_result_types_test);
+    RUN_TEST(test_comparison_operation_result_types_test);
+    RUN_TEST(test_logical_operation_result_types_test);
+
+    printf("\n=== TYPE CHECKING CONTEXT TESTS ===\n");
+    RUN_TEST(test_create_type_check_context_test);
+
+    printf("\n=== VARIABLE DECLARATION TESTS WITH TYPE CHECKING ===\n");
+    RUN_TEST(test_valid_int_declaration_without_init_typechecked);
+    RUN_TEST(test_valid_int_declaration_with_init_typechecked);
+    RUN_TEST(test_valid_float_declaration_with_int_init_typechecked);
+    RUN_TEST(test_invalid_int_declaration_with_string_init_typechecked);
+    RUN_TEST(test_invalid_string_declaration_with_int_init_typechecked);
+    RUN_TEST(test_invalid_bool_declaration_with_float_init_typechecked);
+    RUN_TEST(test_variable_redeclaration_error_typechecked);
+    RUN_TEST(test_multiple_valid_declarations_typechecked);
+
+    printf("\n=== ASSIGNMENT TESTS WITH TYPE CHECKING ===\n");
+    RUN_TEST(test_valid_assignment_same_type_typechecked);
+    RUN_TEST(test_valid_assignment_int_to_float_typechecked);
+    RUN_TEST(test_invalid_assignment_incompatible_types_typechecked);
+    RUN_TEST(test_assignment_to_undefined_variable_typechecked);
+    RUN_TEST(test_compound_assignment_valid_typechecked);
+    RUN_TEST(test_compound_assignment_invalid_type_typechecked);
+
+    printf("\n=== VARIABLE USAGE TESTS WITH TYPE CHECKING ===\n");
+    RUN_TEST(test_valid_variable_usage_after_declaration_typechecked);
+    RUN_TEST(test_valid_variable_usage_after_assignment_typechecked);
+    RUN_TEST(test_invalid_usage_uninitialized_variable_typechecked);
+    RUN_TEST(test_invalid_usage_undefined_variable_typechecked);
+
+    printf("\n=== INTEGRATION TESTS WITH TYPE CHECKING ===\n");
+    RUN_TEST(test_full_program_type_checking_test);
+    RUN_TEST(test_program_with_type_errors_test);
+    RUN_TEST(test_scope_management_with_type_checking);
+    RUN_TEST(test_nested_scopes_with_type_checking);
 
     return UNITY_END();
 }

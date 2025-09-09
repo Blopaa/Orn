@@ -122,7 +122,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
 
 struct ASTNode {
     char *value;
-    NodeTypes NodeType;
+    NodeTypes nodeType;
     int line;
     int column;
     struct ASTNode *children;
@@ -229,20 +229,29 @@ static const OperatorInfo operators[] = {
 
 // --- HELPER FUNCTION DECLARATIONS ---
 NodeTypes getDecType(TokenType type);
+
 ASTNode createNode(Token token, NodeTypes type);
+
 const char *getNodeTypeName(NodeTypes nodeType);
 
 // --- VALIDATION FUNCTION DECLARATIONS ---
 int isFloatLit(const char *val);
+
 int isValidVariable(const char *val);
+
 int isIntLit(const char *val);
+
 int isValidStringLit(const char *val);
+
 ASTNode createValNode(Token current_token, NodeTypes fatherType);
+
 const OperatorInfo *getOperatorInfo(TokenType type);
 
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
+
 void printAST(ASTNode node, int depth);
+
 void freeAST(ASTNode node);
 
 #endif //PARSER_H

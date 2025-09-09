@@ -240,7 +240,7 @@ ASTNode parseBlockExpression(Token *current) {
 
     // Convert BLOCK_STATEMENT to BLOCK_EXPRESSION so later on it differences
     // enhanced ternary from block statements
-    block->NodeType = BLOCK_EXPRESSION;
+    block->nodeType = BLOCK_EXPRESSION;
     return block;
 }
 
@@ -389,11 +389,12 @@ ASTNode parseLoop(Token* current) {
  *
  * Grammar supported:
  * ```
- * Statement := VarDecl | Block | ExprStatement | EmptyStatement
+ * Statement := VarDecl | Block | ExprStatement | EmptyStatement | loop
  * VarDecl   := Type IDENTIFIER ('=' Expression)? ';'
  * Block     := '{' Statement* '}'
  * ExprStatement := Expression ';'
  * EmptyStatement := ';'
+ * Loop = @ condition { code } ';'
  * ```
  *
  * @note Returns NULL for empty statements (standalone semicolons) which
@@ -540,7 +541,7 @@ ASTNode ASTGenerator(Token token) {
 void printASTTree(ASTNode node, char *prefix, int isLast) {
     if (node == NULL) return;
 
-    const char *nodeTypeStr = getNodeTypeName(node->NodeType);
+    const char *nodeTypeStr = getNodeTypeName(node->nodeType);
 
     printf("%s%s%s", prefix, isLast ? "└── " : "├── ", nodeTypeStr);
     if (node->value) {
@@ -574,7 +575,7 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
  */
 void printAST(ASTNode node, int depth) {
     (void) depth; // depth is unused
-    if (node == NULL || (node->NodeType != PROGRAM && node->NodeType != null_NODE)) {
+    if (node == NULL || (node->nodeType != PROGRAM && node->nodeType != null_NODE)) {
         printf("Empty or invalid AST.\n");
         return;
     }

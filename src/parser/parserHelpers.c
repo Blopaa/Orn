@@ -85,7 +85,7 @@ ASTNode createNode(Token token, NodeTypes type) {
     if (node == NULL) return NULL;
 
     node->value = (token && token->value) ? strdup(token->value) : NULL;
-    node->NodeType = type;
+    node->nodeType = type;
 
     if (token) {
         node->line = token->line;
