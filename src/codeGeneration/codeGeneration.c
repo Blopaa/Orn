@@ -212,11 +212,11 @@ StackContext createCodeGenContext(const char *file) {
         return NULL;
     }
     context->variable = NULL;
-    context->string = NULL; // FIX: Initialize string table
+    context->string = NULL;
     context->currentOffset = 0;
     context->labelCount = 1;
     context->tempCount = 1;
-    context->stringCount = 0; // FIX: Initialize string counter
+    context->stringCount = 0;
     return context;
 }
 
@@ -346,7 +346,6 @@ void generateFloatLoadImmediate(StackContext context, const char *value, Registe
     char tempLabel[64];
     snprintf(tempLabel, sizeof(tempLabel), ".FLOAT_%d", context->tempCount++);
 
-    // FIX: Emit float constant properly
     fprintf(context->file, "\n.section .rodata\n");
     fprintf(context->file, "%s:\n", tempLabel);
     fprintf(context->file, "    .double %s\n", value);
@@ -760,7 +759,6 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
                 return preferredReg;
             }
 
-            // FIX: Determine operand type properly
             DataType operandType = getOperandType(node->children, context);
             if (operandType == TYPE_UNKNOWN) {
                 operandType = getOperandType(node->children->brothers, context);

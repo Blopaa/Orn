@@ -83,7 +83,7 @@ const char *getRegisterName(RegisterId regId, DataType type) {
         "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"
     };
 
-    if (regId > REG_R11) return "%rax";
+    if (regId >= REG_R11 + 1) return "%rax";
     return registers[regId];
 }
 
