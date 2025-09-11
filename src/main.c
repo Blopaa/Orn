@@ -70,7 +70,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int x = 10; int y = 15; x < y ? x++ : y++;";
+    char *input = "int x = 10; int y = 15; x < y ? {int b = 22; x++;} : y++;";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
@@ -114,7 +114,7 @@ int main() {
     if (parseSuccess && typeCheckSuccess) {
         printf("   Generating assembly code...\n");
         const char *outputFile = "../output.s";
-        codeGenSuccess = generateCode(ast, outputFile);
+        codeGenSuccess = generateCodeWithSymbolTable(ast, outputFile);
 
         if (codeGenSuccess) {
             printf("   Code generation PASSED\n");

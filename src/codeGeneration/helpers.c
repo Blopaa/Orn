@@ -7,6 +7,14 @@
 
 #include "codeGeneration.h"
 #include "errorHandling.h"
+#include "typeChecker.h"
+
+int alignSize(int size, int alignment) {
+    if (size % alignment == 0) {
+        return size;
+    }
+    return size + (alignment - (size % alignment));
+}
 
 /**
  * @brief Returns the stack allocation size for a given data type.
@@ -33,6 +41,12 @@ int getStackSize(DataType type) {
         case TYPE_STRING: return STACK_SIZE_STRING;
         default: return STACK_SIZE_INT;
     }
+}
+
+int calcOffset(int preOff, DataType type) {
+    int size = getStackSize(type);
+    int newOffset = preOff + size;
+    return alignSize(newOffset, size);
 }
 
 /**
@@ -217,4 +231,82 @@ DataType getOperandType(ASTNode node, StackContext context) {
         if (var) type = var->dataType;
     }
     return type;
+}
+
+int calculateTotalStack(SymbolTable symbolTable) {
+    if (symbolTable == NULL) return 0;
+    int total = 0;
+    Symbol current = symbolTable->symbols;
+    while (current != NULL) {
+        total = calcOffset(total, current->type);
+        current = current->next;
+    }
+    return alignSize(total, 16);
+}
+
+int preAllocVars(StackContext context, SymbolTable table) {
+    if (context == NULL || table == NULL) return 1;
+
+    Symbol current = table->symbols;
+    while (current != NULL) {
+        int newOffset = calcOffset(context->currentOffset, current->type);
+
+        StackVariable variable = malloc(sizeof(struct StackVariable));
+        if (variable == NULL) {
+            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to pre-allocate variable");
+            return 0;
+        }
+
+        variable->stackOffset = -newOffset;
+        variable->dataType = current->type;
+        variable->name = strdup(current->name);
+        if (variable->name == NULL) {
+            free(variable);
+            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate variable name");
+            return 0;
+        }
+
+        variable->next = context->variable;
+        context->variable = variable;
+
+        context->currentOffset = newOffset;
+
+        current = current->next;
+    }
+
+    return 1;
+}
+
+StackContext createCodeGenContextSymb(const char * file, SymbolTable globalSymbolTable) {
+    if (file == NULL) {
+        repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, "No output filename provided");
+        return NULL;
+    }
+
+    StackContext context = createCodeGenContext(file);
+    if (context == NULL) return NULL;
+
+    int totalStackSize = calculateTotalStack(globalSymbolTable); // Fixed: now takes SymbolTable
+
+    if (totalStackSize > 0) {
+        if (!preAllocVars(context, globalSymbolTable)) { // Fixed: now takes SymbolTable
+            freeCodegenContext(context);
+            return NULL;
+        }
+
+        emitComment(context, "Pre-allocate entire aligned stack frame");
+        fprintf(context->file, "    subq $%d, %%rsp    # Allocate %d bytes (aligned) for all variables\n",
+                totalStackSize, totalStackSize);
+
+        // Debug output showing variable layout
+        emitComment(context, "Variable layout:");
+        StackVariable var = context->variable;
+        while (var != NULL) {
+            fprintf(context->file, "    # %s (%d bytes) at offset %d\n",
+                    var->name, getStackSize(var->dataType), var->stackOffset);
+            var = var->next;
+        }
+    }
+
+    return context;
 }

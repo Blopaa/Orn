@@ -69,9 +69,6 @@ int generateNodeCode(ASTNode node, StackContext context) {
         case STRING_VARIABLE_DEFINITION:
         case BOOL_VARIABLE_DEFINITION: {
             DataType varType = getDataTypeFromNode(node->nodeType);
-            int offset = allocateVariable(context, node->value, varType);
-
-            if (offset == 0) return 0;
 
             // Initialize with value if provided
             if (node->children != NULL) {
@@ -1008,31 +1005,7 @@ void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandR
     }
 }
 
-/**
- * @brief Main entry point for code generation from AST to assembly file.
- *
- * Orchestrates the complete code generation process from Abstract Syntax Tree
- * to executable x86-64 assembly code. Manages the entire generation pipeline
- * including context creation, code emission, and resource cleanup.
- *
- * Process:
- * 1. Validate input parameters
- * 2. Create code generation context
- * 3. Emit assembly preamble (string table, program setup)
- * 4. Generate code for entire AST
- * 5. Emit assembly epilogue (program exit)
- * 6. Clean up resources and close output file
- *
- * @param ast Root AST node (typically PROGRAM node)
- * @param outputFile Filename for generated assembly code
- * @return 1 on successful code generation, 0 on failure
- *
- * @note Integrates with the global error reporting system and provides
- *       comprehensive error handling for all failure modes. The generated
- *       assembly is ready for linking with the GNU assembler and linker.
- */
-int generateCode(ASTNode ast, const char *outputFile) {
-    // Validate input parameters
+int generateCodeWithSymbolTable(ASTNode ast, const char *outputFile) {
     if (ast == NULL) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Cannot generate code from null AST");
         return 0;
@@ -1043,27 +1016,45 @@ int generateCode(ASTNode ast, const char *outputFile) {
         return 0;
     }
 
-    // Create code generation context
-    StackContext context = createCodeGenContext(outputFile);
-    if (context == NULL) {
-        return 0; // Error already reported in createCodeGenContext
+    // First, run type checking to build symbol table
+    TypeCheckContext typeContext = createTypeCheckContext();
+    if (typeContext == NULL) {
+        return 0;
     }
 
-    // Generate assembly preamble (includes string table and program setup)
+    // Type check the AST and build symbol table
+    if (!typeCheckNode(ast, typeContext)) {
+        freeTypeCheckContext(typeContext);
+        repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, "Type checking failed - cannot generate code");
+        return 0;
+    }
+
+    // Extract the global symbol table
+    SymbolTable globalSymbols = typeContext->global;
+
+    // Create code generation context with pre-allocated variables
+    StackContext context = createCodeGenContextSymb(outputFile, globalSymbols);
+    if (context == NULL) {
+        freeTypeCheckContext(typeContext);
+        return 0;
+    }
+
+    // Generate assembly preamble
     emitPreamble(context);
 
-    // Generate code for the entire AST
+    // Generate code for the entire AST (variables are already allocated)
     int success = generateNodeCode(ast, context);
 
-    // Generate assembly epilogue (program exit code)
+    // Generate assembly epilogue
     if (success) {
         emitEpilogue(context);
     } else {
         emitComment(context, "Code generation failed - incomplete output");
     }
 
-    // Clean up and close output file
+    // Clean up
     freeCodegenContext(context);
+    freeTypeCheckContext(typeContext);
 
     return success;
 }

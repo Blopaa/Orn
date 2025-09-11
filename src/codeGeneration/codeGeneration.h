@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "symbolTable.h"
+#include "typeChecker.h"
 
 /**
  * @brief String literal entry in the global string table.
@@ -61,9 +62,9 @@ typedef struct StackContext {
  * following x86-64 conventions for efficient memory access.
  */
 typedef enum {
-    STACK_SIZE_INT = 8,
-    STACK_SIZE_FLOAT = 8,
-    STACK_SIZE_BOOL = 8,
+    STACK_SIZE_INT = 4,
+    STACK_SIZE_FLOAT = 4,
+    STACK_SIZE_BOOL = 1,
     STACK_SIZE_STRING = 8
 } StackSize;
 
@@ -158,5 +159,8 @@ int generateLoop(ASTNode node, StackContext context);
 
 DataType getOperandType(ASTNode node, StackContext context);
 
+StackContext createCodeGenContextSymb(const char * file, SymbolTable globalSymbolTable);
+
+int generateCodeWithSymbolTable(ASTNode ast, const char *outputFile);
 
 #endif //CINTERPRETER_CODEGENERATION_H
