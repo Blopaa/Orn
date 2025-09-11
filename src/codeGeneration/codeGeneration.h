@@ -158,5 +158,7 @@ int generateLoop(ASTNode node, StackContext context);
 
 DataType getOperandType(ASTNode node, StackContext context);
 
+void collectStringLiterals(ASTNode node, StackContext context);
+
 
 #endif //CINTERPRETER_CODEGENERATION_H

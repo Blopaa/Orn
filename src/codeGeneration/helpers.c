@@ -218,3 +218,17 @@ DataType getOperandType(ASTNode node, StackContext context) {
     }
     return type;
 }
+
+void collectStringLiterals(ASTNode node, StackContext context) {
+    if (node == NULL) return;
+
+    if (node->nodeType == STRING_LIT) {
+        addStringLiteral(context, node->value);
+    }
+
+    ASTNode child = node->children;
+    while (child != NULL) {
+        collectStringLiterals(child, context);
+        child = child->brothers;
+    }
+}

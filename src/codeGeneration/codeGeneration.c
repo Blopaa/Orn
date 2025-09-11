@@ -1049,6 +1049,8 @@ int generateCode(ASTNode ast, const char *outputFile) {
         return 0; // Error already reported in createCodeGenContext
     }
 
+    collectStringLiterals(ast, context);
+
     // Generate assembly preamble (includes string table and program setup)
     emitPreamble(context);
 
