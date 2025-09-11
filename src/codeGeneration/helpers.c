@@ -232,3 +232,11 @@ void collectStringLiterals(ASTNode node, StackContext context) {
         child = child->brothers;
     }
 }
+
+int isLiteral(ASTNode node) {
+    if (node == NULL) return 0;
+    return (node->nodeType == INT_LIT ||
+            node->nodeType == FLOAT_LIT ||
+            node->nodeType == BOOL_LIT ||
+            node->nodeType == STRING_LIT);
+}

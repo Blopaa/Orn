@@ -142,7 +142,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
                         break;
                 }
 
-                generateBinaryOp(context, opType, leftReg, rightReg, leftReg, var->dataType);
+                generateBinaryOp(context, opType, leftReg, rightReg, leftReg, var->dataType, 0);
                 generateStoreVariable(context, leftNode->value, leftReg);
             }
             return 1;
@@ -602,7 +602,7 @@ void generateStringOperation(StackContext context, NodeTypes opType, RegisterId 
  *       operations while handling integer/boolean operations directly.
  */
 void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg, RegisterId rightReg,
-                      RegisterId resultReg, DataType operandType) {
+                      RegisterId resultReg, DataType operandType, int invert) {
     if (operandType == TYPE_FLOAT) {
         generateFloatBinaryOp(context, opType, leftReg, rightReg, resultReg);
         return;
@@ -686,6 +686,11 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
             emitComment(context, "Unknown binary operation");
             break;
     }
+
+    if (invert == 1) {
+        emitComment(context, "Invert result for register allocation optimization");
+        fprintf(context->file, "    negq %s    # %s = -%s\n", result, result, result);
+    }
 }
 
 /**
@@ -765,16 +770,27 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             }
 
             RegisterId leftReg, rightReg;
+            ASTNode left;
+            ASTNode right;
+            int invert = 0;
+            if (isLiteral(node->children) && !isLiteral(node->children->brothers)) {
+                left = node->children->brothers;
+                right = node->children;
+                invert = 1;
+            } else {
+                left = node->children;
+                right = node->children->brothers;
+            }
             if (operandType == TYPE_FLOAT) {
-                leftReg = generateExpressionToRegister(node->children, context, REG_XMM0);
-                rightReg = generateExpressionToRegister(node->children->brothers, context, REG_XMM1);
+                leftReg = generateExpressionToRegister(left, context, REG_XMM0);
+                rightReg = generateExpressionToRegister(right, context, REG_XMM1);
                 preferredReg = REG_XMM0;
             } else {
-                leftReg = generateExpressionToRegister(node->children, context, REG_RAX);
-                rightReg = generateExpressionToRegister(node->children->brothers, context, REG_RBX);
+                leftReg = generateExpressionToRegister(left, context, REG_RAX);
+                rightReg = generateExpressionToRegister(right, context, REG_RBX);
             }
 
-            generateBinaryOp(context, node->nodeType, leftReg, rightReg, preferredReg, operandType);
+            generateBinaryOp(context, node->nodeType, leftReg, rightReg, preferredReg, operandType, invert);
             return preferredReg;
         }
 
