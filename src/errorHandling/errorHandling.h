@@ -63,6 +63,7 @@ typedef enum {
     ERROR_SYMBOL_TABLE_CREATION_FAILED = 5002,
     ERROR_CONTEXT_CREATION_FAILED = 5003,
     ERROR_INTERNAL_PARSER_ERROR = 5004,
+    ERROR_INTERNAL_CODE_GENERATOR_ERROR = 5005,
 } ErrorCode;
 
 /**
@@ -150,6 +151,7 @@ static const ErrorEntry errorList[] = {
     {ERROR_SYMBOL_TABLE_CREATION_FAILED, FATAL, "Failed to create symbol table"},
     {ERROR_CONTEXT_CREATION_FAILED, FATAL, "Failed to create type checking context"},
     {ERROR_INTERNAL_PARSER_ERROR, FATAL, "Internal parser error"},
+    {ERROR_INTERNAL_CODE_GENERATOR_ERROR, FATAL, "Internal code generation error"},
 
     {ERROR_OK, ERROR, "Unknown error"}
 };

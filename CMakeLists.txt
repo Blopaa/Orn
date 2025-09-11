@@ -14,6 +14,11 @@ set(LIB_SOURCES
         src/semantic/typeChecker.h
         src/semantic/symbolTable.c
         src/semantic/symbolTable.h
+        src/codeGeneration/codeGeneration.c
+        src/codeGeneration/codeGeneration.h
+        src/codeGeneration/asmEmitter.c
+        src/codeGeneration/stringHandling.c
+        src/codeGeneration/helpers.c
 )
 
 # Create compiler library

@@ -3,6 +3,7 @@
 
 #include "errorHandling.h"
 #include "typeChecker.h"
+#include "codeGeneration/codeGeneration.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 
@@ -21,21 +22,29 @@ void printTokens(Input in) {
     printf("Total raw tokens: %d\n", in->n);
 }
 
-void printCompilationStatus(int parseSuccess, int typeCheckSuccess) {
+void printCompilationStatus(int parseSuccess, int typeCheckSuccess, int codeGenSuccess) {
     printf("=== COMPILATION STATUS ===\n");
 
-    if (parseSuccess && typeCheckSuccess) {
-        printf("✓ COMPILATION SUCCESSFUL\n");
+    if (parseSuccess && typeCheckSuccess && codeGenSuccess) {
+        printf("COMPILATION SUCCESSFUL\n");
         printf("   - Parsing: PASSED\n");
         printf("   - Type checking: PASSED\n");
+        printf("   - Code generation: PASSED\n");
+    } else if (parseSuccess && typeCheckSuccess && !codeGenSuccess) {
+        printf("COMPILATION FAILED\n");
+        printf("   - Parsing: PASSED\n");
+        printf("   - Type checking: PASSED\n");
+        printf("   - Code generation: FAILED\n");
     } else if (parseSuccess && !typeCheckSuccess) {
-        printf("✗ COMPILATION FAILED\n");
+        printf("COMPILATION FAILED\n");
         printf("   - Parsing: PASSED\n");
         printf("   - Type checking: FAILED\n");
+        printf("   - Code generation: SKIPPED\n");
     } else {
-        printf("✗ COMPILATION FAILED\n");
+        printf("COMPILATION FAILED\n");
         printf("   - Parsing: FAILED\n");
         printf("   - Type checking: SKIPPED\n");
+        printf("   - Code generation: SKIPPED\n");
     }
 
     printf("\n");
@@ -49,9 +58,9 @@ void printTokenList(Token t) {
 
     int i = 0;
     // Start with t->next to skip the dummy head node.
-    Token current = t->next; 
+    Token current = t->next;
     while (current != NULL) {
-        printf("Token %d (L%d, C%d): '%s', type: %d\n", 
+        printf("Token %d (L%d, C%d): '%s', type: %d\n",
                i, current->line, current->column, current->value, current->type);
         i++;
         current = current->next;
@@ -61,7 +70,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int x; int y = x;";
+    char *input = "int x = 10; int y = 15; x < y ? x++ : y++;";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
@@ -90,30 +99,45 @@ int main() {
         typeCheckSuccess = typeCheckAST(ast);
 
         if (typeCheckSuccess) {
-            printf("   ✅ Type checking PASSED\n");
+            printf("   Type checking PASSED\n");
         } else {
-            printf("   ❌ Type checking FAILED\n");
+            printf("   Type checking FAILED\n");
         }
     } else {
-        printf("   ⚠️ Skipping type checking due to parse errors\n");
+        printf("   Skipping type checking due to parse errors\n");
     }
     printf("\n");
 
-    printf("5. ERROR SUMMARY:\n");
+    printf("5. CODE GENERATION:\n");
+    int codeGenSuccess = 0;
+
+    if (parseSuccess && typeCheckSuccess) {
+        printf("   Generating assembly code...\n");
+        const char *outputFile = "../output.s";
+        codeGenSuccess = generateCode(ast, outputFile);
+
+        if (codeGenSuccess) {
+            printf("   Code generation PASSED\n");
+            printf("   Output file: %s\n", outputFile);
+        } else {
+            printf("   Code generation FAILED\n");
+        }
+    } else {
+        printf("   Skipping code generation due to prior errors\n");
+    }
+    printf("\n");
+
+    printf("6. ERROR SUMMARY:\n");
     printErrorSummary();
     printf("\n");
 
-    printCompilationStatus(parseSuccess, typeCheckSuccess);
-    
+    printCompilationStatus(parseSuccess, typeCheckSuccess, codeGenSuccess);
+
     // Free the final data structures.
     freeTokenList(t);
     freeAST(ast);
 
-    // printErrorSummary(); // You will need to implement this
-    // int hasErrors = 0; // You will need to implement this
-
     printf("\nTip: Use './compiler --test' to run tests\n");
 
-    // return hasErrors ? 1 : 0;
-    return 0;
+    return (parseSuccess && typeCheckSuccess && codeGenSuccess) ? 0 : 1;
 }
