@@ -1012,7 +1012,7 @@ void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandR
 
     switch (opType) {
         case UNARY_MINUS_OP:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_NEGQ, result, "");
+            fprintf(context->file, ASM_TEMPLATE_UNARY_OP, ASM_NEGQ, result);
             break;
         case UNARY_PLUS_OP:
             break;
@@ -1023,11 +1023,11 @@ void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandR
             break;
         case PRE_INCREMENT:
         case POST_INCREMENT:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_INCQ, result, "");
+            fprintf(context->file, ASM_TEMPLATE_UNARY_OP, ASM_INCQ, result);
             break;
         case PRE_DECREMENT:
         case POST_DECREMENT:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_DECQ, result, "");
+            fprintf(context->file, ASM_TEMPLATE_UNARY_OP, ASM_DECQ, result);
             break;
         default:
             emitComment(context, "Unknown unary operation");
