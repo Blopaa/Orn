@@ -166,5 +166,7 @@ void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
 
 void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
 
+RegisterId getOppositeBranchRegister(RegisterId reg);
+
 
 #endif //CINTERPRETER_CODEGENERATION_H

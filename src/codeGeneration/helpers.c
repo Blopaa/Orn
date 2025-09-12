@@ -325,3 +325,12 @@ void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType typ
     }
     ASM_EMIT_COMMENT(context->file, "Restored intermediate result from stack");
 }
+
+RegisterId getOppositeBranchRegister(RegisterId reg) {
+    switch (reg) {
+        case REG_RAX: return REG_RBX;
+        case REG_RBX: return REG_RAX;
+        case REG_XMM0: return REG_XMM1;
+        default: return REG_XMM0;
+    }
+}
