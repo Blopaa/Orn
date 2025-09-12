@@ -772,7 +772,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             ASTNode left;
             ASTNode right;
             int invert = 0;
-            if (isLiteral(node->children) && !isLiteral(node->children->brothers)) {
+            if (isLiteral(node->children) && !isLiteral(node->children->brothers) && node->nodeType == SUB_OP) {
                 left = node->children->brothers;
                 right = node->children;
                 invert = 1;
@@ -780,7 +780,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
                 left = node->children;
                 right = node->children->brothers;
             }
-            int needSpill = !isLiteral(right) || (!isLiteral(left) && invert == 0);
+            int needSpill = (!isLiteral(right) || (!isLiteral(left) && invert == 0)) || (!isLiteral(left) && isLiteral(right));
             if (operandType == TYPE_FLOAT) {
                 leftReg = REG_XMM0;
                 rightReg = REG_XMM1;
@@ -792,7 +792,13 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             if (needSpill) {
                 spillRegisterToStack(context, leftReg, operandType);
                 rightReg = generateExpressionToRegister(right, context, REG_RAX);
-                restoreRegisterFromStack(context, REG_RBX, operandType);
+                restoreRegisterFromStack(context, operandType == TYPE_FLOAT
+                              ? rightReg == REG_XMM0
+                                    ? REG_XMM1
+                                    : REG_XMM0
+                              : rightReg == REG_RAX
+                                    ? REG_RBX
+                                    : REG_RAX, operandType);
                 leftReg = operandType == TYPE_FLOAT
                               ? rightReg == REG_XMM0
                                     ? REG_XMM1
