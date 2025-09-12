@@ -403,7 +403,7 @@ void generateLoadImmediate(StackContext context, const char *value, DataType typ
             break;
 
         case TYPE_BOOL: {
-            int boolVal = (strcmp(value, "true") == ASM_BOOL_FALSE_VALUE) ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
+            int boolVal = strcmp(value, "true") == 0 ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
             const char *regName = getRegisterName(reg, type);
             ASM_EMIT_MOVQ_IMM(context->file, boolVal == 1 ? "1" : "0", regName, "Bool", value);
             break;
@@ -589,6 +589,7 @@ void generateStringOperation(StackContext context, NodeTypes opType, RegisterId 
  * Main dispatch function for binary operations that handles all data types
  * and delegates to appropriate specialized functions. Manages register
  * allocation and ensures proper instruction selection based on operand types.
+ * Includes optimization for operand ordering when literals are involved.
  *
  * @param context Code generation context
  * @param opType Binary operation type
@@ -596,9 +597,12 @@ void generateStringOperation(StackContext context, NodeTypes opType, RegisterId 
  * @param rightReg Register containing right operand
  * @param resultReg Register for operation result
  * @param operandType Data type of the operands
+ * @param invert Flag indicating if operands needs to be inverted for "a - b = -(b - a)" math properties
  *
  * @note Delegates to specialized functions for floating-point and string
  *       operations while handling integer/boolean operations directly.
+ *       The invert flag triggers result negation for certain operations
+ *       when operand order was optimized during expression generation.
  */
 void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg, RegisterId rightReg,
                       RegisterId resultReg, DataType operandType, int invert) {

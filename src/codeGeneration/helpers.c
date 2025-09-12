@@ -209,6 +209,17 @@ StackVariable findStackVariable(StackContext context, const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Determines the data type of an AST node operand.
+ *
+ * Analyzes an AST node to determine its data type, handling both literal
+ * nodes (which have inherent types) and variable nodes (which require
+ * symbol table lookup). Essential for type-aware code generation.
+ *
+ * @param node AST node to analyze (can be NULL)
+ * @param context Code generation context for symbol table access
+ * @return DataType of the operand or TYPE_UNKNOWN if indeterminate
+ */
 DataType getOperandType(ASTNode node, StackContext context) {
     if (node == NULL) return TYPE_UNKNOWN;
 
@@ -220,6 +231,18 @@ DataType getOperandType(ASTNode node, StackContext context) {
     return type;
 }
 
+/**
+ * @brief Recursively collects all string literals from an AST.
+ *
+ * Traverses the entire AST to find and register all string literals
+ * in the string table before code generation. Uses depth-first search
+ * and handles deduplication automatically.
+ *
+ * @param node Root AST node to start collection from (can be NULL)
+ * @param context Code generation context containing string table
+ *
+ * @note Must be called before emitPreamble() to ensure complete string table.
+ */
 void collectStringLiterals(ASTNode node, StackContext context) {
     if (node == NULL) return;
 
@@ -234,6 +257,16 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     }
 }
 
+/**
+ * @brief Checks if an AST node represents a compile-time literal value.
+ *
+ * Determines whether a node is a literal constant (INT_LIT, FLOAT_LIT,
+ * BOOL_LIT, STRING_LIT) that can be loaded as immediate value. Used for
+ * code generation optimizations in operand ordering.
+ *
+ * @param node AST node to test (can be NULL)
+ * @return 1 if node is a literal, 0 otherwise
+ */
 int isLiteral(ASTNode node) {
     if (node == NULL) return 0;
     return (node->nodeType == INT_LIT ||
