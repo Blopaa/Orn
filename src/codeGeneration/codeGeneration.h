@@ -145,7 +145,7 @@ void generateStoreVariable(StackContext context, const char *varName, RegisterId
 void generateLoadImmediate(StackContext context, const char *value, DataType type, RegisterId reg);
 
 void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg, RegisterId rightReg,
-                      RegisterId resultReg, DataType operandType);
+                      RegisterId resultReg, DataType operandType, int invert);
 
 void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg, RegisterId resultReg,
                      DataType operandType);
@@ -159,6 +159,14 @@ int generateLoop(ASTNode node, StackContext context);
 DataType getOperandType(ASTNode node, StackContext context);
 
 void collectStringLiterals(ASTNode node, StackContext context);
+
+int isLiteral(ASTNode node);
+
+void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
+
+void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
+
+RegisterId getOppositeBranchRegister(RegisterId reg);
 
 
 #endif //CINTERPRETER_CODEGENERATION_H

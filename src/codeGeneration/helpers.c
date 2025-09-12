@@ -7,6 +7,7 @@
 
 #include "codeGeneration.h"
 #include "errorHandling.h"
+#include "asmTemplate.h"
 
 /**
  * @brief Returns the stack allocation size for a given data type.
@@ -80,7 +81,8 @@ const char *getRegisterName(RegisterId regId, DataType type) {
     }
 
     static const char *registers[] = {
-        "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"
+        ASM_REG_RAX, ASM_REG_RBX, ASM_REG_RCX, ASM_REG_RDX, ASM_REG_RSI,
+        ASM_REG_RDI, ASM_REG_R8, ASM_REG_R9, ASM_REG_R10, ASM_REG_R11
     };
 
     if (regId >= REG_R11 + 1) return "%rax";
@@ -103,11 +105,11 @@ const char *getRegisterName(RegisterId regId, DataType type) {
  */
 const char *getFloatRegisterName(RegisterId regId) {
     static const char *xmmRegisters[] = {
-        "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5"
+        ASM_REG_XMM0, ASM_REG_XMM1, ASM_REG_XMM2, ASM_REG_XMM3, ASM_REG_XMM4, ASM_REG_XMM5
     };
 
     int xmmIndex = regId - REG_XMM0;
-    if (xmmIndex < 0 || xmmIndex > 5) return "%xmm0";
+    if (xmmIndex < 0 || xmmIndex > 5) return ASM_REG_XMM0;
     return xmmRegisters[xmmIndex];
 }
 
@@ -128,7 +130,7 @@ const char *getFloatRegisterName(RegisterId regId) {
  *       automatically incremented to ensure uniqueness.
  */
 void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize) {
-    snprintf(buffer, bufferSize, ".L%s_%d", prefix, context->labelCount++);
+    snprintf(buffer, bufferSize, "%s%s_%d", ASM_LABEL_PREFIX_LOCAL, prefix, context->labelCount++);
 }
 
 /**
@@ -173,9 +175,8 @@ int allocateVariable(StackContext context, const char *name, DataType type) {
     variable->next = context->variable;
     context->variable = variable;
 
-    emitComment(context, name);
-    fprintf(context->file, "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n",
-            size, name, size);
+    ASM_EMIT_COMMENT(context->file, name);
+    ASM_EMIT_SUBQ_RSP(context->file, size, name);
 
     return variable->stackOffset;
 }
@@ -208,6 +209,17 @@ StackVariable findStackVariable(StackContext context, const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Determines the data type of an AST node operand.
+ *
+ * Analyzes an AST node to determine its data type, handling both literal
+ * nodes (which have inherent types) and variable nodes (which require
+ * symbol table lookup). Essential for type-aware code generation.
+ *
+ * @param node AST node to analyze (can be NULL)
+ * @param context Code generation context for symbol table access
+ * @return DataType of the operand or TYPE_UNKNOWN if indeterminate
+ */
 DataType getOperandType(ASTNode node, StackContext context) {
     if (node == NULL) return TYPE_UNKNOWN;
 
@@ -219,6 +231,18 @@ DataType getOperandType(ASTNode node, StackContext context) {
     return type;
 }
 
+/**
+ * @brief Recursively collects all string literals from an AST.
+ *
+ * Traverses the entire AST to find and register all string literals
+ * in the string table before code generation. Uses depth-first search
+ * and handles deduplication automatically.
+ *
+ * @param node Root AST node to start collection from (can be NULL)
+ * @param context Code generation context containing string table
+ *
+ * @note Must be called before emitPreamble() to ensure complete string table.
+ */
 void collectStringLiterals(ASTNode node, StackContext context) {
     if (node == NULL) return;
 
@@ -230,5 +254,83 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     while (child != NULL) {
         collectStringLiterals(child, context);
         child = child->brothers;
+    }
+}
+
+/**
+ * @brief Checks if an AST node represents a compile-time literal value.
+ *
+ * Determines whether a node is a literal constant (INT_LIT, FLOAT_LIT,
+ * BOOL_LIT, STRING_LIT) that can be loaded as immediate value. Used for
+ * code generation optimizations in operand ordering.
+ *
+ * @param node AST node to test (can be NULL)
+ * @return 1 if node is a literal, 0 otherwise
+ */
+int isLiteral(ASTNode node) {
+    if (node == NULL) return 0;
+    return (node->nodeType == INT_LIT ||
+            node->nodeType == FLOAT_LIT ||
+            node->nodeType == BOOL_LIT ||
+            node->nodeType == STRING_LIT);
+}
+
+/**
+ * @brief Spills a register value to the stack.
+ *
+ * Saves the current contents of a register onto the stack to free it for
+ * other computations. Handles both integer/pointer registers and floating-
+ * point registers, since floating-point values require specific instructions.
+ *
+ * @param context Current stack context containing output file stream
+ * @param reg     Register identifier to spill
+ * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ */
+void spillRegisterToStack(StackContext context, RegisterId reg, DataType type) {
+    if (type == TYPE_FLOAT) {
+        // Float registers need special handling
+        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP, 8, "float", 8);
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_MEM,
+                getFloatRegisterName(reg), 0, "spill float");
+    } else {
+        // Integer/pointer registers
+        fprintf(context->file, "    %s %s          # Spill to stack\n",
+                ASM_PUSHQ, getRegisterName(reg, type));
+    }
+    ASM_EMIT_COMMENT(context->file, "Saved intermediate result to stack");
+}
+
+/**
+ * @brief Restores a register value from the stack.
+ *
+ * Loads a previously spilled register value from the stack back into the
+ * specified register. Correctly handles both integer/pointer registers and
+ * floating-point registers. Also updates the stack pointer after restoring.
+ *
+ * @param context Current stack context containing output file stream
+ * @param reg     Register identifier to restore into
+ * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ */
+void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type) {
+    if (type == TYPE_FLOAT) {
+        // Float registers need special handling
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG,
+                0, getFloatRegisterName(reg), "restore float");
+        fprintf(context->file, "    %s $8, %s     # Deallocate stack space\n",
+                ASM_ADDQ, ASM_REG_RSP);
+    } else {
+        // Integer/pointer registers
+        fprintf(context->file, "    %s %s           # Restore from stack\n",
+                ASM_POPQ, getRegisterName(reg, type));
+    }
+    ASM_EMIT_COMMENT(context->file, "Restored intermediate result from stack");
+}
+
+RegisterId getOppositeBranchRegister(RegisterId reg) {
+    switch (reg) {
+        case REG_RAX: return REG_RBX;
+        case REG_RBX: return REG_RAX;
+        case REG_XMM0: return REG_XMM1;
+        default: return REG_XMM0;
     }
 }

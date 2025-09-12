@@ -2,6 +2,7 @@
 // Created by pablo on 10/09/2025.
 //
 
+#include "asmTemplate.h"
 #include "codeGeneration.h"
 
 /**
@@ -25,17 +26,14 @@
 void emitPreamble(StackContext context) {
     if (context == NULL || context->file == NULL) return;
 
-    fprintf(context->file, "# Generated assembly code\n");
-
-    // FIX: Emit string table before text section
+    ASM_EMIT_HEADER_COMMENT(context->file, "Generated assembly code");
     emitStringTable(context);
+    fprintf(context->file, "%s\n", ASM_GLOBAL_START);
+    fprintf(context->file, "\n");
+    fprintf(context->file, "%s\n", ASM_START_LABEL);
+    fprintf(context->file, "%s\n", ASM_FUNCTION_PROLOGUE);
+    fprintf(context->file, "\n");
 
-    fprintf(context->file, ".globl _start\n");
-    fprintf(context->file, "\n");
-    fprintf(context->file, "_start:\n");
-    fprintf(context->file, "    pushq %%rbp\n");
-    fprintf(context->file, "    movq %%rsp, %%rbp\n");
-    fprintf(context->file, "\n");
 }
 
 /**
@@ -59,12 +57,11 @@ void emitEpilogue(StackContext context) {
     if (context == NULL || context->file == NULL) return;
 
     fprintf(context->file, "\n");
-    emitComment(context, "Exit program");
-    fprintf(context->file, "    movq %%rbp, %%rsp\n");
-    fprintf(context->file, "    popq %%rbp\n");
-    fprintf(context->file, "    movq $60, %%rax     # sys_exit\n");
-    fprintf(context->file, "    movq $0, %%rdi      # exit status\n");
-    fprintf(context->file, "    syscall\n");
+    ASM_EMIT_COMMENT(context->file, "Exit program");
+    fprintf(context->file, "%s\n", ASM_FUNCTION_EPILOGUE);
+    fprintf(context->file, "%s\n", ASM_SYS_EXIT);
+    fprintf(context->file, "%s\n", ASM_EXIT_STATUS_SUCCESS);
+    fprintf(context->file, "%s\n", ASM_SYSCALL);
 }
 
 /**
@@ -84,6 +81,6 @@ void emitEpilogue(StackContext context) {
  */
 void emitComment(StackContext context, const char *comment) {
     if (context && context->file && comment) {
-        fprintf(context->file, "    # %s\n", comment);
+        ASM_EMIT_COMMENT(context->file, comment);
     }
 }
