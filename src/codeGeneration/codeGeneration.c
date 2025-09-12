@@ -757,31 +757,31 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
         case LESS_EQUAL_OP:
         case GREATER_EQUAL_OP:
         case LOGIC_AND:
-        case LOGIC_OR: {
-            if (node->children == NULL || node->children->brothers == NULL) {
-                repError(ERROR_INTERNAL_PARSER_ERROR, "Binary operation missing operands");
-                return preferredReg;
-            }
+        case LOGIC_OR:
+            {
+                if (node->children == NULL || node->children->brothers == NULL) {
+                    repError(ERROR_INTERNAL_PARSER_ERROR, "Binary operation missing operands");
+                    return preferredReg;
+                }
 
-            DataType operandType = getOperandType(node->children, context);
-            if (operandType == TYPE_UNKNOWN) {
-                operandType = getOperandType(node->children->brothers, context);
-            }
+                DataType operandType = getOperandType(node->children, context);
+                if (operandType == TYPE_UNKNOWN) {
+                    operandType = getOperandType(node->children->brothers, context);
+                }
 
-            RegisterId leftReg, rightReg;
-            ASTNode left;
-            ASTNode right;
-            int invert = 0;
-            if (isLiteral(node->children) && !isLiteral(node->children->brothers) && node->nodeType == SUB_OP) {
-                left = node->children->brothers;
-                right = node->children;
-                invert = 1;
-            } else {
-                left = node->children;
-                right = node->children->brothers;
-            }
-            int needSpill = (!isLiteral(right) || (!isLiteral(left) && invert == 0)) || (
-                                !isLiteral(left) && isLiteral(right));
+                RegisterId leftReg, rightReg;
+                ASTNode left;
+                ASTNode right;
+                int invert = 0;
+                if (isLiteral(node->children) && !isLiteral(node->children->brothers) && node->nodeType == SUB_OP) {
+                    left = node->children->brothers;
+                    right = node->children;
+                    invert = 1;
+                } else {
+                    left = node->children;
+                    right = node->children->brothers;
+                }
+                int needSpill = !isLiteral(left) || !isLiteral(right);
             if (operandType == TYPE_FLOAT) {
                 leftReg = REG_XMM0;
                 rightReg = REG_XMM1;
