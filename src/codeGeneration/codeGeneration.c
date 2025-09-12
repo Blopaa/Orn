@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "asmTemplate.h"
 #include "errorHandling.h"
 
 /**
@@ -285,11 +286,11 @@ void generateLoadVariable(StackContext context, const char *varName, RegisterId 
 
     if (var->dataType == TYPE_FLOAT) {
         const char *regName = getFloatRegisterName(reg);
-        fprintf(context->file, "    movsd %d(%%rbp), %s    # Load float %s\n",
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG,
                 var->stackOffset, regName, varName);
     } else {
         const char *regName = getRegisterName(reg, var->dataType);
-        fprintf(context->file, "    movq %d(%%rbp), %s    # Load %s\n",
+        fprintf(context->file, ASM_TEMPLATE_MOVQ_MEM_REG,
                 var->stackOffset, regName, varName);
     }
 }
@@ -317,11 +318,11 @@ void generateStoreVariable(StackContext context, const char *varName, RegisterId
 
     if (var->dataType == TYPE_FLOAT) {
         const char *regName = getFloatRegisterName(reg);
-        fprintf(context->file, "    movsd %s, %d(%%rbp)    # Store float %s\n",
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_MEM,
                 regName, var->stackOffset, varName);
     } else {
         const char *regName = getRegisterName(reg, var->dataType);
-        fprintf(context->file, "    movq %s, %d(%%rbp)    # Store %s\n",
+        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_MEM,
                 regName, var->stackOffset, varName);
     }
 }
@@ -344,15 +345,14 @@ void generateFloatLoadImmediate(StackContext context, const char *value, Registe
     const char *regName = getFloatRegisterName(reg);
 
     char tempLabel[64];
-    snprintf(tempLabel, sizeof(tempLabel), ".FLOAT_%d", context->tempCount++);
+    snprintf(tempLabel, sizeof(tempLabel), "%s%d", ASM_LABEL_PREFIX_FLOAT, context->tempCount++);
 
-    fprintf(context->file, "\n.section .rodata\n");
-    fprintf(context->file, "%s:\n", tempLabel);
-    fprintf(context->file, "    .double %s\n", value);
-    fprintf(context->file, ".text\n");
+    ASM_EMIT_SECTION(context->file, ASM_SECTION_RODATA);
+    fprintf(context->file, ASM_TEMPLATE_FLOAT_LABEL, tempLabel);
+    fprintf(context->file, ASM_TEMPLATE_FLOAT_DATA, value);
+    ASM_EMIT_SECTION(context->file, ASM_SECTION_TEXT);
 
-    fprintf(context->file, "    movsd %s(%%rip), %s    # Load float immediate: %s\n",
-            tempLabel, regName, value);
+    fprintf(context->file, ASM_TEMPLATE_MOVSD_LABEL_REG, tempLabel, regName, value);
 }
 
 /**
@@ -374,8 +374,7 @@ void generateStringLoadImmediate(StackContext context, const char *value, Regist
     if (entry == NULL) return;
 
     const char *regName = getRegisterName(reg, TYPE_STRING);
-    fprintf(context->file, "    leaq %s(%%rip), %s    # Load string: %s\n",
-            entry->label, regName, value);
+    fprintf(context->file, ASM_TEMPLATE_LEAQ_LABEL_REG, entry->label, regName, value);
 }
 
 /**
@@ -404,15 +403,15 @@ void generateLoadImmediate(StackContext context, const char *value, DataType typ
             break;
 
         case TYPE_BOOL: {
-            int boolVal = (strcmp(value, "true") == 0) ? 1 : 0;
+            int boolVal = (strcmp(value, "true") == ASM_BOOL_FALSE_VALUE) ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
             const char *regName = getRegisterName(reg, type);
-            fprintf(context->file, "    movq $%d, %s    # Bool: %s\n", boolVal, regName, value);
+            ASM_EMIT_MOVQ_IMM(context->file, boolVal == 1 ? "1" : "0", regName, "Bool", value);
             break;
         }
 
         case TYPE_INT: {
             const char *regName = getRegisterName(reg, type);
-            fprintf(context->file, "    movq $%s, %s    # Int immediate: %s\n", value, regName, value);
+            ASM_EMIT_MOVQ_IMM(context->file, value, regName, "Int immediate", value);
             break;
         }
 
@@ -446,21 +445,21 @@ void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId le
 
     // Move left operand to result register if different
     if (leftReg != resultReg) {
-        fprintf(context->file, "    movsd %s, %s\n", left, result);
+        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
     }
 
     switch (opType) {
         case ADD_OP:
-            fprintf(context->file, "    addsd %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDSD, right, result);
             break;
         case SUB_OP:
-            fprintf(context->file, "    subsd %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBSD, right, result);
             break;
         case MUL_OP:
-            fprintf(context->file, "    mulsd %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_MULSD, right, result);
             break;
         case DIV_OP:
-            fprintf(context->file, "    divsd %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_DIVSD, right, result);
             break;
         case EQUAL_OP:
         case NOT_EQUAL_OP:
@@ -470,28 +469,28 @@ void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId le
         case GREATER_EQUAL_OP: {
             // Float comparison - result goes to integer register
             const char *intResult = getRegisterName(resultReg, TYPE_INT);
-            fprintf(context->file, "    ucomisd %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_FLOAT_CMP, right, result);
 
             const char *setInstruction;
             switch (opType) {
-                case EQUAL_OP: setInstruction = "sete";
+                case EQUAL_OP: setInstruction = ASM_SETE;
                     break;
-                case NOT_EQUAL_OP: setInstruction = "setne";
+                case NOT_EQUAL_OP: setInstruction = ASM_SETNE;
                     break;
-                case LESS_THAN_OP: setInstruction = "setb";
+                case LESS_THAN_OP: setInstruction = ASM_SETB;
                     break;
-                case GREATER_THAN_OP: setInstruction = "seta";
+                case GREATER_THAN_OP: setInstruction = ASM_SETA;
                     break;
-                case LESS_EQUAL_OP: setInstruction = "setbe";
+                case LESS_EQUAL_OP: setInstruction = ASM_SETBE;
                     break;
-                case GREATER_EQUAL_OP: setInstruction = "setae";
+                case GREATER_EQUAL_OP: setInstruction = ASM_SETAE;
                     break;
-                default: setInstruction = "sete";
+                default: setInstruction = ASM_SETE;
                     break;
             }
 
-            fprintf(context->file, "    %s %%al\n", setInstruction);
-            fprintf(context->file, "    movzbq %%al, %s\n", intResult);
+            fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+            fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, intResult);
             break;
         }
         default:
@@ -520,20 +519,20 @@ void generateFloatUnaryOp(StackContext context, NodeTypes opType, RegisterId ope
     const char *result = getFloatRegisterName(resultReg);
 
     if (operandReg != resultReg) {
-        fprintf(context->file, "    movsd %s, %s\n", operand, result);
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_REG, operand, result);
     }
 
     switch (opType) {
         case UNARY_MINUS_OP: {
             char negLabel[64];
-            snprintf(negLabel, sizeof(negLabel), ".FLOAT_NEG_%d", context->tempCount++);
+            snprintf(negLabel, sizeof(negLabel), "%s%d", ASM_LABEL_PREFIX_FLOAT_NEG, context->tempCount++);
 
-            fprintf(context->file, "\n.section .rodata\n");
-            fprintf(context->file, "%s:\n", negLabel);
-            fprintf(context->file, "    .quad 0x8000000000000000\n");
-            fprintf(context->file, ".text\n");
+            fprintf(context->file, ASM_SECTION_RODATA);
+            fprintf(context->file, ASM_TEMPLATE_FLOAT_LABEL, negLabel);
+            fprintf(context->file, ASM_TEMPLATE_FLOAT_MASK, ASM_FLOAT_SIGN_MASK);
+            fprintf(context->file, "%s\n", ASM_SECTION_TEXT);
 
-            fprintf(context->file, "    xorpd %s(%%rip), %s\n", negLabel, result);
+            fprintf(context->file, ASM_TEMPLATE_XOR_RIP, ASM_XORPD, negLabel, result);
             break;
         }
         case UNARY_PLUS_OP:
@@ -571,11 +570,11 @@ void generateStringOperation(StackContext context, NodeTypes opType, RegisterId 
         case EQUAL_OP:
         case NOT_EQUAL_OP: {
             emitComment(context, "String comparison (simplified - pointer comparison)");
-            fprintf(context->file, "    cmpq %s, %s    # Compare string pointers\n", right, left);
+            fprintf(context->file, ASM_TEMPLATE_CMP_REGS, right, left);
 
-            const char *setInstruction = (opType == EQUAL_OP) ? "sete" : "setne";
-            fprintf(context->file, "    %s %%al\n", setInstruction);
-            fprintf(context->file, "    movzbq %%al, %s\n", result);
+            const char *setInstruction = (opType == EQUAL_OP) ? ASM_SETE : ASM_SETNE;
+            fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+            fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
             break;
         }
         default:
@@ -619,33 +618,29 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
     const char *result = getRegisterName(resultReg, operandType);
 
     if (leftReg != resultReg) {
-        fprintf(context->file, "    movq %s, %s\n", left, result);
+        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
     }
 
     switch (opType) {
         case ADD_OP:
-            fprintf(context->file, "    addq %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, right, result);
             break;
         case SUB_OP:
-            fprintf(context->file, "    subq %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, right, result);
             break;
         case MUL_OP:
-            fprintf(context->file, "    imulq %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, right, result);
             break;
         case DIV_OP:
-            fprintf(context->file, "    movq %s, %%rax\n", result);
-            fprintf(context->file, "    cqo\n");
-            fprintf(context->file, "    idivq %s\n", right);
+            fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
             if (resultReg != REG_RAX) {
-                fprintf(context->file, "    movq %%rax, %s\n", result);
+                fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
             }
             break;
         case MOD_OP:
-            fprintf(context->file, "    movq %s, %%rax\n", result);
-            fprintf(context->file, "    cqo\n");
-            fprintf(context->file, "    idivq %s\n", right);
+            fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
             if (resultReg != REG_RDX) {
-                fprintf(context->file, "    movq %%rdx, %s\n", result);
+                fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
             }
             break;
         case EQUAL_OP:
@@ -656,31 +651,31 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
         case GREATER_EQUAL_OP: {
             const char *setInstruction;
             switch (opType) {
-                case EQUAL_OP: setInstruction = "sete";
+                case EQUAL_OP: setInstruction = ASM_SETE;
                     break;
-                case NOT_EQUAL_OP: setInstruction = "setne";
+                case NOT_EQUAL_OP: setInstruction = ASM_SETNE;
                     break;
-                case LESS_THAN_OP: setInstruction = "setl";
+                case LESS_THAN_OP: setInstruction = ASM_SETL;
                     break;
-                case GREATER_THAN_OP: setInstruction = "setg";
+                case GREATER_THAN_OP: setInstruction = ASM_SETG;
                     break;
-                case LESS_EQUAL_OP: setInstruction = "setle";
+                case LESS_EQUAL_OP: setInstruction = ASM_SETLE;
                     break;
-                case GREATER_EQUAL_OP: setInstruction = "setge";
+                case GREATER_EQUAL_OP: setInstruction = ASM_SETGE;
                     break;
-                default: setInstruction = "sete";
+                default: setInstruction = ASM_SETE;
                     break;
             }
-            fprintf(context->file, "    cmpq %s, %s\n", right, result);
-            fprintf(context->file, "    %s %%al\n", setInstruction);
-            fprintf(context->file, "    movzbq %%al, %s\n", result);
+            fprintf(context->file, ASM_TEMPLATE_CMP_REGS, right, result);
+            fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+            fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
             break;
         }
         case LOGIC_AND:
-            fprintf(context->file, "    andq %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, right, result);
             break;
         case LOGIC_OR:
-            fprintf(context->file, "    orq %s, %s\n", right, result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, right, result);
             break;
         default:
             emitComment(context, "Unknown binary operation");
@@ -689,7 +684,7 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
 
     if (invert == 1) {
         emitComment(context, "Invert result for register allocation optimization");
-        fprintf(context->file, "    negq %s    # %s = -%s\n", result, result, result);
+        fprintf(context->file, ASM_TEMPLATE_BINARY_OP " # %s = -%s\n", ASM_NEGQ, result, result, result, result);
     }
 }
 
@@ -871,24 +866,25 @@ int generateConditional(ASTNode node, StackContext context) {
     if (node->children == NULL) return 0;
 
     char elseLabel[64], endLabel[64];
-    generateLabel(context, "else", elseLabel, sizeof(elseLabel));
-    generateLabel(context, "end_if", endLabel, sizeof(endLabel));
+    generateLabel(context, ASM_LABEL_PREFIX_ELSE, elseLabel, sizeof(elseLabel));
+    generateLabel(context, ASM_LABEL_PREFIX_END_IF, endLabel, sizeof(endLabel));
 
     // Generate condition
     emitComment(context, "Evaluate condition");
     RegisterId condReg = generateExpressionToRegister(node->children, context, REG_RAX);
 
     // Test condition and jump to else if false
-    fprintf(context->file, "    testq %s, %s\n",
-            getRegisterName(condReg, TYPE_INT), getRegisterName(condReg, TYPE_INT));
+    fprintf(context->file, ASM_TEMPLATE_TEST_REG, getRegisterName(condReg, TYPE_INT),
+            getRegisterName(condReg, TYPE_INT));
+
 
     ASTNode trueBranch = node->children->brothers;
     ASTNode falseBranch = trueBranch ? trueBranch->brothers : NULL;
 
     if (falseBranch) {
-        fprintf(context->file, "    jz %s\n", elseLabel);
+        fprintf(context->file, ASM_TEMPLATE_CONDITIONAL_JUMP, ASM_JZ, elseLabel);
     } else {
-        fprintf(context->file, "    jz %s\n", endLabel);
+        fprintf(context->file, ASM_TEMPLATE_CONDITIONAL_JUMP, ASM_JZ, endLabel);
     }
 
     // Generate true branch
@@ -899,8 +895,8 @@ int generateConditional(ASTNode node, StackContext context) {
 
     // Generate false branch if it exists
     if (falseBranch) {
-        fprintf(context->file, "    jmp %s\n", endLabel);
-        fprintf(context->file, "%s:\n", elseLabel);
+        fprintf(context->file, ASM_TEMPLATE_JUMP, endLabel);
+        fprintf(context->file, ASM_TEMPLATE_LABEL, elseLabel);
 
         if (falseBranch->nodeType == ELSE_BRANCH && falseBranch->children) {
             emitComment(context, "False branch");
@@ -908,7 +904,7 @@ int generateConditional(ASTNode node, StackContext context) {
         }
     }
 
-    fprintf(context->file, "%s:\n", endLabel);
+    fprintf(context->file, ASM_TEMPLATE_LABEL, endLabel);
     return 1;
 }
 
@@ -939,30 +935,30 @@ int generateLoop(ASTNode node, StackContext context) {
     if (node->children == NULL || node->children->brothers == NULL) return 0;
 
     char loopLabel[64], endLabel[64];
-    generateLabel(context, "loop", loopLabel, sizeof(loopLabel));
-    generateLabel(context, "end_loop", endLabel, sizeof(endLabel));
+    generateLabel(context, ASM_LABEL_PREFIX_LOOP, loopLabel, sizeof(loopLabel));
+    generateLabel(context, ASM_LABEL_PREFIX_END_LOOP, endLabel, sizeof(endLabel));
 
     ASTNode condition = node->children;
     ASTNode body = node->children->brothers;
 
-    fprintf(context->file, "%s:\n", loopLabel);
+    fprintf(context->file, ASM_TEMPLATE_LABEL, loopLabel);
 
     // Generate condition
     emitComment(context, "Loop condition");
     RegisterId condReg = generateExpressionToRegister(condition, context, REG_RAX);
 
     // Test condition and exit if false
-    fprintf(context->file, "    testq %s, %s\n",
-            getRegisterName(condReg, TYPE_INT), getRegisterName(condReg, TYPE_INT));
-    fprintf(context->file, "    jz %s\n", endLabel);
+    fprintf(context->file, ASM_TEMPLATE_TEST_REG,
+           getRegisterName(condReg, TYPE_INT), getRegisterName(condReg, TYPE_INT));
+    fprintf(context->file, ASM_TEMPLATE_CONDITIONAL_JUMP, ASM_JZ, endLabel);
 
     // Generate loop body
     emitComment(context, "Loop body");
     generateNodeCode(body, context);
 
     // Jump back to condition
-    fprintf(context->file, "    jmp %s\n", loopLabel);
-    fprintf(context->file, "%s:\n", endLabel);
+    fprintf(context->file, ASM_TEMPLATE_JUMP, loopLabel);
+    fprintf(context->file, ASM_TEMPLATE_LABEL, endLabel);
 
     return 1;
 }
@@ -996,27 +992,27 @@ void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandR
     const char *result = getRegisterName(resultReg, operandType);
 
     if (operandReg != resultReg) {
-        fprintf(context->file, "    movq %s, %s\n", operand, result);
+        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, operand, result);
     }
 
     switch (opType) {
         case UNARY_MINUS_OP:
-            fprintf(context->file, "    negq %s\n", result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_NEGQ, result, "");
             break;
         case UNARY_PLUS_OP:
             break;
         case LOGIC_NOT:
-            fprintf(context->file, "    testq %s, %s\n", result, result);
-            fprintf(context->file, "    setz %%al\n");
-            fprintf(context->file, "    movzbq %%al, %s\n", result);
+            fprintf(context->file, ASM_TEMPLATE_TEST_REG, result, result);
+            fprintf(context->file, ASM_TEMPLATE_CMP_SET, ASM_SETZ);
+            fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
             break;
         case PRE_INCREMENT:
         case POST_INCREMENT:
-            fprintf(context->file, "    incq %s\n", result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_INCQ, result, "");
             break;
         case PRE_DECREMENT:
         case POST_DECREMENT:
-            fprintf(context->file, "    decq %s\n", result);
+            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_DECQ, result, "");
             break;
         default:
             emitComment(context, "Unknown unary operation");

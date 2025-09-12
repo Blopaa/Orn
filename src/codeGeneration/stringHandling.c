@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "asmTemplate.h"
 #include "codeGeneration.h"
 #include "errorHandling.h"
 
@@ -56,7 +57,7 @@ StringEntry addStringLiteral(StackContext context, const char *value) {
 
     // Create label
     entry->label = malloc(32);
-    snprintf(entry->label, 32, ".STR_%d", entry->index);
+    snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_STR, entry->index);
 
     entry->next = context->string;
     context->string = entry;
@@ -101,7 +102,8 @@ void emitStringTable(StackContext context) {
     if (context == NULL || context->file == NULL) return;
 
     if (context->string != NULL) {
-        fprintf(context->file, "\n.section .rodata\n");
+        fprintf(context->file, "\n");
+        ASM_EMIT_SECTION(context->file, ASM_SECTION_RODATA);
 
         StringEntry current = context->string;
         while (current != NULL) {
@@ -112,12 +114,13 @@ void emitStringTable(StackContext context) {
                 memmove(cleanValue, cleanValue + 1, strlen(cleanValue));
             }
 
-            fprintf(context->file, "%s:\n", current->label);
-            fprintf(context->file, "    .string \"%s\"\n", cleanValue);
+            fprintf(context->file, ASM_TEMPLATE_STRING_LABEL, current->label);
+            fprintf(context->file, ASM_TEMPLATE_STRING_DATA, cleanValue);
 
             free(cleanValue);
             current = current->next;
         }
-        fprintf(context->file, "\n.text\n");
+        fprintf(context->file, "\n");
+        ASM_EMIT_SECTION(context->file, ASM_SECTION_TEXT);
     }
 }

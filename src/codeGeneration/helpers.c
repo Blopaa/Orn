@@ -7,6 +7,7 @@
 
 #include "codeGeneration.h"
 #include "errorHandling.h"
+#include "asmTemplate.h"
 
 /**
  * @brief Returns the stack allocation size for a given data type.
@@ -80,7 +81,8 @@ const char *getRegisterName(RegisterId regId, DataType type) {
     }
 
     static const char *registers[] = {
-        "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"
+        ASM_REG_RAX, ASM_REG_RBX, ASM_REG_RCX, ASM_REG_RDX, ASM_REG_RSI,
+        ASM_REG_RDI, ASM_REG_R8, ASM_REG_R9, ASM_REG_R10, ASM_REG_R11
     };
 
     if (regId >= REG_R11 + 1) return "%rax";
@@ -103,11 +105,11 @@ const char *getRegisterName(RegisterId regId, DataType type) {
  */
 const char *getFloatRegisterName(RegisterId regId) {
     static const char *xmmRegisters[] = {
-        "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5"
+        ASM_REG_XMM0, ASM_REG_XMM1, ASM_REG_XMM2, ASM_REG_XMM3, ASM_REG_XMM4, ASM_REG_XMM5
     };
 
     int xmmIndex = regId - REG_XMM0;
-    if (xmmIndex < 0 || xmmIndex > 5) return "%xmm0";
+    if (xmmIndex < 0 || xmmIndex > 5) return ASM_REG_XMM0;
     return xmmRegisters[xmmIndex];
 }
 
@@ -128,7 +130,7 @@ const char *getFloatRegisterName(RegisterId regId) {
  *       automatically incremented to ensure uniqueness.
  */
 void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize) {
-    snprintf(buffer, bufferSize, ".L%s_%d", prefix, context->labelCount++);
+    snprintf(buffer, bufferSize, "%s%s_%d", ASM_LABEL_PREFIX_LOCAL, prefix, context->labelCount++);
 }
 
 /**
@@ -173,9 +175,8 @@ int allocateVariable(StackContext context, const char *name, DataType type) {
     variable->next = context->variable;
     context->variable = variable;
 
-    emitComment(context, name);
-    fprintf(context->file, "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n",
-            size, name, size);
+    ASM_EMIT_COMMENT(context->file, name);
+    ASM_EMIT_SUBQ_RSP(context->file, size, name);
 
     return variable->stackOffset;
 }

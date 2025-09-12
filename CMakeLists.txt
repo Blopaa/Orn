@@ -19,6 +19,7 @@ set(LIB_SOURCES
         src/codeGeneration/asmEmitter.c
         src/codeGeneration/stringHandling.c
         src/codeGeneration/helpers.c
+        src/codeGeneration/asmTemplate.h
 )
 
 # Create compiler library
