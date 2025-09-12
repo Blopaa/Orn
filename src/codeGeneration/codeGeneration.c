@@ -445,7 +445,7 @@ void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId le
 
     // Move left operand to result register if different
     if (leftReg != resultReg) {
-        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_REG, left, result);
     }
 
     switch (opType) {
@@ -687,8 +687,8 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
     }
 
     if (invert == 1) {
-        emitComment(context, "Invert result for register allocation optimization");
-        fprintf(context->file, ASM_TEMPLATE_BINARY_OP " # %s = -%s\n", ASM_NEGQ, result, result, result, result);
+        emitComment(context, "Invert result a - b = -(b - a)");
+        fprintf(context->file,"    #%s = -%s\n"ASM_TEMPLATE_UNARY_OP, result, result, ASM_NEGQ, result);
     }
 }
 
@@ -780,14 +780,28 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
                 left = node->children;
                 right = node->children->brothers;
             }
+            int needSpill = !isLiteral(right) && (right->nodeType == ADD_OP ||
+                                                  right->nodeType == SUB_OP ||
+                                                  right->nodeType == MUL_OP ||
+                                                  right->nodeType == DIV_OP ||
+                                                  right->nodeType == MOD_OP);
             if (operandType == TYPE_FLOAT) {
-                leftReg = generateExpressionToRegister(left, context, REG_XMM0);
-                rightReg = generateExpressionToRegister(right, context, REG_XMM1);
-                preferredReg = REG_XMM0;
+                leftReg = REG_XMM0;
+                rightReg = REG_XMM1;
             } else {
-                leftReg = generateExpressionToRegister(left, context, REG_RAX);
-                rightReg = generateExpressionToRegister(right, context, REG_RBX);
+                leftReg = REG_RAX;
+                rightReg = REG_RBX;
             }
+            leftReg = generateExpressionToRegister(left, context, leftReg);
+            if (needSpill) {
+                spillRegisterToStack(context, leftReg, operandType);
+                rightReg = generateExpressionToRegister(right, context, rightReg);
+                restoreRegisterFromStack(context, REG_RBX, operandType);
+                leftReg = operandType == TYPE_FLOAT ? REG_XMM1 : REG_RBX;
+            } else {
+                rightReg = generateExpressionToRegister(right, context, rightReg);
+            }
+            preferredReg = leftReg;
 
             generateBinaryOp(context, node->nodeType, leftReg, rightReg, preferredReg, operandType, invert);
             return preferredReg;
@@ -953,7 +967,7 @@ int generateLoop(ASTNode node, StackContext context) {
 
     // Test condition and exit if false
     fprintf(context->file, ASM_TEMPLATE_TEST_REG,
-           getRegisterName(condReg, TYPE_INT), getRegisterName(condReg, TYPE_INT));
+            getRegisterName(condReg, TYPE_INT), getRegisterName(condReg, TYPE_INT));
     fprintf(context->file, ASM_TEMPLATE_CONDITIONAL_JUMP, ASM_JZ, endLabel);
 
     // Generate loop body

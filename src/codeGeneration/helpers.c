@@ -274,3 +274,54 @@ int isLiteral(ASTNode node) {
             node->nodeType == BOOL_LIT ||
             node->nodeType == STRING_LIT);
 }
+
+/**
+ * @brief Spills a register value to the stack.
+ *
+ * Saves the current contents of a register onto the stack to free it for
+ * other computations. Handles both integer/pointer registers and floating-
+ * point registers, since floating-point values require specific instructions.
+ *
+ * @param context Current stack context containing output file stream
+ * @param reg     Register identifier to spill
+ * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ */
+void spillRegisterToStack(StackContext context, RegisterId reg, DataType type) {
+    if (type == TYPE_FLOAT) {
+        // Float registers need special handling
+        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP, 8, "float", 8);
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_MEM,
+                getFloatRegisterName(reg), 0, "spill float");
+    } else {
+        // Integer/pointer registers
+        fprintf(context->file, "    %s %s          # Spill to stack\n",
+                ASM_PUSHQ, getRegisterName(reg, type));
+    }
+    ASM_EMIT_COMMENT(context->file, "Saved intermediate result to stack");
+}
+
+/**
+ * @brief Restores a register value from the stack.
+ *
+ * Loads a previously spilled register value from the stack back into the
+ * specified register. Correctly handles both integer/pointer registers and
+ * floating-point registers. Also updates the stack pointer after restoring.
+ *
+ * @param context Current stack context containing output file stream
+ * @param reg     Register identifier to restore into
+ * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ */
+void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type) {
+    if (type == TYPE_FLOAT) {
+        // Float registers need special handling
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG,
+                0, getFloatRegisterName(reg), "restore float");
+        fprintf(context->file, "    %s $8, %s     # Deallocate stack space\n",
+                ASM_ADDQ, ASM_REG_RSP);
+    } else {
+        // Integer/pointer registers
+        fprintf(context->file, "    %s %s           # Restore from stack\n",
+                ASM_POPQ, getRegisterName(reg, type));
+    }
+    ASM_EMIT_COMMENT(context->file, "Restored intermediate result from stack");
+}

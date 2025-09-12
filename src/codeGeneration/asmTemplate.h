@@ -59,6 +59,9 @@
 #define ASM_MOVZBQ              "movzbq"
 #define ASM_LEAQ                "leaq"
 
+// Float register move template
+#define ASM_TEMPLATE_MOVSD_REG_REG      "    movsd %s, %s\n"
+
 // ========== ARITHMETIC INSTRUCTIONS ==========
 #define ASM_ADDQ                "addq"
 #define ASM_ADDSD               "addsd"

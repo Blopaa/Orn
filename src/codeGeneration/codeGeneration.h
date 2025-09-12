@@ -162,5 +162,9 @@ void collectStringLiterals(ASTNode node, StackContext context);
 
 int isLiteral(ASTNode node);
 
+void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
+
+void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
+
 
 #endif //CINTERPRETER_CODEGENERATION_H
