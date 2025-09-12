@@ -688,7 +688,7 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
 
     if (invert == 1) {
         emitComment(context, "Invert result a - b = -(b - a)");
-        fprintf(context->file,"    #%s = -%s\n"ASM_TEMPLATE_UNARY_OP, result, result, ASM_NEGQ, result);
+        fprintf(context->file, "    #%s = -%s\n"ASM_TEMPLATE_UNARY_OP, result, result, ASM_NEGQ, result);
     }
 }
 
@@ -780,11 +780,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
                 left = node->children;
                 right = node->children->brothers;
             }
-            int needSpill = !isLiteral(right) && (right->nodeType == ADD_OP ||
-                                                  right->nodeType == SUB_OP ||
-                                                  right->nodeType == MUL_OP ||
-                                                  right->nodeType == DIV_OP ||
-                                                  right->nodeType == MOD_OP);
+            int needSpill = !isLiteral(right) || (!isLiteral(left) && invert == 0);
             if (operandType == TYPE_FLOAT) {
                 leftReg = REG_XMM0;
                 rightReg = REG_XMM1;
@@ -795,9 +791,15 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             leftReg = generateExpressionToRegister(left, context, leftReg);
             if (needSpill) {
                 spillRegisterToStack(context, leftReg, operandType);
-                rightReg = generateExpressionToRegister(right, context, rightReg);
+                rightReg = generateExpressionToRegister(right, context, REG_RAX);
                 restoreRegisterFromStack(context, REG_RBX, operandType);
-                leftReg = operandType == TYPE_FLOAT ? REG_XMM1 : REG_RBX;
+                leftReg = operandType == TYPE_FLOAT
+                              ? rightReg == REG_XMM0
+                                    ? REG_XMM1
+                                    : REG_XMM0
+                              : rightReg == REG_RAX
+                                    ? REG_RBX
+                                    : REG_RAX;
             } else {
                 rightReg = generateExpressionToRegister(right, context, rightReg);
             }
