@@ -121,7 +121,9 @@ Input splitter(const char *input) {
                 (input[i] == '&' && input[i + 1] == '&') ||
                 (input[i] == '|' && input[i + 1] == '|') ||
                 (input[i] == '*' && input[i + 1] == '=') ||
-                (input[i] == '/' && input[i + 1] == '=')) {
+                (input[i] == '/' && input[i + 1] == '=') ||
+                (input[i] == '-' && input[i + 1] == '>')) {
+
                 token_len = 2;
             } else {
                 token_len = 1;

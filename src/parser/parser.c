@@ -25,6 +25,8 @@
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
 
+#include <string.h>
+
 ASTNode parseStatement(Token *current); // Forward declaration
 ASTNode parseConditional(Token *current, ASTNode condition);
 
@@ -50,6 +52,17 @@ ASTNode parseConditional(Token *current, ASTNode condition);
  */
 ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     if (current == NULL || *current == NULL) return NULL;
+    if ((*current)->type == TokenLiteral &&
+        (*current)->next != NULL &&
+        (*current)->next->type == TokenLeftParen) {
+
+        char *functionName = strdup((*current)->value);
+        *current = (*current)->next;
+
+        ASTNode funcCall = parseFunctionCall(current, functionName);
+        free(functionName);
+        return funcCall;
+        }
     ASTNode node = createValNode(*current, fatherType);
     if (node != NULL) {
         *current = (*current)->next;
@@ -371,6 +384,265 @@ ASTNode parseLoop(Token* current) {
     return loopNode;
 }
 
+ASTNode parseParameter(Token * current) {
+    if (current == NULL || *current == NULL || !isValidVariable((*current)->value)) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected parameter name");
+        return NULL;
+    }
+    ASTNode paramNode = createNode(*current, PARAMETER);
+    *current = (*current)->next;
+
+    if (*current == NULL || (*current)->type != TokenColon) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected ':' after parameter name");
+        freeAST(paramNode);
+        return NULL;
+    }
+    *current = (*current)->next;
+
+    if (*current == NULL || !isTypeToken((*current)->type)) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected type after ':'");
+        freeAST(paramNode);
+        return NULL;
+    }
+
+    Token typeToken = *current;
+    NodeTypes paramType = getDecType(typeToken->type);
+    *current = (*current)->next;
+
+    ASTNode typeNode = createNode(typeToken, paramType);
+    paramNode->children = typeNode;
+
+    return paramNode;
+}
+
+ASTNode parseParameterList(Token *current) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
+        return NULL;
+    }
+    *current = (*current)->next;
+    ASTNode paramListNode = createNode(NULL, PARAMETER_LIST);
+    ASTNode lastParam = NULL;
+    if (*current != NULL && (*current)->type == TokenRightParen) {
+        *current = (*current)->next;
+        return paramListNode;
+    }
+    while (*current != NULL && (*current)->type != TokenRightParen) {
+        ASTNode param = parseParameter(current);
+        if (param == NULL) {
+            freeAST(paramListNode);
+            return NULL;
+        }
+
+        if (paramListNode->children == NULL) {
+            paramListNode->children = param;
+        } else if (lastParam != NULL) {
+            lastParam->brothers = param;
+        }
+        lastParam = param;
+
+        if (*current != NULL && (*current)->type == TokenComma) {
+            *current = (*current)->next;
+        } else if (*current != NULL && (*current)->type == TokenRightParen) {
+            break;
+        } else {
+            repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')' in parameter list");
+            freeAST(paramListNode);
+            return NULL;
+        }
+    }
+    if (*current == NULL || (*current)->type != TokenRightParen) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected ')' to close parameter list");
+        freeAST(paramListNode);
+        return NULL;
+    }
+    *current = (*current)->next; // Skip ')'
+    return paramListNode;
+}
+
+ASTNode parseReturnType(Token *current) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenArrow) {
+        return NULL;
+    }
+
+    *current = (*current)->next;
+
+    if (*current == NULL || !isTypeToken((*current)->type)) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected type after '->'");
+        return NULL;
+    }
+
+    Token typeToken = *current;
+    NodeTypes returnType = getReturnTypeFromToken(typeToken->type);
+    *current = (*current)->next;
+
+    ASTNode returnTypeNode = createNode(typeToken, RETURN_TYPE);
+    if (returnType != null_NODE) {
+        ASTNode typeNode = createNode(typeToken, returnType);
+        returnTypeNode->children = typeNode;
+    }
+
+    return returnTypeNode;
+}
+
+ASTNode parseFunction(Token *current) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenFunctionDefinition) {
+        return NULL;
+    }
+    Token fnToken = *current;
+    *current = (*current)->next;
+
+    if (*current == NULL || !isValidVariable((*current)->value)) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected function name after 'fn'");
+        return NULL;
+    }
+    ASTNode functionNode = createNode(fnToken, FUNCTION_DEFINITION);
+    functionNode->value = strdup((*current)->value);
+    *current = (*current)->next;
+    if (*current == NULL || (*current)->type != TokenLeftParen) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected '(' after function name");
+        freeAST(functionNode);
+        return NULL;
+    }
+
+    ASTNode paramList = parseParameterList(current);
+    if (paramList == NULL) {
+        freeAST(functionNode);
+        return NULL;
+    }
+
+    if (*current == NULL || (*current)->type != TokenArrow) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected '->' after parameter list. Return type is mandatory.");
+        freeAST(functionNode);
+        freeAST(paramList);
+        return NULL;
+    }
+
+    ASTNode returnType = parseReturnType(current);
+    if (returnType == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected return type after '->'");
+        freeAST(functionNode);
+        freeAST(paramList);
+        return NULL;
+    }
+
+    if (*current == NULL || (*current)->type != TokenLeftBrace) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected '{' for function body");
+        freeAST(functionNode);
+        freeAST(paramList);
+        freeAST(returnType);
+        return NULL;
+    }
+
+    ASTNode body = parseBlock(current);
+    if (body == NULL) {
+        freeAST(functionNode);
+        freeAST(paramList);
+        freeAST(returnType);
+        return NULL;
+    }
+    functionNode->children = paramList;
+    paramList->brothers = returnType;
+    returnType->brothers = body;
+
+    return functionNode;
+}
+
+ASTNode parseArgumentList(Token *current) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
+        return NULL;
+    }
+
+    *current = (*current)->next;
+
+    ASTNode argListNode = createNode(NULL, ARGUMENT_LIST);
+    ASTNode lastArg = NULL;
+
+    if (*current != NULL && (*current)->type == TokenRightParen) {
+        *current = (*current)->next;
+        return argListNode;
+    }
+
+    while (*current != NULL && (*current)->type != TokenRightParen) {
+        ASTNode arg = ExpParser(current, null_NODE);
+        if (arg == NULL) {
+            freeAST(argListNode);
+            return NULL;
+        }
+
+        if (argListNode->children == NULL) {
+            argListNode->children = arg;
+        } else if (lastArg != NULL) {
+            lastArg->brothers = arg;
+        }
+        lastArg = arg;
+
+        if (*current != NULL && (*current)->type == TokenComma) {
+            *current = (*current)->next;
+        } else if (*current != NULL && (*current)->type == TokenRightParen) {
+            break;
+        } else {
+            repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')' in argument list");
+            freeAST(argListNode);
+            return NULL;
+        }
+    }
+
+    if (*current == NULL || (*current)->type != TokenRightParen) {
+        repError(ERROR_INVALID_EXPRESSION, "Expected ')' to close argument list");
+        freeAST(argListNode);
+        return NULL;
+    }
+
+    *current = (*current)->next;
+    return argListNode;
+}
+
+ASTNode parseFunctionCall(Token *current, char *functionName) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
+        return NULL;
+    }
+
+    ASTNode callNode = createNode(NULL, FUNCTION_CALL);
+    callNode->value = strdup(functionName);
+
+    ASTNode argList = parseArgumentList(current);
+    if (argList == NULL) {
+        freeAST(callNode);
+        return NULL;
+    }
+
+    callNode->children = argList;
+    return callNode;
+}
+
+ASTNode parseReturnStatement(Token *current) {
+    if (current == NULL || *current == NULL || (*current)->type != TokenReturn) {
+        return NULL;
+    }
+
+    Token returnToken = *current;
+    *current = (*current)->next;
+
+    ASTNode returnNode = createNode(returnToken, RETURN_STATEMENT);
+
+    if (*current != NULL && (*current)->type != TokenPunctuation) {
+        ASTNode expr = ExpParser(current, null_NODE);
+        if (expr != NULL) {
+            returnNode->children = expr;
+        }
+    }
+
+    if (*current != NULL && (*current)->type == TokenPunctuation) {
+        *current = (*current)->next;
+    } else {
+        repError(ERROR_INVALID_EXPRESSION, "Expected ';' after return statement");
+        freeAST(returnNode);
+        return NULL;
+    }
+
+    return returnNode;
+}
+
 /**
  * @brief Parses individual statements (declarations, assignments, expressions).
  *
@@ -402,6 +674,14 @@ ASTNode parseLoop(Token* current) {
  */
 ASTNode parseStatement(Token *current) {
     if (current == NULL || *current == NULL) return NULL;
+
+    if ((*current)->type == TokenFunctionDefinition) {
+        return parseFunction(current);
+    }
+
+    if ((*current)->type == TokenReturn) {
+        return parseReturnStatement(current);
+    }
 
     if ((*current)->type == TokenWhileLoop) {
         return parseLoop(current);
@@ -543,14 +823,14 @@ void printASTTree(ASTNode node, char *prefix, int isLast) {
 
     const char *nodeTypeStr = getNodeTypeName(node->nodeType);
 
-    printf("%s%s%s", prefix, isLast ? "└── " : "├── ", nodeTypeStr);
+    printf("%s%s%s", prefix, isLast ? "|___ " : "|-- ", nodeTypeStr);
     if (node->value) {
         printf(": %s", node->value);
     }
     printf("\n");
 
     char newPrefix[256];
-    sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "│   ");
+    sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "|   ");
 
     ASTNode child = node->children;
     while (child != NULL) {

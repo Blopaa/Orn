@@ -248,3 +248,34 @@ const OperatorInfo *getOperatorInfo(TokenType type) {
     }
     return NULL;
 }
+
+/**
+ * @brief Checks if a token represents a valid type.
+ *
+ * @param type Token type to check
+ * @return 1 if it's a type token, 0 otherwise
+ */
+int isTypeToken(TokenType type) {
+    return (type == TokenIntDefinition ||
+            type == TokenStringDefinition ||
+            type == TokenFloatDefinition ||
+            type == TokenBoolDefinition ||
+            type == TokenVoidDefinition);
+}
+
+/**
+ * @brief Converts a token type to corresponding AST return type node.
+ *
+ * @param type Token type (e.g., TokenIntDefinition)
+ * @return Corresponding AST node type (e.g., INT_VARIABLE_DEFINITION)
+ */
+NodeTypes getReturnTypeFromToken(TokenType type) {
+    switch (type) {
+    case TokenIntDefinition: return INT_VARIABLE_DEFINITION;
+    case TokenStringDefinition: return STRING_VARIABLE_DEFINITION;
+    case TokenFloatDefinition: return FLOAT_VARIABLE_DEFINITION;
+    case TokenBoolDefinition: return BOOL_VARIABLE_DEFINITION;
+    case TokenVoidDefinition: return null_NODE;
+    default: return null_NODE;
+    }
+}

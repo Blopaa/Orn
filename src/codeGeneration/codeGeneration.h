@@ -136,8 +136,6 @@ StackVariable findStackVariable(StackContext context, const char *name);
 
 void emitPreamble(StackContext context);
 
-void emitEpilogue(StackContext context);
-
 void generateLoadVariable(StackContext context, const char *varName, RegisterId reg);
 
 void generateStoreVariable(StackContext context, const char *varName, RegisterId reg);
@@ -167,6 +165,8 @@ void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
 void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
 
 RegisterId getOppositeBranchRegister(RegisterId reg);
+
+int generateBuiltinFunctionCall(ASTNode node, StackContext context);
 
 
 #endif //CINTERPRETER_CODEGENERATION_H

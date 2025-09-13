@@ -67,6 +67,13 @@ typedef enum {
     ELSE_BRANCH,
     BLOCK_EXPRESSION,
     LOOP_STATEMENT,
+    FUNCTION_DEFINITION,
+    FUNCTION_CALL,
+    PARAMETER_LIST,
+    PARAMETER,
+    ARGUMENT_LIST,
+    RETURN_STATEMENT,
+    RETURN_TYPE,
 } NodeTypes;
 
 
@@ -117,6 +124,13 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {ELSE_BRANCH, "ELSE_BRANCH"},
     {BLOCK_EXPRESSION, "BLOCK_EXPRESSION"},
     {LOOP_STATEMENT, "LOOP_STATEMENT"},
+    {FUNCTION_DEFINITION, "FUNCTION_DEFINITION"},
+    {FUNCTION_CALL, "FUNCTION_CALL"},
+    {PARAMETER_LIST, "PARAMETER_LIST"},
+    {PARAMETER, "PARAMETER"},
+    {ARGUMENT_LIST, "ARGUMENT_LIST"},
+    {RETURN_STATEMENT, "RETURN_STATEMENT"},
+    {RETURN_TYPE, "RETURN_TYPE"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -246,6 +260,14 @@ int isValidStringLit(const char *val);
 ASTNode createValNode(Token current_token, NodeTypes fatherType);
 
 const OperatorInfo *getOperatorInfo(TokenType type);
+
+int isTypeToken(TokenType type);
+
+NodeTypes getReturnTypeFromToken(TokenType type);
+
+ASTNode parseFunction(Token *current);
+
+ASTNode parseFunctionCall(Token *current, char *functionName);
 
 // Public function prototypes
 ASTNode ASTGenerator(Token token);

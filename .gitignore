@@ -1,7 +1,7 @@
 # Compiled Object files
 *.o
 *.obj
-*.s
+output.s
 
 # Compiled Dynamic libraries
 *.so

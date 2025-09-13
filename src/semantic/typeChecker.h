@@ -17,6 +17,7 @@
 typedef struct TypeCheckContext {
     SymbolTable current;
     SymbolTable global;
+    Symbol currentFunction;
 } *TypeCheckContext;
 
 TypeCheckContext createTypeCheckContext();
@@ -42,5 +43,19 @@ int typeCheckNode(ASTNode node, TypeCheckContext context);
 int typeCheckChildren(ASTNode node, TypeCheckContext context);
 
 int typeCheckAST(ASTNode ast);
+
+int validateFunctionDef(ASTNode node, TypeCheckContext context);
+
+int validateFunctionCall(ASTNode node, TypeCheckContext context);
+
+int validateReturnStatement(ASTNode node, TypeCheckContext context);
+
+FunctionParameter extractParameters(ASTNode paramListNode);
+
+DataType getReturnTypeFromNode(ASTNode returnTypeNode);
+
+int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context);
+
+int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context);
 
 #endif //CINTERPRETER_TYPECHECKER_H

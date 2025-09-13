@@ -19,6 +19,8 @@
 
 #include "../parser/parser.h"
 
+struct TypeCheckContext;
+typedef struct TypeCheckContext *TypeCheckContext;
 
 /**
  * @brief Data type enumeration for type checking and validation.
@@ -35,6 +37,17 @@ typedef enum {
     TYPE_UNKNOWN
 } DataType;
 
+typedef enum {
+    SYMBOL_VARIABLE,
+    SYMBOL_FUNCTION,
+} SymbolType;
+
+typedef struct FunctionParameter {
+    char * name;
+    DataType type;
+    struct FunctionParameter * next;
+} * FunctionParameter;
+
 /**
  * @brief Symbol structure representing a declared variable.
  *
@@ -44,11 +57,16 @@ typedef enum {
  */
 typedef struct Symbol {
     char *name;
+    SymbolType symbolType;
     DataType type;
     int line;
     int column;
     int scope;
-    int isInitialized;
+    int isInitialized; // only for vars
+    //only for functions
+    FunctionParameter parameters;
+    int paramCount;
+
     struct Symbol *next;
 } *Symbol;
 
@@ -81,5 +99,12 @@ Symbol lookupSymbol(SymbolTable symbolTable, const char *name);
 Symbol lookUpSymbolCurrentOnly(SymbolTable table, const char *name);
 
 DataType getDataTypeFromNode(NodeTypes nodeType);
+
+FunctionParameter createParameter(const char *name, DataType type);
+
+void freeParamList(FunctionParameter paramList);
+
+Symbol addFunctionSymbol(SymbolTable symbolTable, const char *name, DataType returnType,
+                        FunctionParameter parameters, int paramCount, int line, int column);
 
 #endif //CINTERPRETER_SYMBOLTABLE_H

@@ -4,6 +4,8 @@
 
 #include "typeChecker.h"
 
+#include "builtIns.h"
+
 #include <stdlib.h>
 
 #include "errorHandling.h"
@@ -35,6 +37,9 @@ TypeCheckContext createTypeCheckContext() {
         return NULL;
     }
     context->current = context->global;
+    context->currentFunction = NULL;
+
+    initBuiltIns(context->global);
 
     return context;
 }
@@ -214,11 +219,136 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
             return getOperationResultType(leftType, rightType, node->nodeType);
         }
+        case FUNCTION_CALL: {
+            if (isBuiltinFunction(node->value)) {
+              return TYPE_VOID;
+            }
+            Symbol funcSymbol = lookupSymbol(context->current, node->value);
+            if (funcSymbol != NULL && funcSymbol->symbolType == SYMBOL_FUNCTION) {
+                return funcSymbol->type;
+            }
+
+            return TYPE_UNKNOWN;
+        }
 
         default:
             return TYPE_UNKNOWN;
     }
 }
+
+int validateFunctionCall(ASTNode node, TypeCheckContext context) {
+  if (node == NULL || node->nodeType != FUNCTION_CALL || node->value == NULL) {
+    repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function call node");
+    return 0;
+  }
+
+  ASTNode argListNode = node->children;
+  if (argListNode == NULL || argListNode->nodeType != ARGUMENT_LIST) {
+    repError(ERROR_INTERNAL_PARSER_ERROR, "Function call missing argument list");
+    return 0;
+  }
+
+  if (isBuiltinFunction(node->value)) {
+    return validateBuiltinFunctionCall(node, context);
+  }
+
+  return validateUserDefinedFunctionCall(node, context);
+}
+
+int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
+    ASTNode argListNode = node->children;
+
+    int argCount = 0;
+    ASTNode arg = argListNode->children;
+    while (arg != NULL) {
+        argCount++;
+        arg = arg->brothers;
+    }
+
+    DataType *argTypes = NULL;
+    if (argCount > 0) {
+        argTypes = malloc(argCount * sizeof(DataType));
+        if (argTypes == NULL) {
+            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types array");
+            return 0;
+        }
+
+        arg = argListNode->children;
+        for (int i = 0; i < argCount && arg != NULL; i++) {
+            DataType argType = getExpressionType(arg, context);
+            if (argType == TYPE_UNKNOWN) {
+                free(argTypes);
+                return 0;
+            }
+            argTypes[i] = argType;
+            arg = arg->brothers;
+        }
+    }
+
+    BuiltInId builtinId = resolveOverload(node->value, argTypes, argCount);
+    int result = (builtinId != BUILTIN_UNKNOWN);
+
+    if (!result) {
+        repError(ERROR_INVALID_EXPRESSION, "No matching overload for built-in function");
+    }
+
+    if (argTypes != NULL) {
+        free(argTypes);
+    }
+
+    return result;
+}
+
+int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
+    Symbol funcSymbol = lookupSymbol(context->current, node->value);
+    if (funcSymbol == NULL) {
+        repError(ERROR_UNDEFINED_VARIABLE, node->value);
+        return 0;
+    }
+
+    if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
+        repError(ERROR_INVALID_EXPRESSION, "Attempting to call non-function");
+        return 0;
+    }
+
+    ASTNode argListNode = node->children;
+
+    // Count arguments
+    int argCount = 0;
+    ASTNode arg = argListNode->children;
+    while (arg != NULL) {
+        argCount++;
+        arg = arg->brothers;
+    }
+
+    // Check argument count
+    if (argCount != funcSymbol->paramCount) {
+        repError(ERROR_INVALID_EXPRESSION, "Function call argument count mismatch");
+        return 0;
+    }
+
+    // Stream validate argument types (no allocation needed!)
+    FunctionParameter param = funcSymbol->parameters;
+    arg = argListNode->children;
+
+    while (param != NULL && arg != NULL) {
+        DataType argType = getExpressionType(arg, context);
+        if (argType == TYPE_UNKNOWN) {
+            return 0; // Error already reported
+        }
+
+        if (!areCompatible(param->type, argType)) {
+            repError(variableErrorCompatibleHandling(param->type, argType), param->name);
+            return 0;
+        }
+
+        param = param->next;
+        arg = arg->brothers;
+    }
+
+    return 1;
+}
+
 
 /**
  * @brief Determines appropriate error code for variable type mismatch scenarios.
@@ -414,6 +544,112 @@ int validateVariableUsage(ASTNode node, TypeCheckContext context) {
     return 1;
 }
 
+FunctionParameter extractParameters(ASTNode paramListNode) {
+    if (paramListNode == NULL || paramListNode->nodeType != PARAMETER_LIST) return NULL;
+
+    FunctionParameter firstParam = NULL;
+    FunctionParameter lastParam = NULL;
+
+    ASTNode paramNode = paramListNode->children;
+    while (paramNode != NULL) {
+        if (paramNode->nodeType == PARAMETER && paramNode->value != NULL && paramNode->children != NULL) {
+            DataType paramType = getDataTypeFromNode(paramNode->children->nodeType);
+            FunctionParameter param = createParameter(paramNode->value, paramType);
+            if (param == NULL) {
+                freeParamList(firstParam);
+                return NULL;
+            }
+            if (firstParam == NULL) {
+                firstParam = param;
+            }else {
+                lastParam->next = param;
+            }
+            lastParam = param;
+        }
+        paramNode = paramNode->brothers;
+    }
+    return firstParam;
+}
+
+DataType getReturnTypeFromNode(ASTNode returnTypeNode) {
+    if (returnTypeNode == NULL || returnTypeNode->nodeType != RETURN_TYPE) {
+        return TYPE_VOID; // Default to void if no return type specified
+    }
+
+    if (returnTypeNode->children != NULL) {
+        return getDataTypeFromNode(returnTypeNode->children->nodeType);
+    }
+
+    return TYPE_VOID;
+}
+
+int validateFunctionDef(ASTNode node, TypeCheckContext context) {
+    if (node == NULL || node->nodeType != FUNCTION_DEFINITION || node->value == NULL) {
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function definition node");
+        return 0;
+    }
+
+    ASTNode paramListNode = node->children;
+    ASTNode returnTypeNode = paramListNode ? paramListNode->brothers : NULL;
+    ASTNode bodyNode = returnTypeNode ? returnTypeNode->brothers : NULL;
+
+    if (paramListNode == NULL || paramListNode->nodeType != PARAMETER_LIST) {
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Function missing parameter list");
+        return 0;
+    }
+
+    FunctionParameter parameters = extractParameters(paramListNode);
+    DataType returnType = getReturnTypeFromNode(returnTypeNode);
+
+    int paramCount = 0;
+    FunctionParameter param = parameters;
+    while (param != NULL) {
+        paramCount++;
+        param = param->next;
+    }
+
+    Symbol funcSymbol = addFunctionSymbol(context->current, node->value, returnType,
+                                         parameters, paramCount, node->line, node->column);
+    if (funcSymbol == NULL) {
+        repError(ERROR_VARIABLE_REDECLARED, node->value);
+        freeParamList(parameters);
+        return 0;
+    }
+
+    SymbolTable oldScope = context->current;
+    Symbol oldFunction = context->currentFunction;
+
+    context->current = createSymbolTable(oldScope);
+    context->currentFunction = funcSymbol;
+
+    if (context->current == NULL) {
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create function scope");
+        context->current = oldScope;
+        context->currentFunction = oldFunction;
+        return 0;
+    }
+
+    param = parameters;
+    while (param != NULL) {
+        Symbol paramSymbol = addSymbol(context->current, param->name, param->type, node->line, node->column);
+        if (paramSymbol != NULL) {
+            paramSymbol->isInitialized = 1;
+        }
+        param = param->next;
+    }
+
+    int success = 1;
+    if (bodyNode != NULL) {
+        success = typeCheckNode(bodyNode, context);
+    }
+
+    freeSymbolTable(context->current);
+    context->current = oldScope;
+    context->currentFunction = oldFunction;
+
+    return success;
+}
+
 /**
  * @brief Recursively type checks all children of an AST node.
  *
@@ -484,7 +720,23 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case COMPOUND_DIV_ASSIGN:
             success = validateAssignment(node, context);
             break;
+        case FUNCTION_DEFINITION:
+            success = validateFunctionDef(node, context);
+            break;
 
+        case FUNCTION_CALL:
+            success = validateFunctionCall(node, context);
+            break;
+
+        case RETURN_STATEMENT:
+            success = validateReturnStatement(node, context);
+            break;
+        case PARAMETER_LIST:
+        case PARAMETER:
+        case ARGUMENT_LIST:
+        case RETURN_TYPE:
+            success = typeCheckChildren(node, context);
+            break;
         case BLOCK_STATEMENT:
         case BLOCK_EXPRESSION: {
             SymbolTable oldScope = context->current;

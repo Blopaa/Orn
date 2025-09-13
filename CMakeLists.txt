@@ -20,6 +20,8 @@ set(LIB_SOURCES
         src/codeGeneration/stringHandling.c
         src/codeGeneration/helpers.c
         src/codeGeneration/asmTemplate.h
+        src/semantic/builtIns.c
+        src/semantic/builtIns.h
 )
 
 # Create compiler library
@@ -35,6 +37,16 @@ target_include_directories(compiler_lib PUBLIC
 # Main executable
 add_executable(compiler src/main.c)
 target_link_libraries(compiler compiler_lib)
+
+# Build runtime library
+add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/runtime.o
+        COMMAND as --64 -o ${CMAKE_BINARY_DIR}/runtime.o ${CMAKE_SOURCE_DIR}/runtime/runtime.s
+        DEPENDS ${CMAKE_SOURCE_DIR}/runtime/runtime.s
+        COMMENT "Assembling runtime library"
+)
+
+add_custom_target(runtime DEPENDS ${CMAKE_BINARY_DIR}/runtime.o)
 
 # Unity testing framework
 if(EXISTS "${CMAKE_SOURCE_DIR}/test/unity/src/unity.c")
@@ -62,4 +74,32 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/test/unity/src/unity.c")
     add_test(NAME compiler_tests COMMAND test_runner)
 else()
     message(WARNING "Unity not found at test/unity/src/unity.c - tests disabled")
+endif()
+
+add_custom_target(run_program
+        COMMAND ${CMAKE_BINARY_DIR}/compiler
+        COMMAND as --64 -o ${CMAKE_BINARY_DIR}/program.o ${CMAKE_SOURCE_DIR}/output.s
+        COMMAND ld -o ${CMAKE_BINARY_DIR}/program ${CMAKE_BINARY_DIR}/program.o ${CMAKE_BINARY_DIR}/runtime.o
+        COMMAND ${CMAKE_BINARY_DIR}/program && echo
+        DEPENDS compiler runtime
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Compile, link and run generated program"
+)
+
+find_package(Doxygen REQUIRED)
+
+if(DOXYGEN_FOUND)
+    set(DOXYGEN_IN ${CMAKE_SOURCE_DIR}/Doxyfile)
+    set(DOXYGEN_OUT ${CMAKE_BINARY_DIR}/Doxyfile)
+
+    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+
+    add_custom_target(doc
+        COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+else()
+    message(WARNING "Doxygen not found, documentation will not be generated")
 endif()

@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "asmTemplate.h"
+#include "builtIns.h"
 #include "errorHandling.h"
 
 /**
@@ -54,15 +55,36 @@ int generateNodeCode(ASTNode node, StackContext context) {
 
     switch (node->nodeType) {
         case PROGRAM: {
-            emitComment(context, "Program start");
+        	ASTNode child = node->children;
+        	while (child != NULL) {
+        		if (child->nodeType == FUNCTION_DEFINITION) {
+        			generateNodeCode(child, context);
+        			context->currentOffset = 0; // Reset for next function
+        		}
+        		child = child->brothers;
+        	}
 
-            // Generate code for all children (statements)
-            ASTNode child = node->children;
-            while (child != NULL) {
-                if (!generateNodeCode(child, context)) return 0;
-                child = child->brothers;
-            }
-            return 1;
+        	// Now generate main
+        	fprintf(context->file, "\n.globl main\n");
+        	fprintf(context->file, "main:\n");
+        	fprintf(context->file, "%s\n", ASM_FUNCTION_PROLOGUE);
+
+        	// Second pass: Generate main code (everything except functions)
+        	child = node->children;
+        	while (child != NULL) {
+        		if (child->nodeType != FUNCTION_DEFINITION) {
+        			if (!generateNodeCode(child, context)) return 0;
+        		}
+        		child = child->brothers;
+        	}
+
+        	// Main epilogue
+        	fprintf(context->file, "\n");
+        	ASM_EMIT_COMMENT(context->file, "End of main function");
+        	fprintf(context->file, "%s\n", ASM_FUNCTION_EPILOGUE);
+        	fprintf(context->file, "    ret                  # Return to runtime\n");
+
+        	return 1;
         }
 
         case INT_VARIABLE_DEFINITION:
@@ -171,6 +193,61 @@ int generateNodeCode(ASTNode node, StackContext context) {
         case LOOP_STATEMENT: {
             return generateLoop(node, context);
         }
+		case FUNCTION_DEFINITION: {
+			// Generate function label
+			fprintf(context->file, "\n%s:\n", node->value);
+			fprintf(context->file, "    pushq %%rbp\n");
+			fprintf(context->file, "    movq %%rsp, %%rbp\n");
+
+			// Get nodes
+			ASTNode paramList = node->children;
+			ASTNode returnType = paramList ? paramList->brothers : NULL;
+			ASTNode body = returnType ? returnType->brothers : NULL;
+
+			// Save parameters to local variables
+			if (paramList && paramList->nodeType == PARAMETER_LIST) {
+				ASTNode param = paramList->children;
+				RegisterId paramRegs[] = {REG_RDI, REG_RSI, REG_RDX, REG_RCX, REG_R8, REG_R9};
+				int paramIndex = 0;
+
+				while (param != NULL && paramIndex < 6) {
+					DataType paramType = TYPE_INT; // Simplified
+					int offset = allocateVariable(context, param->value, paramType);
+
+					fprintf(context->file, "    movq %s, %d(%%rbp)    # Store param %s\n",
+						getRegisterName(paramRegs[paramIndex], TYPE_INT),
+							offset,
+							param->value);
+
+					param = param->brothers;
+					paramIndex++;
+				}
+			}
+
+			// Generate function body
+			if (body != NULL) {
+				generateNodeCode(body, context);
+			}
+
+			// Default epilogue (in case no return)
+			fprintf(context->file, "    movq %%rbp, %%rsp\n");
+			fprintf(context->file, "    popq %%rbp\n");
+			fprintf(context->file, "    ret\n");
+
+			return 1;
+			}
+
+    case RETURN_STATEMENT: {
+        	if (node->children != NULL) {
+        		// Force result into RAX for return
+        		generateExpressionToRegister(node->children, context, REG_RAX);
+        	}
+
+        	fprintf(context->file, "%s\n", ASM_FUNCTION_EPILOGUE);
+        	fprintf(context->file, "    ret\n");
+
+        	return 1;
+    }
 
         // Expression statements (standalone expressions)
         default: {
@@ -621,69 +698,132 @@ void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg
     const char *right = getRegisterName(rightReg, operandType);
     const char *result = getRegisterName(resultReg, operandType);
 
-    if (leftReg != resultReg) {
-        fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
-    }
+    // Handle the case where we might overwrite an operand
+    if (rightReg == resultReg && leftReg != resultReg) {
+        // Right operand is in result register, will be overwritten if we move left to result
+        switch (opType) {
+            case ADD_OP:
+                // Addition is commutative: instead of result = left + right, do result = result + left
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, left, result);
+                break;
+            case MUL_OP:
+                // Multiplication is commutative
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, left, result);
+                break;
+            case SUB_OP:
+                // Subtraction is NOT commutative, need to save right first
+                fprintf(context->file, "    movq %s, %%r11    # Save right operand\n", right);
+                fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, "%r11", result);
+                break;
+            case DIV_OP:
+            case MOD_OP:
+                // Division/modulo need special handling with RAX/RDX
+                fprintf(context->file, "    movq %s, %%r11    # Save right operand\n", right);
+                fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, "%rax");
+                fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, "%rax", "%r11");
+                if (opType == DIV_OP && resultReg != REG_RAX) {
+                    fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
+                } else if (opType == MOD_OP && resultReg != REG_RDX) {
+                    fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
+                }
+                break;
+            case LOGIC_AND:
+                // AND is commutative
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, left, result);
+                break;
+            case LOGIC_OR:
+                // OR is commutative
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, left, result);
+                break;
+            case EQUAL_OP:
+            case NOT_EQUAL_OP:
+            case LESS_THAN_OP:
+            case GREATER_THAN_OP:
+            case LESS_EQUAL_OP:
+            case GREATER_EQUAL_OP: {
+                // Comparisons need both operands, save right first
+                fprintf(context->file, "    movq %s, %%r11    # Save right operand\n", right);
+                fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
+                fprintf(context->file, ASM_TEMPLATE_CMP_REGS, "%r11", result);
 
-    switch (opType) {
-        case ADD_OP:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, right, result);
-            break;
-        case SUB_OP:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, right, result);
-            break;
-        case MUL_OP:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, right, result);
-            break;
-        case DIV_OP:
-            fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
-            if (resultReg != REG_RAX) {
-                fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
+                const char *setInstruction;
+                switch (opType) {
+                    case EQUAL_OP: setInstruction = ASM_SETE; break;
+                    case NOT_EQUAL_OP: setInstruction = ASM_SETNE; break;
+                    case LESS_THAN_OP: setInstruction = ASM_SETL; break;
+                    case GREATER_THAN_OP: setInstruction = ASM_SETG; break;
+                    case LESS_EQUAL_OP: setInstruction = ASM_SETLE; break;
+                    case GREATER_EQUAL_OP: setInstruction = ASM_SETGE; break;
+                    default: setInstruction = ASM_SETE; break;
+                }
+                fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+                fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
+                break;
             }
-            break;
-        case MOD_OP:
-            fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
-            if (resultReg != REG_RDX) {
-                fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
-            }
-            break;
-        case EQUAL_OP:
-        case NOT_EQUAL_OP:
-        case LESS_THAN_OP:
-        case GREATER_THAN_OP:
-        case LESS_EQUAL_OP:
-        case GREATER_EQUAL_OP: {
-            const char *setInstruction;
-            switch (opType) {
-                case EQUAL_OP: setInstruction = ASM_SETE;
-                    break;
-                case NOT_EQUAL_OP: setInstruction = ASM_SETNE;
-                    break;
-                case LESS_THAN_OP: setInstruction = ASM_SETL;
-                    break;
-                case GREATER_THAN_OP: setInstruction = ASM_SETG;
-                    break;
-                case LESS_EQUAL_OP: setInstruction = ASM_SETLE;
-                    break;
-                case GREATER_EQUAL_OP: setInstruction = ASM_SETGE;
-                    break;
-                default: setInstruction = ASM_SETE;
-                    break;
-            }
-            fprintf(context->file, ASM_TEMPLATE_CMP_REGS, right, result);
-            fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
-            fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
-            break;
+            default:
+                emitComment(context, "Unknown binary operation");
+                break;
         }
-        case LOGIC_AND:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, right, result);
-            break;
-        case LOGIC_OR:
-            fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, right, result);
-            break;
-        default:
-            emitComment(context, "Unknown binary operation");
-            break;
+    } else {
+        // Normal case: left and result are different, or left is already in result
+        if (leftReg != resultReg) {
+            fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
+        }
+
+        switch (opType) {
+            case ADD_OP:
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, right, result);
+                break;
+            case SUB_OP:
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, right, result);
+                break;
+            case MUL_OP:
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, right, result);
+                break;
+            case DIV_OP:
+                fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
+                if (resultReg != REG_RAX) {
+                    fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
+                }
+                break;
+            case MOD_OP:
+                fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
+                if (resultReg != REG_RDX) {
+                    fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
+                }
+                break;
+            case EQUAL_OP:
+            case NOT_EQUAL_OP:
+            case LESS_THAN_OP:
+            case GREATER_THAN_OP:
+            case LESS_EQUAL_OP:
+            case GREATER_EQUAL_OP: {
+                const char *setInstruction;
+                switch (opType) {
+                    case EQUAL_OP: setInstruction = ASM_SETE; break;
+                    case NOT_EQUAL_OP: setInstruction = ASM_SETNE; break;
+                    case LESS_THAN_OP: setInstruction = ASM_SETL; break;
+                    case GREATER_THAN_OP: setInstruction = ASM_SETG; break;
+                    case LESS_EQUAL_OP: setInstruction = ASM_SETLE; break;
+                    case GREATER_EQUAL_OP: setInstruction = ASM_SETGE; break;
+                    default: setInstruction = ASM_SETE; break;
+                }
+                fprintf(context->file, ASM_TEMPLATE_CMP_REGS, right, result);
+                fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+                fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
+                break;
+            }
+            case LOGIC_AND:
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, right, result);
+                break;
+            case LOGIC_OR:
+                fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, right, result);
+                break;
+            default:
+                emitComment(context, "Unknown binary operation");
+                break;
+        }
     }
 
     if (invert == 1) {
@@ -798,9 +938,14 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             } else {
                 rightReg = generateExpressionToRegister(right, context, rightReg);
             }
-            preferredReg = leftReg;
+        	RegisterId resultReg = preferredReg;
+        	if (operandType == TYPE_FLOAT && preferredReg < REG_XMM0) {
+        		resultReg = REG_XMM0;
+        	} else if (operandType != TYPE_FLOAT && preferredReg >= REG_XMM0) {
+        		resultReg = REG_RAX;
+        	}
 
-            generateBinaryOp(context, node->nodeType, leftReg, rightReg, preferredReg, operandType, invert);
+        	generateBinaryOp(context, node->nodeType, leftReg, rightReg, resultReg, operandType, invert);
             return preferredReg;
         }
 
@@ -846,6 +991,35 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             generateStoreVariable(context, node->children->value, tempReg);
 
             return preferredReg; // Return original value
+        }
+    	case FUNCTION_CALL: {
+			if (isBuiltinFunction(node->value)) {
+				generateBuiltinFunctionCall(node, context);
+				return preferredReg; // Most built-ins don't return values
+			}
+			// User-defined function call
+			emitComment(context, "Call user function");
+
+			// Generate arguments in calling convention registers
+			ASTNode argList = node->children;
+			if (argList && argList->nodeType == ARGUMENT_LIST) {
+				ASTNode arg = argList->children;
+				RegisterId argRegs[] = {REG_RDI, REG_RSI, REG_RDX, REG_RCX, REG_R8, REG_R9};
+				int argIndex = 0;
+
+				while (arg != NULL && argIndex < 6) {
+					generateExpressionToRegister(arg, context, argRegs[argIndex]);
+					arg = arg->brothers;
+					argIndex++;
+				}
+			}
+
+			// Call the function
+			fprintf(context->file, "    call %s\n", node->value);
+
+			// Return value is in RAX
+			return REG_RAX;
+
         }
 
         default:
@@ -978,6 +1152,120 @@ int generateLoop(ASTNode node, StackContext context) {
     return 1;
 }
 
+int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
+    if (node == NULL || node->value == NULL) return 0;
+
+    // Get argument types for overload resolution
+    ASTNode argList = node->children;
+    int argCount = 0;
+    DataType *argTypes = NULL;
+
+    // Count and extract argument types (existing dynamic code)
+    if (argList && argList->nodeType == ARGUMENT_LIST) {
+        ASTNode arg = argList->children;
+        while (arg != NULL) {
+            argCount++;
+            arg = arg->brothers;
+        }
+
+        if (argCount > 0) {
+            argTypes = malloc(argCount * sizeof(DataType));
+            if (argTypes == NULL) {
+                repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types");
+                return 0;
+            }
+
+            arg = argList->children;
+            for (int i = 0; i < argCount && arg != NULL; i++) {
+                argTypes[i] = getOperandType(arg, context);
+                arg = arg->brothers;
+            }
+        }
+    }
+
+    BuiltInId builtinId = resolveOverload(node->value, argTypes, argCount);
+
+    if (argTypes != NULL) {
+        free(argTypes);
+    }
+    switch (builtinId) {
+        case BUILTIN_PRINT_STRING: {
+            emitComment(context, "print(string)");
+
+            if (argList && argList->children) {
+                RegisterId strReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # String pointer\n"
+                    "    call print_str_z     # Runtime calculates length & prints\n",
+                    getRegisterName(strReg, TYPE_STRING));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_INT: {
+            emitComment(context, "print(int)");
+
+            if (argList && argList->children) {
+                RegisterId intReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Integer value\n"
+                    "    call print_int       # Runtime converts & prints\n",
+                    getRegisterName(intReg, TYPE_INT));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_BOOL: {
+            emitComment(context, "print(bool)");
+
+            if (argList && argList->children) {
+                RegisterId boolReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Boolean value\n"
+                    "    call print_bool      # Runtime prints 'true'/'false'\n",
+                    getRegisterName(boolReg, TYPE_BOOL));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_FLOAT: {
+            emitComment(context, "print(float) - TODO: implement float conversion in runtime");
+
+            if (argList && argList->children) {
+                RegisterId floatReg = generateExpressionToRegister(argList->children, context, REG_XMM0);
+
+                fprintf(context->file,
+                    "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n"
+                    "    call print_int       # Print as integer for now\n",
+                    getFloatRegisterName(floatReg));
+            }
+            break;
+        }
+
+        case BUILTIN_EXIT: {
+            emitComment(context, "exit(code)");
+
+            if (argList && argList->children) {
+                RegisterId exitReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Exit status\n"
+                    "    call exit_program    # Runtime exits cleanly\n",
+                    getRegisterName(exitReg, TYPE_INT));
+            }
+            break;
+        }
+
+        default:
+            return 0;
+    }
+
+    return 1;
+}
+
 /**
  * @brief Generates unary operations with type-aware instruction selection.
  *
@@ -1084,10 +1372,7 @@ int generateCode(ASTNode ast, const char *outputFile) {
     // Generate code for the entire AST
     int success = generateNodeCode(ast, context);
 
-    // Generate assembly epilogue (program exit code)
-    if (success) {
-        emitEpilogue(context);
-    } else {
+	if (!success) {
         emitComment(context, "Code generation failed - incomplete output");
     }
 

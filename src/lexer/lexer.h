@@ -24,6 +24,10 @@ typedef enum {
     TokenStringDefinition,
     TokenFloatDefinition,
     TokenBoolDefinition,
+    TokenFunctionDefinition,
+    TokenVoidDefinition,
+    TokenReturn,
+    TokenArrow,
     TokenPunctuation,
     TokenQuotes,
     TokenWhileLoop,
@@ -82,6 +86,9 @@ typedef struct {
  */
 static const TokenMap tokenMapping[] = {
     // Keywords
+    {"fn", TokenFunctionDefinition},
+    {"return", TokenReturn},
+    {"void", TokenVoidDefinition},
     {"int", TokenIntDefinition},
     {"string", TokenStringDefinition},
     {"float", TokenFloatDefinition},
@@ -91,6 +98,7 @@ static const TokenMap tokenMapping[] = {
     {"@", TokenWhileLoop},
 
     // Multi-character operators (must come before single-char versions)
+    {"->", TokenArrow},
     {"+=", TokenPlusAssign},
     {"-=", TokenSubAssign},
     {"*=", TokenMultAssign},

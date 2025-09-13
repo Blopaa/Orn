@@ -1,7 +1,101 @@
 #include "symbolTable.h"
+#include "typeChecker.h"
 
 #include <stdlib.h>
 #include <string.h>
+#include "builtIns.h"
+
+FunctionParameter createParameter(const char * name, DataType type) {
+    if (name == NULL) return NULL;
+    FunctionParameter param = malloc(sizeof(struct FunctionParameter));
+    if (param == NULL) return NULL;
+    param->name = strdup(name);
+    if (param->name == NULL) {
+        free(param);
+        return NULL;
+    }
+    param->type = type;
+    param->next = NULL;
+    return param;
+}
+
+void freeParamList(FunctionParameter paramList) {
+    FunctionParameter current = paramList;
+    while (current != NULL) {
+        FunctionParameter next = current->next;
+        if (current->name) free(current->name);
+        free(current);
+        current = next;
+    }
+}
+
+Symbol addFunctionSymbol(SymbolTable symbolTable, const char *name, DataType returnType,
+                        FunctionParameter parameters, int paramCount, int line, int column) {
+    if (symbolTable == NULL || name == NULL) return NULL;
+    Symbol exists = lookupSymbol(symbolTable, name);
+    if (exists != NULL) return NULL;
+
+    Symbol newSymbol = malloc(sizeof(struct Symbol));
+    if (newSymbol == NULL) return NULL;
+
+    newSymbol->name = strdup(name);
+    if (newSymbol->name == NULL) {
+        free(newSymbol);
+        return NULL;
+    }
+    newSymbol->symbolType = SYMBOL_FUNCTION;
+    newSymbol->type = returnType;
+    newSymbol->line = line;
+    newSymbol->column = column;
+    newSymbol->scope = symbolTable->scope;
+    newSymbol->isInitialized = 1;
+    newSymbol->parameters = parameters;
+    newSymbol->paramCount = paramCount;
+
+    newSymbol->next = symbolTable->symbols;
+    symbolTable->symbols = newSymbol;
+    symbolTable->symbolCount++;
+
+    return newSymbol;
+}
+
+int validateReturnStatement(ASTNode node, TypeCheckContext context) {
+    if (node == NULL || node->nodeType != RETURN_STATEMENT) {
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid return statement node");
+        return 0;
+    }
+
+    if (context->currentFunction == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Return statement outside function");
+        return 0;
+    }
+
+    DataType expectedType = context->currentFunction->type;
+
+    if (node->children == NULL) {
+        if (expectedType != TYPE_VOID) {
+            repError(ERROR_INVALID_EXPRESSION, "Non-void function must return a value");
+            return 0;
+        }
+    } else {
+        DataType returnType = getExpressionType(node->children, context);
+        if (returnType == TYPE_UNKNOWN) {
+            return 0;
+        }
+
+        if (expectedType == TYPE_VOID) {
+            repError(ERROR_INVALID_EXPRESSION, "Void function cannot return a value");
+            return 0;
+        }
+
+        if (!areCompatible(expectedType, returnType)) {
+            repError(variableErrorCompatibleHandling(expectedType, returnType), "return");
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 /**
  * @brief Creates a new symbol with given properties.
@@ -21,11 +115,14 @@ Symbol createSymbol(const char *name, DataType type, int line, int column) {
         free(symbol);
         return NULL;
     }
+    symbol->symbolType = SYMBOL_VARIABLE;
     strcpy(symbol->name, name);
     symbol->type = type;
     symbol->line = line;
     symbol->column = column;
     symbol->isInitialized = 0;
+    symbol->parameters = NULL;
+    symbol->paramCount = 0;
     symbol->next = NULL;
     return symbol;
 };
@@ -38,6 +135,9 @@ Symbol createSymbol(const char *name, DataType type, int line, int column) {
 void freeSymbol(Symbol symbol) {
     if (symbol == NULL) return;
     if (symbol->name) free(symbol->name);
+    if (symbol->symbolType == SYMBOL_FUNCTION && symbol->parameters) {
+        freeParamList(symbol->parameters);
+    }
     free(symbol);
 }
 
