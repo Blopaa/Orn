@@ -4,6 +4,8 @@
 
 #include "typeChecker.h"
 
+#include "builtIns.h"
+
 #include <stdlib.h>
 
 #include "errorHandling.h"
@@ -36,6 +38,8 @@ TypeCheckContext createTypeCheckContext() {
     }
     context->current = context->global;
     context->currentFunction = NULL;
+
+    initBuiltIns(context->global);
 
     return context;
 }
@@ -220,6 +224,120 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             return TYPE_UNKNOWN;
     }
 }
+
+int validateFunctionCall(ASTNode node, TypeCheckContext context) {
+  if (node == NULL || node->nodeType != FUNCTION_CALL || node->value == NULL) {
+    repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function call node");
+    return 0;
+  }
+
+  ASTNode argListNode = node->children;
+  if (argListNode == NULL || argListNode->nodeType != ARGUMENT_LIST) {
+    repError(ERROR_INTERNAL_PARSER_ERROR, "Function call missing argument list");
+    return 0;
+  }
+
+  if (isBuiltinFunction(node->value)) {
+    return validateBuiltinFunctionCall(node, context);
+  }
+
+  return validateUserDefinedFunctionCall(node, context);
+}
+
+int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
+    ASTNode argListNode = node->children;
+
+    int argCount = 0;
+    ASTNode arg = argListNode->children;
+    while (arg != NULL) {
+        argCount++;
+        arg = arg->brothers;
+    }
+
+    DataType *argTypes = NULL;
+    if (argCount > 0) {
+        argTypes = malloc(argCount * sizeof(DataType));
+        if (argTypes == NULL) {
+            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types array");
+            return 0;
+        }
+
+        arg = argListNode->children;
+        for (int i = 0; i < argCount && arg != NULL; i++) {
+            DataType argType = getExpressionType(arg, context);
+            if (argType == TYPE_UNKNOWN) {
+                free(argTypes);
+                return 0;
+            }
+            argTypes[i] = argType;
+            arg = arg->brothers;
+        }
+    }
+
+    BuiltInId builtinId = resolveOverload(node->value, argTypes, argCount);
+    int result = (builtinId != BUILTIN_UNKNOWN);
+
+    if (!result) {
+        repError(ERROR_INVALID_EXPRESSION, "No matching overload for built-in function");
+    }
+
+    if (argTypes != NULL) {
+        free(argTypes);
+    }
+
+    return result;
+}
+
+int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
+    Symbol funcSymbol = lookupSymbol(context->current, node->value);
+    if (funcSymbol == NULL) {
+        repError(ERROR_UNDEFINED_VARIABLE, node->value);
+        return 0;
+    }
+
+    if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
+        repError(ERROR_INVALID_EXPRESSION, "Attempting to call non-function");
+        return 0;
+    }
+
+    ASTNode argListNode = node->children;
+
+    // Count arguments
+    int argCount = 0;
+    ASTNode arg = argListNode->children;
+    while (arg != NULL) {
+        argCount++;
+        arg = arg->brothers;
+    }
+
+    // Check argument count
+    if (argCount != funcSymbol->paramCount) {
+        repError(ERROR_INVALID_EXPRESSION, "Function call argument count mismatch");
+        return 0;
+    }
+
+    // Stream validate argument types (no allocation needed!)
+    FunctionParameter param = funcSymbol->parameters;
+    arg = argListNode->children;
+
+    while (param != NULL && arg != NULL) {
+        DataType argType = getExpressionType(arg, context);
+        if (argType == TYPE_UNKNOWN) {
+            return 0; // Error already reported
+        }
+
+        if (!areCompatible(param->type, argType)) {
+            repError(variableErrorCompatibleHandling(param->type, argType), param->name);
+            return 0;
+        }
+
+        param = param->next;
+        arg = arg->brothers;
+    }
+
+    return 1;
+}
+
 
 /**
  * @brief Determines appropriate error code for variable type mismatch scenarios.

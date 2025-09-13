@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "builtIns.h"
 
 FunctionParameter createParameter(const char * name, DataType type) {
     if (name == NULL) return NULL;
@@ -56,62 +57,6 @@ Symbol addFunctionSymbol(SymbolTable symbolTable, const char *name, DataType ret
     symbolTable->symbolCount++;
 
     return newSymbol;
-}
-
-int validateFunctionCall(ASTNode node, TypeCheckContext context) {
-    if (node == NULL || node->nodeType != FUNCTION_CALL || node->value == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function call node");
-        return 0;
-    }
-
-    Symbol funcSymbol = lookupSymbol(context->current, node->value);
-    if (funcSymbol == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, node->value);
-        return 0;
-    }
-
-    if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
-        repError(ERROR_INVALID_EXPRESSION, "Attempting to call non-function");
-        return 0;
-    }
-
-    ASTNode argListNode = node->children;
-    if (argListNode == NULL || argListNode->nodeType != ARGUMENT_LIST) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Function call missing argument list");
-        return 0;
-    }
-
-    int argCount = 0;
-    ASTNode arg = argListNode->children;
-    while (arg != NULL) {
-        argCount++;
-        arg = arg->brothers;
-    }
-
-    if (argCount != funcSymbol->paramCount) {
-        repError(ERROR_INVALID_EXPRESSION, "Function call argument count mismatch");
-        return 0;
-    }
-
-    FunctionParameter param = funcSymbol->parameters;
-    arg = argListNode->children;
-
-    while (param != NULL && arg != NULL) {
-        DataType argType = getExpressionType(arg, context);
-        if (argType == TYPE_UNKNOWN) {
-            return 0;
-        }
-
-        if (!areCompatible(param->type, argType)) {
-            repError(variableErrorCompatibleHandling(param->type, argType), param->name);
-            return 0;
-        }
-
-        param = param->next;
-        arg = arg->brothers;
-    }
-
-    return 1;
 }
 
 int validateReturnStatement(ASTNode node, TypeCheckContext context) {

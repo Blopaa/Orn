@@ -168,5 +168,7 @@ void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType typ
 
 RegisterId getOppositeBranchRegister(RegisterId reg);
 
+int generateBuiltinFunctionCall(ASTNode node, StackContext context);
+
 
 #endif //CINTERPRETER_CODEGENERATION_H

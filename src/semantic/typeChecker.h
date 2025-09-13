@@ -54,4 +54,8 @@ FunctionParameter extractParameters(ASTNode paramListNode);
 
 DataType getReturnTypeFromNode(ASTNode returnTypeNode);
 
+int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context);
+
+int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context);
+
 #endif //CINTERPRETER_TYPECHECKER_H

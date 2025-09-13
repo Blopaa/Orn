@@ -19,6 +19,8 @@
 
 #include "../parser/parser.h"
 
+struct TypeCheckContext;
+typedef struct TypeCheckContext *TypeCheckContext;
 
 /**
  * @brief Data type enumeration for type checking and validation.

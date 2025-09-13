@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "asmTemplate.h"
+#include "builtIns.h"
 #include "errorHandling.h"
 
 /**
@@ -170,6 +171,14 @@ int generateNodeCode(ASTNode node, StackContext context) {
 
         case LOOP_STATEMENT: {
             return generateLoop(node, context);
+        }
+        case FUNCTION_CALL:{
+            if (isBuiltinFunction(node->value)){
+                return generateBuiltinFunctionCall(node, context);
+            }else{
+                emitComment(context, "User-defined function call (not yet implemented)");
+                return 1;
+            }
         }
 
         // Expression statements (standalone expressions)
@@ -974,6 +983,120 @@ int generateLoop(ASTNode node, StackContext context) {
     // Jump back to condition
     fprintf(context->file, ASM_TEMPLATE_JUMP, loopLabel);
     fprintf(context->file, ASM_TEMPLATE_LABEL, endLabel);
+
+    return 1;
+}
+
+int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
+    if (node == NULL || node->value == NULL) return 0;
+
+    // Get argument types for overload resolution
+    ASTNode argList = node->children;
+    int argCount = 0;
+    DataType *argTypes = NULL;
+
+    // Count and extract argument types (existing dynamic code)
+    if (argList && argList->nodeType == ARGUMENT_LIST) {
+        ASTNode arg = argList->children;
+        while (arg != NULL) {
+            argCount++;
+            arg = arg->brothers;
+        }
+
+        if (argCount > 0) {
+            argTypes = malloc(argCount * sizeof(DataType));
+            if (argTypes == NULL) {
+                repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types");
+                return 0;
+            }
+
+            arg = argList->children;
+            for (int i = 0; i < argCount && arg != NULL; i++) {
+                argTypes[i] = getOperandType(arg, context);
+                arg = arg->brothers;
+            }
+        }
+    }
+
+    BuiltInId builtinId = resolveOverload(node->value, argTypes, argCount);
+
+    if (argTypes != NULL) {
+        free(argTypes);
+    }
+    switch (builtinId) {
+        case BUILTIN_PRINT_STRING: {
+            emitComment(context, "print(string)");
+
+            if (argList && argList->children) {
+                RegisterId strReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # String pointer\n"
+                    "    call print_str_z     # Runtime calculates length & prints\n",
+                    getRegisterName(strReg, TYPE_STRING));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_INT: {
+            emitComment(context, "print(int)");
+
+            if (argList && argList->children) {
+                RegisterId intReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Integer value\n"
+                    "    call print_int       # Runtime converts & prints\n",
+                    getRegisterName(intReg, TYPE_INT));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_BOOL: {
+            emitComment(context, "print(bool)");
+
+            if (argList && argList->children) {
+                RegisterId boolReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Boolean value\n"
+                    "    call print_bool      # Runtime prints 'true'/'false'\n",
+                    getRegisterName(boolReg, TYPE_BOOL));
+            }
+            break;
+        }
+
+        case BUILTIN_PRINT_FLOAT: {
+            emitComment(context, "print(float) - TODO: implement float conversion in runtime");
+
+            if (argList && argList->children) {
+                RegisterId floatReg = generateExpressionToRegister(argList->children, context, REG_XMM0);
+
+                fprintf(context->file,
+                    "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n"
+                    "    call print_int       # Print as integer for now\n",
+                    getFloatRegisterName(floatReg));
+            }
+            break;
+        }
+
+        case BUILTIN_EXIT: {
+            emitComment(context, "exit(code)");
+
+            if (argList && argList->children) {
+                RegisterId exitReg = generateExpressionToRegister(argList->children, context, REG_RDI);
+
+                fprintf(context->file,
+                    "    movq %s, %%rdi       # Exit status\n"
+                    "    call exit_program    # Runtime exits cleanly\n",
+                    getRegisterName(exitReg, TYPE_INT));
+            }
+            break;
+        }
+
+        default:
+            return 0;
+    }
 
     return 1;
 }
