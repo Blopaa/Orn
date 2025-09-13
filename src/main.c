@@ -70,7 +70,7 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int x = 10; int y = x + 5; print(y);";
+    char *input = "string text = \"hello world\"; print(text);";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
