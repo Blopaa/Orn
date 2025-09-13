@@ -70,7 +70,8 @@ void printTokenList(Token t) {
 
 int main() {
     printf("=== LEXER TEST ===\n");
-    char *input = "int x = 12 + 5 * 3 - 4 + 6 * 2 + 8 - 3 * 7 + 1;";
+    char *input = "fn test (a: int, b:int) -> int {return a + b;};"
+                  "test(1, 3);";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process
