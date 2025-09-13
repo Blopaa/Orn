@@ -219,6 +219,17 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
             return getOperationResultType(leftType, rightType, node->nodeType);
         }
+        case FUNCTION_CALL: {
+            if (isBuiltinFunction(node->value)) {
+              return TYPE_VOID;
+            }
+            Symbol funcSymbol = lookupSymbol(context->current, node->value);
+            if (funcSymbol != NULL && funcSymbol->symbolType == SYMBOL_FUNCTION) {
+                return funcSymbol->type;
+            }
+
+            return TYPE_UNKNOWN;
+        }
 
         default:
             return TYPE_UNKNOWN;

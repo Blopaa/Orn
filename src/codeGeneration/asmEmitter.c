@@ -13,20 +13,6 @@ void emitPreamble(StackContext context) {
     emitStringTable(context);
 
     fprintf(context->file, "\n%s\n", ASM_SECTION_TEXT);
-
-    fprintf(context->file, ".globl main\n");
-    fprintf(context->file, "main:\n");
-    fprintf(context->file, "%s\n", ASM_FUNCTION_PROLOGUE);
-    fprintf(context->file, "\n");
-}
-
-void emitEpilogue(StackContext context) {
-    if (context == NULL || context->file == NULL) return;
-
-    fprintf(context->file, "\n");
-    ASM_EMIT_COMMENT(context->file, "End of main function");
-    fprintf(context->file, "%s\n", ASM_FUNCTION_EPILOGUE);
-    fprintf(context->file, "    ret                  # Return to runtime\n");
 }
 
 /**

@@ -136,8 +136,6 @@ StackVariable findStackVariable(StackContext context, const char *name);
 
 void emitPreamble(StackContext context);
 
-void emitEpilogue(StackContext context);
-
 void generateLoadVariable(StackContext context, const char *varName, RegisterId reg);
 
 void generateStoreVariable(StackContext context, const char *varName, RegisterId reg);
