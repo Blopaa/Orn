@@ -4,6 +4,7 @@
 .globl print_str_z
 .globl print_int
 .globl print_bool
+.globl print_newline
 .globl exit_program
 
 _start:
@@ -53,7 +54,7 @@ convert:
     decq %rdi
     xorq %rdx, %rdx
     divq %rcx
-    abbd $'0', %dl
+    addb $'0', %dl
     movb %dl, (%rdi)
     testq %rax, %rax
     jnz convert
@@ -87,11 +88,21 @@ bool_done:
     popq %rbp
     ret
 
+print_newline:
+    movq $1, %rax        # sys_write
+    movq $1, %rdi        # stdout
+    lea newline(%rip), %rsi
+    movq $1, %rdx        # length = 1
+    syscall
+    ret
+
 exit_program:
     movq $60, %rax
     syscall
 
 .section .rodata
+newline:
+    .asciz "\n"
 true_str:
     .asciz "true"
 false_str:

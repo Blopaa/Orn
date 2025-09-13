@@ -20,8 +20,8 @@
 // ========== PROGRAM STRUCTURE ==========
 #define ASM_GLOBAL_START        ".globl _start"
 #define ASM_START_LABEL         "_start:"
-#define ASM_FUNCTION_PROLOGUE   "    pushq %%rbp\n    movq %%rsp, %%rbp"
-#define ASM_FUNCTION_EPILOGUE   "    movq %%rbp, %%rsp\n    popq %%rbp"
+#define ASM_FUNCTION_PROLOGUE   "    pushq %rbp\n    movq %rsp, %rbp"
+#define ASM_FUNCTION_EPILOGUE   "    movq %rbp, %rsp\n    popq %rbp"
 
 // ========== SYSTEM CALLS ==========
 #define ASM_SYS_EXIT            "    movq $60, %%rax     # sys_exit"

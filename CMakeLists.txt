@@ -78,9 +78,9 @@ endif()
 
 add_custom_target(run_program
         COMMAND ${CMAKE_BINARY_DIR}/compiler
-        COMMAND as --64 -o program.o ../output.s
-        COMMAND ld -o program program.o ${CMAKE_BINARY_DIR}/runtime.o
-        COMMAND ./program
+        COMMAND as --64 -o ${CMAKE_BINARY_DIR}/program.o ${CMAKE_SOURCE_DIR}/output.s
+        COMMAND ld -o ${CMAKE_BINARY_DIR}/program ${CMAKE_BINARY_DIR}/program.o ${CMAKE_BINARY_DIR}/runtime.o
+        COMMAND ${CMAKE_BINARY_DIR}/program && echo
         DEPENDS compiler runtime
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Compile, link and run generated program"
