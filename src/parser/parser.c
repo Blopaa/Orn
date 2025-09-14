@@ -30,7 +30,14 @@
 ASTNode parseStatement(Token *current); // Forward declaration
 ASTNode parseConditional(Token *current, ASTNode condition);
 
-// --- PARSER IMPLEMENTATION ---
+const StatementHandler statementHandlers[] = {
+	{TokenFunctionDefinition, parseFunction},
+	{TokenReturn, parseReturnStatement},
+	{TokenWhileLoop, parseLoop},
+	{TokenLeftBrace, parseBlock},
+	{TokenNULL, NULL}  // Sentinel
+};
+
 /**
  * @brief Parses primary expressions (literals, identifiers, parentheses).
  *
@@ -50,18 +57,20 @@ ASTNode parseConditional(Token *current, ASTNode condition);
  * @note Advances the token pointer past the consumed token
  */
 ASTNode parsePrimaryExp(Token *current) {
-    if (!current || !*current) return NULL;
-    if ((*current)->type == TokenLiteral && (*current)->next &&
-        (*current)->next->type == TokenLeftParen) {
-        char *functionName = strdup((*current)->value);
-        ADVANCE_TOKEN(current);
-        ASTNode funcCall = parseFunctionCall(current, functionName);
-        free(functionName);
-        return funcCall;
-    }
-    ASTNode node = createValNode(*current);
-    if (node) ADVANCE_TOKEN(current);
-    return node;
+	if (!current || !*current) return NULL;
+
+	if (detectLitType((*current)->value) == VARIABLE &&
+		(*current)->next && (*current)->next->type == TokenLeftParen) {
+		char *functionName = strdup((*current)->value);
+		ADVANCE_TOKEN(current);
+		ASTNode funcCall = parseFunctionCall(current, functionName);
+		free(functionName);
+		return funcCall;
+		}
+
+	ASTNode node = createValNode(*current);
+	if (node) ADVANCE_TOKEN(current);
+	return node;
 }
 
 /**
@@ -316,7 +325,7 @@ ASTNode parseLoop(Token* current) {
 }
 
 ASTNode parseParameter(Token * current) {
-    if (!current || !*current || !isValidVariable((*current)->value)) {
+    if (!current || !*current || detectLitType((*current)->value) != VARIABLE) {
         repError(ERROR_INVALID_EXPRESSION, "Expected parameter name");
         return NULL;
     }
@@ -429,7 +438,7 @@ ASTNode parseFunction(Token *current) {
 	Token fnToken = *current;
 	ADVANCE_TOKEN(current);
 
-	if (!*current || !isValidVariable((*current)->value)) {
+	if (!*current || detectLitType((*current)->value) != VARIABLE) {
 		repError(ERROR_INVALID_EXPRESSION, "Expected function name after 'fn'");
 		return NULL;
 	}
@@ -451,6 +460,32 @@ ASTNode parseFunction(Token *current) {
 	returnType->brothers = body;
 
 	return functionNode;
+}
+
+static ASTNode parseDeclaration(Token *current, NodeTypes decType) {
+	if (!*current || detectLitType((*current)->value) != VARIABLE) {
+		repError(ERROR_INVALID_EXPRESSION, "Expected identifier after type");
+		return NULL;
+	}
+
+	ASTNode decNode;
+	CREATE_NODE_OR_FAIL(decNode, *current, decType);
+	ADVANCE_TOKEN(current);
+
+	if (*current && (*current)->type == TokenAssignement) {
+		ADVANCE_TOKEN(current);
+		PARSE_OR_CLEANUP(decNode->children, parseExpression(current, PREC_NONE), decNode);
+	}
+
+	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
+	return decNode;
+}
+
+static ASTNode parseExpressionStatement(Token *current) {
+	ASTNode expressionNode;
+	PARSE_OR_CLEANUP(expressionNode, parseExpression(current, PREC_NONE));
+	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
+	return expressionNode;
 }
 
 /**
@@ -485,41 +520,24 @@ ASTNode parseFunction(Token *current) {
 ASTNode parseStatement(Token *current) {
 	if (!current || !*current) return NULL;
 
-	if ((*current)->type == TokenFunctionDefinition) return parseFunction(current);
-	if ((*current)->type == TokenReturn) return parseReturnStatement(current);
-	if ((*current)->type == TokenWhileLoop) return parseLoop(current);
-	if ((*current)->type == TokenLeftBrace) return parseBlock(current);
-
 	if ((*current)->type == TokenPunctuation) {
 		ADVANCE_TOKEN(current);
 		return NULL;
 	}
 
+	for (int i = 0; statementHandlers[i].token != TokenNULL; i++) {
+		if ((*current)->type == statementHandlers[i].token) {
+			return statementHandlers[i].handler(current);
+		}
+	}
+
 	NodeTypes decType = getDecType((*current)->type);
 	if (decType != null_NODE) {
 		ADVANCE_TOKEN(current);
-		if (!*current || !isValidVariable((*current)->value)) {
-			repError(ERROR_INVALID_EXPRESSION, "Expected identifier after type");
-			return NULL;
-		}
-
-		ASTNode decNode;
-		CREATE_NODE_OR_FAIL(decNode, *current, decType);
-		ADVANCE_TOKEN(current);
-
-		if (*current && (*current)->type == TokenAssignement) {
-			ADVANCE_TOKEN(current);
-			PARSE_OR_CLEANUP(decNode->children, parseExpression(current, PREC_NONE), decNode);
-		}
-
-		EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
-		return decNode;
+		return parseDeclaration(current, decType);
 	}
 
-	ASTNode expressionNode;
-	PARSE_OR_CLEANUP(expressionNode, parseExpression(current, PREC_NONE));
-	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
-	return expressionNode;
+	return parseExpressionStatement(current);
 }
 
 /**

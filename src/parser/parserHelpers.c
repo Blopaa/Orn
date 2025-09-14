@@ -43,6 +43,52 @@ NodeTypes getDecType(TokenType type) {
 }
 
 /**
+ * @brief Unified literal type detection with optimized checks.
+ * Single function replaces all validation functions.
+ */
+NodeTypes detectLitType(const char *val) {
+	if (!val) return null_NODE;
+
+	size_t len = strlen(val);
+	if (len >= 2 && val[0] == '"' && val[len-1] == '"')
+		return STRING_LIT;
+
+	if (!strcmp(val, "true") || !strcmp(val, "false"))
+		return BOOL_LIT;
+
+	int start = (val[0] == '-') ? 1 : 0;
+	if (!val[start]) goto check_variable;
+
+	int has_dot = 0, all_digits = 1;
+	for (int i = start; val[i]; i++) {
+		if (val[i] == '.') {
+			if (has_dot) { all_digits = 0; break; }
+			has_dot = 1;
+		} else if (!isdigit(val[i])) {
+			all_digits = 0;
+			break;
+		}
+	}
+
+	if (all_digits)
+		return has_dot ? FLOAT_LIT : INT_LIT;
+
+	check_variable:
+		if (isalpha(val[0]) || val[0] == '_') {
+			for (int i = 1; val[i]; i++) {
+				if (!isalnum(val[i]) && val[i] != '_') {
+					repError(ERROR_INVALID_EXPRESSION, val);
+					return null_NODE;
+				}
+			}
+			return VARIABLE;
+		}
+
+	repError(ERROR_INVALID_EXPRESSION, val);
+	return null_NODE;
+}
+
+/**
  * @brief Converts AST node type to human-readable string for debugging.
  *
  * Looks up the node type in the nodeTypeMapping table to find the
@@ -101,106 +147,6 @@ ASTNode createNode(Token token, NodeTypes type) {
     node->brothers = NULL;
     node->children = NULL;
     return node;
-}
-
-// --- VALIDATION FUNCTIONS ---
-
-/**
- * @brief Checks if a string represents a valid floating-point literal.
- *
- * Validates float format by checking for presence of decimal point.
- * Handles negative floats by skipping the minus sign.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid float format, 0 otherwise
- *
- * Examples:
- * - "3.14" -> 1 (valid)
- * - "-2.5" -> 1 (valid)
- * - "42" -> 0 (integer, not float)
- * - NULL -> 0 (invalid)
- */
-int isFloatLit(const char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (val[i] == '.') return 1;
-    }
-    return 0;
-}
-
-/**
- * @brief Validates identifier naming rules.
- *
- * Checks if a string follows valid identifier conventions:
- * - Must start with letter or underscore
- * - Subsequent characters can be letters, digits, or underscores
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid identifier, 0 otherwise
- *
- * Examples:
- * - "variable_name" -> 1 (valid)
- * - "_private" -> 1 (valid)
- * - "123invalid" -> 0 (starts with digit)
- * - "my-var" -> 0 (contains hyphen)
- */
-int isValidVariable(const char *val) {
-    if (val == NULL || (!isalpha(val[0]) && val[0] != '_')) {
-        return 0;
-    }
-    for (int i = 1; val[i] != '\0'; i++) {
-        if (!isalnum(val[i]) && val[i] != '_') {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-/**
- * @brief Checks if a string represents a valid integer literal.
- *
- * Validates integer format, handling negative numbers by skipping
- * the leading minus sign and checking remaining digits.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid integer format, 0 otherwise
- *
- * Examples:
- * - "42" -> 1 (valid)
- * - "-123" -> 1 (valid)
- * - "3.14" -> 0 (contains decimal)
- * - "abc" -> 0 (non-numeric)
- */
-int isIntLit(const char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (!isdigit(val[i])) return 0;
-    }
-    return 1;
-}
-
-/**
- * @brief Validates string literal format with proper quote delimiters.
- *
- * Checks that string has opening and closing quotes and minimum length.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid string literal format, 0 otherwise
- *
- * Examples:
- * - "\"hello\"" -> 1 (valid)
- * - "\"\"" -> 1 (valid empty string)
- * - "hello" -> 0 (missing quotes)
- * - "\"unclosed -> 0 (missing closing quote)
- */
-int isValidStringLit(const char *val) {
-    if (val == NULL) return 0;
-    size_t len = strlen(val);
-    return (len >= 2 && val[0] == '"' && val[len - 1] == '"');
 }
 
 /**
@@ -271,7 +217,6 @@ NodeTypes getReturnTypeFromToken(TokenType type) {
     case TokenStringDefinition: return STRING_VARIABLE_DEFINITION;
     case TokenFloatDefinition: return FLOAT_VARIABLE_DEFINITION;
     case TokenBoolDefinition: return BOOL_VARIABLE_DEFINITION;
-    case TokenVoidDefinition: return null_NODE;
     default: return null_NODE;
     }
 }
@@ -285,15 +230,4 @@ NodeTypes getUnaryOpType(TokenType t) {
 		case TokenDecrement: return PRE_DECREMENT;
 		default: return null_NODE;
 	}
-}
-
-NodeTypes detectLitType(const char * val) {
-	if (!val) return null_NODE;
-	if (isValidStringLit(val)) return STRING_LIT;
-	if (isFloatLit(val)) return FLOAT_LIT;
-	if (isIntLit(val)) return INT_LIT;
-	if (!strcmp(val, "true") || !strcmp(val, "false")) return BOOL_LIT;
-	if (isValidVariable(val)) return VARIABLE;
-	repError(ERROR_INVALID_EXPRESSION, val);
-	return null_NODE;
 }

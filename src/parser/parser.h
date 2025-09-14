@@ -175,6 +175,15 @@ struct ASTNode {
 
 typedef struct ASTNode *ASTNode;
 
+typedef ASTNode (*ParseFunc)(Token*);
+
+typedef struct {
+	TokenType token;
+	ParseFunc handler;
+} StatementHandler;
+
+extern const StatementHandler statementHandlers[];
+
 /**
  * @brief Static mapping table for type definitions.
  *
@@ -278,15 +287,6 @@ ASTNode createNode(Token token, NodeTypes type);
 
 const char *getNodeTypeName(NodeTypes nodeType);
 
-// --- VALIDATION FUNCTION DECLARATIONS ---
-int isFloatLit(const char *val);
-
-int isValidVariable(const char *val);
-
-int isIntLit(const char *val);
-
-int isValidStringLit(const char *val);
-
 ASTNode createValNode(Token current_token);
 
 const OperatorInfo *getOperatorInfo(TokenType type);
@@ -302,6 +302,12 @@ ASTNode parseFunctionCall(Token *current, char *functionName);
 NodeTypes getUnaryOpType(TokenType t);
 
 NodeTypes detectLitType(const char * val);
+
+ASTNode parseReturnStatement(Token *current);
+
+ASTNode parseLoop(Token* current);
+
+ASTNode parseBlock(Token *current);
 
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
