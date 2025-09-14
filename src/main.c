@@ -69,10 +69,13 @@ void printTokenList(Token t) {
 }
 
 int main() {
-    printf("=== LEXER TEST ===\n");
-    char *input = "fn add (a: int, b: int) -> int { return a + b;};"
-                  "int x = add( 48, 10);"
-                  "print(x);";
+    printf("=== COMPILER TEST ===\n");
+    char *input = "int x = 10;\n"
+				  "string space = \" \";\n"
+				  "while x <= 10 && x >= -10 {\n"
+	              "print(x);\n"
+			      "    print(space);\n"
+			      "    x--;\n};";
     printf("Input:\n%s\n\n", input);
 
     // Use the new two-step lexer process

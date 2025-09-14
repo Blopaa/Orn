@@ -95,7 +95,7 @@ static const TokenMap tokenMapping[] = {
     {"bool", TokenBoolDefinition},
     {"true", TokenTrue},
     {"false", TokenFalse},
-    {"@", TokenWhileLoop},
+    {"while", TokenWhileLoop},
 
     // Multi-character operators (must come before single-char versions)
     {"->", TokenArrow},

@@ -82,7 +82,10 @@ const char *getNodeTypeName(NodeTypes nodeType) {
  */
 ASTNode createNode(Token token, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
-    if (node == NULL) return NULL;
+	if (!node) {
+		repError(ERROR_MEMORY_ALLOCATION_FAILED, token && token->value ? token->value : "");
+		return NULL;
+	}
 
     node->value = (token && token->value) ? strdup(token->value) : NULL;
     node->nodeType = type;
@@ -212,22 +215,15 @@ int isValidStringLit(const char *val) {
  * - Variable references (valid identifiers)
  *
  * @param current_token Token to convert to AST node
- * @param fatherType Parent node type for context (currently unused)
  * @return Newly created AST node or NULL on error
  *
  * @note Reports ERROR_INVALID_EXPRESSION for unrecognized token formats
  */
-ASTNode createValNode(Token current_token, NodeTypes fatherType) {
-    (void)fatherType;
+ASTNode createValNode(Token current_token) {
     if (current_token == NULL) return NULL;
-    char *val = current_token->value;
-    if (isValidStringLit(val)) return createNode(current_token, STRING_LIT);
-    if (isFloatLit(val)) return createNode(current_token, FLOAT_LIT);
-    if (isIntLit(val)) return createNode(current_token, INT_LIT);
-    if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) return createNode(current_token, BOOL_LIT);
-    if (isValidVariable(val)) return createNode(current_token, VARIABLE);
-    repError(ERROR_INVALID_EXPRESSION, val);
-    return NULL;
+    NodeTypes type = detectLitType(current_token->value);
+    if (type == null_NODE) return NULL;
+	return createNode(current_token, type);
 }
 
 /**
@@ -278,4 +274,26 @@ NodeTypes getReturnTypeFromToken(TokenType type) {
     case TokenVoidDefinition: return null_NODE;
     default: return null_NODE;
     }
+}
+
+NodeTypes getUnaryOpType(TokenType t) {
+	switch (t) {
+		case TokenSub: return UNARY_MINUS_OP;
+		case TokenSum: return UNARY_PLUS_OP;
+		case TokenNot: return LOGIC_NOT;
+		case TokenIncrement: return PRE_INCREMENT;
+		case TokenDecrement: return PRE_DECREMENT;
+		default: return null_NODE;
+	}
+}
+
+NodeTypes detectLitType(const char * val) {
+	if (!val) return null_NODE;
+	if (isValidStringLit(val)) return STRING_LIT;
+	if (isFloatLit(val)) return FLOAT_LIT;
+	if (isIntLit(val)) return INT_LIT;
+	if (!strcmp(val, "true") || !strcmp(val, "false")) return BOOL_LIT;
+	if (isValidVariable(val)) return VARIABLE;
+	repError(ERROR_INVALID_EXPRESSION, val);
+	return null_NODE;
 }

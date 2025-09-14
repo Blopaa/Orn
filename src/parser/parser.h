@@ -12,6 +12,36 @@
 
 #include "../lexer/lexer.h"
 
+#define ADVANCE_TOKEN(cur) do { if(cur && *cur) *cur = (*cur)->next; } while(0);
+
+#define EXPECT_TOKEN(current, expected_type, err_msg) do { \
+    if (!current || !*current || (*current)->type != expected_type) { \
+        repError(ERROR_INVALID_EXPRESSION, err_msg ? err_msg : "Unexpected token"); \
+        return NULL; \
+    } \
+} while(0)
+
+#define EXPECT_AND_ADVANCE(current, expected_type, err_msg) do { \
+    EXPECT_TOKEN(current, expected_type, err_msg); \
+    ADVANCE_TOKEN(current); \
+} while(0)
+
+#define CREATE_NODE_OR_FAIL(var, token, type) do { \
+    var = createNode(token, type); \
+    if (!var) return NULL; \
+} while(0)
+
+#define PARSE_OR_CLEANUP(var, parse_expr, ...) do { \
+    var = (parse_expr); \
+    if (!var) { \
+        ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
+        for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \
+            if (_cleanup_nodes[_i]) freeAST(_cleanup_nodes[_i]); \
+        } \
+        return NULL; \
+    } \
+} while(0)
+
 /**
  * @brief Enumeration of all Abstract Syntax Tree node types.
  *
@@ -257,7 +287,7 @@ int isIntLit(const char *val);
 
 int isValidStringLit(const char *val);
 
-ASTNode createValNode(Token current_token, NodeTypes fatherType);
+ASTNode createValNode(Token current_token);
 
 const OperatorInfo *getOperatorInfo(TokenType type);
 
@@ -268,6 +298,10 @@ NodeTypes getReturnTypeFromToken(TokenType type);
 ASTNode parseFunction(Token *current);
 
 ASTNode parseFunctionCall(Token *current, char *functionName);
+
+NodeTypes getUnaryOpType(TokenType t);
+
+NodeTypes detectLitType(const char * val);
 
 // Public function prototypes
 ASTNode ASTGenerator(Token token);
