@@ -235,12 +235,3 @@ const char* tokenName(TokenType type) {
 	};
 	return (type < sizeof(names)/sizeof(names[0])) ? names[type] : "UNKNOWN";
 }
-
-char *tokenToString(const Token *tok) {
-	if (!tok || !tok->start) return strdup("");
-	char *buf = malloc(tok->length + 1);
-	if (!buf) return NULL;
-	memcpy(buf, tok->start, tok->length);
-	buf[tok->length] = '\0';
-	return buf;
-}

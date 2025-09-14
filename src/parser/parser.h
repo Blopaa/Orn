@@ -12,6 +12,43 @@
 
 #include "../lexer/lexer.h"
 
+char *tokenToString(const Token *token);
+
+#define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
+
+#define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
+    do { \
+        if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expected_type)) { \
+            repError(ERROR_INVALID_EXPRESSION, err_msg ? err_msg : "Unexpected token"); \
+            return NULL; \
+        } \
+    } while(0)
+
+#define EXPECT_AND_ADVANCE(list, pos, expected_type, err_msg) \
+    do { \
+        EXPECT_TOKEN(list, pos, expected_type, err_msg); \
+        ADVANCE_TOKEN(list, pos); \
+    } while(0)
+
+#define CREATE_NODE_OR_FAIL(var, token, type) \
+    do { \
+        var = createNode(token, type); \
+        if (!var) return NULL; \
+    } while(0)
+
+#define PARSE_OR_CLEANUP(var, parse_expr, ...) \
+    do { \
+        var = (parse_expr); \
+        if (!var) { \
+            ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
+            for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \
+                if (_cleanup_nodes[_i]) freeAST(_cleanup_nodes[_i]); \
+            } \
+            return NULL; \
+        } \
+    } while(0)
+
+
 #define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
 
 #define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
@@ -180,11 +217,11 @@ struct ASTNode {
 
 typedef struct ASTNode *ASTNode;
 
-typedef ASTNode (*ParseFunc)(Token*);
+typedef ASTNode (*ParseFunc)(TokenList*, size_t*);
 
 typedef struct {
-	TokenType token;
-	ParseFunc handler;
+    TokenType token;
+    ParseFunc handler;
 } StatementHandler;
 
 extern const StatementHandler statementHandlers[];
@@ -285,40 +322,41 @@ static const OperatorInfo operators[] = {
 };
 
 
-// --- HELPER FUNCTION DECLARATIONS ---
+// helpers
 NodeTypes getDecType(TokenType type);
-
-ASTNode createNode(Token * token, NodeTypes type);
-
+ASTNode createNode(const Token* token, NodeTypes type);
 const char *getNodeTypeName(NodeTypes nodeType);
-
-ASTNode createValNode(Token * current_token);
-
+ASTNode createValNode(const Token* current_token);
 const OperatorInfo *getOperatorInfo(TokenType type);
-
 int isTypeToken(TokenType type);
-
 NodeTypes getReturnTypeFromToken(TokenType type);
-
-ASTNode parseFunction(Token **current);
-
-ASTNode parseFunctionCall(TokenList* list, size_t * pos, char *functionName);
-
 NodeTypes getUnaryOpType(TokenType t);
+NodeTypes detectLitType(const Token* tok);
 
-NodeTypes detectLitType(const char * val);
-
-ASTNode parseReturnStatement(Token **current);
-
-ASTNode parseLoop(Token** current);
-
-ASTNode parseBlock(Token **current);
+// Parser function declarations
+ASTNode parseStatement(TokenList* list, size_t* pos);
+ASTNode parseExpression(TokenList* list, size_t* pos, Precedence minPrec);
+ASTNode parseUnary(TokenList* list, size_t* pos);
+ASTNode parsePrimaryExp(TokenList* list, size_t* pos);
+ASTNode parseFunction(TokenList* list, size_t* pos);
+ASTNode parseFunctionCall(TokenList* list, size_t* pos, char *functionName);
+ASTNode parseReturnStatement(TokenList* list, size_t* pos);
+ASTNode parseLoop(TokenList* list, size_t* pos);
+ASTNode parseBlock(TokenList* list, size_t* pos);
+ASTNode parseBlockExpression(TokenList* list, size_t* pos);
+ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
+ASTNode parseParameter(TokenList* list, size_t* pos);
+ASTNode parseArg(TokenList* list, size_t* pos);
+ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
+                                  ASTNode (*parseElement)(TokenList*, size_t*));
+ASTNode parseReturnType(TokenList* list, size_t* pos);
+ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
+ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 
 // Public function prototypes
-ASTNode ASTGenerator(TokenList token);
-
+ASTNode ASTGenerator(TokenList* tokenList);
 void printAST(ASTNode node, int depth);
-
+void printASTTree(ASTNode node, char *prefix, int isLast);
 void freeAST(ASTNode node);
 
 #endif //PARSER_H

@@ -46,8 +46,8 @@ NodeTypes getDecType(TokenType type) {
  * @brief Unified literal type detection with optimized checks.
  * Single function replaces all validation functions.
  */
-NodeTypes detectLitType(Token * tok) {
-	if (!tok || !tok->start) return null_NODE;
+NodeTypes detectLitType(const Token * tok) {
+	if (!tok || !tok->start || tok->length == 0) return null_NODE;
 
 	size_t len = tok->length;
 	const char *val = tok->start;
@@ -129,19 +129,17 @@ const char *getNodeTypeName(NodeTypes nodeType) {
  * @note The value string is duplicated, so the original token can be freed.
  *       The caller is responsible for freeing the returned node.
  */
-ASTNode createNode(Token * token, NodeTypes type) {
-	if (!token) return NULL;
+ASTNode createNode(const Token * token, NodeTypes type) {
     ASTNode node = malloc(sizeof(struct ASTNode));
 	if (!node) {
-		repError(ERROR_MEMORY_ALLOCATION_FAILED,  token->start ? token->start : "");
+		repError(ERROR_MEMORY_ALLOCATION_FAILED,  token ? tokenToString(token) : "");
 		return NULL;
 	}
 
-    node->value = tokenToString(token);
+    node->value = token ? tokenToString(token) : NULL;
     node->nodeType = type;
-	node->line = token->line;
-	node->column = token->column;
-
+	node->line = token ? token->line : 0;
+	node->column = token ? token->column : 0;
     node->brothers = NULL;
     node->children = NULL;
     return node;
@@ -163,11 +161,13 @@ ASTNode createNode(Token * token, NodeTypes type) {
  *
  * @note Reports ERROR_INVALID_EXPRESSION for unrecognized token formats
  */
-ASTNode createValNode(Token * currentToken) {
+ASTNode createValNode(const Token * currentToken) {
     if (currentToken == NULL) return NULL;
-    NodeTypes type = detectLitType(currentToken->start);
+
+    NodeTypes type = detectLitType(currentToken);
     if (type == null_NODE) return NULL;
-	return createNode(currentToken, type);
+
+    return createNode(currentToken, type);
 }
 
 /**

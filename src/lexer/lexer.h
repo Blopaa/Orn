@@ -85,6 +85,5 @@ typedef struct {
 TokenList* lex(const char *input);
 void freeTokens(TokenList *list);
 const char* tokenName(TokenType type);
-char *tokenToString(const Token *tok);
 
 #endif //LEXER_H
