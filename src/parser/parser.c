@@ -31,11 +31,11 @@ ASTNode parseStatement(Token *current); // Forward declaration
 ASTNode parseConditional(Token *current, ASTNode condition);
 
 const StatementHandler statementHandlers[] = {
-	{TokenFunctionDefinition, parseFunction},
-	{TokenReturn, parseReturnStatement},
-	{TokenWhileLoop, parseLoop},
-	{TokenLeftBrace, parseBlock},
-	{TokenNULL, NULL}  // Sentinel
+	{TK_FN, parseFunction},
+	{TK_RETURN, parseReturnStatement},
+	{TK_WHILE, parseLoop},
+	{TK_LBRACE, parseBlock},
+	{TK_NULL, NULL}  // Sentinel
 };
 
 /**
@@ -56,20 +56,21 @@ const StatementHandler statementHandlers[] = {
  *
  * @note Advances the token pointer past the consumed token
  */
-ASTNode parsePrimaryExp(Token *current) {
-	if (!current || !*current) return NULL;
+ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
+	if (*pos >= list->count) return NULL;
+	Token *token = &list->tokens[*pos];
 
-	if (detectLitType((*current)->value) == VARIABLE &&
-		(*current)->next && (*current)->next->type == TokenLeftParen) {
-		char *functionName = strdup((*current)->value);
-		ADVANCE_TOKEN(current);
-		ASTNode funcCall = parseFunctionCall(current, functionName);
+	if (detectLitType(tokenToString(token)) == VARIABLE &&
+		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
+		char *functionName = tokenToString(token);
+		ADVANCE_TOKEN(list, pos);
+		ASTNode funcCall = parseFunctionCall(list, pos, functionName);
 		free(functionName);
 		return funcCall;
 		}
 
-	ASTNode node = createValNode(*current);
-	if (node) ADVANCE_TOKEN(current);
+	ASTNode node = createValNode(token);
+	if (node) ADVANCE_TOKEN(list, pos);
 	return node;
 }
 
@@ -99,9 +100,9 @@ ASTNode parseUnary(Token *current) {
 	if (!current || !*current) return NULL;
 
 	// Handle prefix operators
-	if ((*current)->type == TokenSub || (*current)->type == TokenNot ||
-		(*current)->type == TokenIncrement || (*current)->type == TokenDecrement ||
-		(*current)->type == TokenSum) {
+	if ((*current)->type == TK_MINUS || (*current)->type == TK_NOT ||
+		(*current)->type == TK_INCR || (*current)->type == TK_DECR ||
+		(*current)->type == TK_PLUS) {
 		Token opToken = *current;
 		ADVANCE_TOKEN(current);
 
@@ -121,13 +122,13 @@ ASTNode parseUnary(Token *current) {
 	if (!node) return NULL;  // Return early if parsing failed
 
 	// Check for postfix operators
-	if (*current && ((*current)->type == TokenIncrement ||
-					 (*current)->type == TokenDecrement)) {
+	if (*current && ((*current)->type == TK_INCR ||
+					 (*current)->type == TK_DECR)) {
 		Token opToken = *current;
 		ADVANCE_TOKEN(current);
 
 		ASTNode opNode;
-		NodeTypes opType = (opToken->type == TokenIncrement) ? POST_INCREMENT : POST_DECREMENT;
+		NodeTypes opType = (opToken->type == TK_INCR) ? POST_INCREMENT : POST_DECREMENT;
 		CREATE_NODE_OR_FAIL(opNode, opToken, opType);
 		opNode->children = node;
 		return opNode;
@@ -163,7 +164,7 @@ ASTNode parseExpression(Token *current, Precedence minPrec) {
     ASTNode left = parseUnary(current);
     if (left == NULL) return NULL;
     while (*current != NULL) {
-        if ((*current)->type == TokenQuestion && PREC_TERNARY >= minPrec) {
+        if ((*current)->type == TK_QUESTION && PREC_TERNARY >= minPrec) {
             left = parseConditional(current, left);
             if (left == NULL) return NULL;
             continue;
@@ -208,13 +209,13 @@ ASTNode parseExpression(Token *current, Precedence minPrec) {
  *       and performs proper cleanup on error conditions
  */
 ASTNode parseBlock(Token *current) {
-	EXPECT_TOKEN(current, TokenLeftBrace, "Expected '{'");
+	EXPECT_TOKEN(current, TK_LBRACE, "Expected '{'");
     ADVANCE_TOKEN(current);
 	ASTNode block;
 	CREATE_NODE_OR_FAIL(block, NULL, BLOCK_STATEMENT);
 
 	ASTNode lastChild = NULL;
-	while (*current && (*current)->type != TokenRightBrace) {
+	while (*current && (*current)->type != TK_RBRACE) {
 		ASTNode statement = parseStatement(current);
 		if (statement) {
 			if (!block->children) block->children = statement;
@@ -223,7 +224,7 @@ ASTNode parseBlock(Token *current) {
 		}
 	}
 
-	EXPECT_AND_ADVANCE(current, TokenRightBrace, "Missing closing brace '}'");
+	EXPECT_AND_ADVANCE(current, TK_RBRACE, "Missing closing brace '}'");
 	return block;
 }
 
@@ -251,11 +252,11 @@ ASTNode parseBlockExpression(Token *current) {
 * - condition ? { block } : { block } (with blocks)
 */
 ASTNode parseConditional(Token *current, ASTNode condition) {
-	EXPECT_TOKEN(current, TokenQuestion, "Expected '?'");
+	EXPECT_TOKEN(current, TK_QUESTION, "Expected '?'");
 	Token questionToken = *current;
 	ADVANCE_TOKEN(current);
 
-	ASTNode trueBranch = (*current && (*current)->type == TokenLeftBrace)
+	ASTNode trueBranch = (*current && (*current)->type == TK_LBRACE)
 		? parseBlockExpression(current)
 		: parseExpression(current, PREC_NONE);
 
@@ -266,10 +267,10 @@ ASTNode parseConditional(Token *current, ASTNode condition) {
 	}
 
 	ASTNode falseBranch = NULL;
-	if (*current && (*current)->type == TokenColon) {
+	if (*current && (*current)->type == TK_COLON) {
 		ADVANCE_TOKEN(current);
 		PARSE_OR_CLEANUP(falseBranch,
-			(*current && (*current)->type == TokenLeftBrace)
+			(*current && (*current)->type == TK_LBRACE)
 				? parseBlockExpression(current)
 				: parseExpression(current, PREC_NONE),
 			condition, trueBranch);
@@ -315,7 +316,7 @@ ASTNode parseLoop(Token* current) {
 
 	ASTNode condition, loopBody, loopNode;
 	PARSE_OR_CLEANUP(condition, parseExpression(current, PREC_NONE));
-	EXPECT_TOKEN(current, TokenLeftBrace, "Expected '{' after loop condition");
+	EXPECT_TOKEN(current, TK_LBRACE, "Expected '{' after loop condition");
 	PARSE_OR_CLEANUP(loopBody, parseBlock(current));
 	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT);
 
@@ -333,7 +334,7 @@ ASTNode parseParameter(Token * current) {
 	CREATE_NODE_OR_FAIL(paramNode, *current, PARAMETER);
     ADVANCE_TOKEN(current);
 
-    EXPECT_AND_ADVANCE(current, TokenColon, "Expected ':' after parameter name");
+    EXPECT_AND_ADVANCE(current, TK_COLON, "Expected ':' after parameter name");
 	if (!*current || !isTypeToken((*current)->type)) {
 		repError(ERROR_INVALID_EXPRESSION, "Expected type after ':'");
 		freeAST(paramNode);
@@ -353,13 +354,13 @@ ASTNode parseArg(Token * current) {
 
 ASTNode parseCommaSeparatedLists(Token *current, NodeTypes listType,
 								 ASTNode (*parseElement)(Token*)) {
-	EXPECT_AND_ADVANCE(current, TokenLeftParen, "Expected '('");
+	EXPECT_AND_ADVANCE(current, TK_LPAREN, "Expected '('");
 
 	ASTNode listNode;
 	CREATE_NODE_OR_FAIL(listNode, NULL, listType);
 
 	ASTNode last = NULL;
-	while (*current && (*current)->type != TokenRightParen) {
+	while (*current && (*current)->type != TK_RPAREN) {
 		ASTNode elem;
 		PARSE_OR_CLEANUP(elem, parseElement(current), listNode);
 
@@ -367,21 +368,21 @@ ASTNode parseCommaSeparatedLists(Token *current, NodeTypes listType,
 		else last->brothers = elem;
 		last = elem;
 
-		if (*current && (*current)->type == TokenComma) {
+		if (*current && (*current)->type == TK_COMMA) {
 			ADVANCE_TOKEN(current);
-		} else if ((*current)->type != TokenRightParen) {
+		} else if ((*current)->type != TK_RPAREN) {
 			repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')'");
 			freeAST(listNode);
 			return NULL;
 		}
 	}
 
-	EXPECT_AND_ADVANCE(current, TokenRightParen, "Expected ')'");
+	EXPECT_AND_ADVANCE(current, TK_RPAREN, "Expected ')'");
 	return listNode;
 }
 
 ASTNode parseReturnType(Token *current) {
-	EXPECT_AND_ADVANCE(current, TokenArrow, "Expected '->'");
+	EXPECT_AND_ADVANCE(current, TK_ARROW, "Expected '->'");
 
 	if (!*current || !isTypeToken((*current)->type)) {
 		repError(ERROR_INVALID_EXPRESSION, "Expected type after '->'");
@@ -403,8 +404,8 @@ ASTNode parseReturnType(Token *current) {
 	return returnTypeNode;
 }
 
-ASTNode parseFunctionCall(Token *current, char *functionName) {
-	EXPECT_TOKEN(current, TokenLeftParen, "Expected '(' for function call");
+ASTNode parseFunctionCall(TokenList * list, size_t * pos, char *functionName) {
+	EXPECT_TOKEN(list, pos, TK_LPAREN, "Expected '(' for function call");
 
 	ASTNode callNode, argList;
 	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL);
@@ -418,23 +419,23 @@ ASTNode parseFunctionCall(Token *current, char *functionName) {
 }
 
 ASTNode parseReturnStatement(Token *current) {
-	EXPECT_TOKEN(current, TokenReturn, "Expected 'return' keyword");
+	EXPECT_TOKEN(current, TK_RETURN, "Expected 'return' keyword");
 	Token returnToken = *current;
 	ADVANCE_TOKEN(current);
 
 	ASTNode returnNode;
 	CREATE_NODE_OR_FAIL(returnNode, returnToken, RETURN_STATEMENT);
 
-	if (*current && (*current)->type != TokenPunctuation) {
+	if (*current && (*current)->type != TK_SEMI) {
 		returnNode->children = parseExpression(current, PREC_NONE);
 	}
 
-	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';' after return statement");
+	EXPECT_AND_ADVANCE(current, TK_SEMI, "Expected ';' after return statement");
 	return returnNode;
 }
 
 ASTNode parseFunction(Token *current) {
-	EXPECT_TOKEN(current, TokenFunctionDefinition, "Expected 'fn'");
+	EXPECT_TOKEN(current, TK_FN, "Expected 'fn'");
 	Token fnToken = *current;
 	ADVANCE_TOKEN(current);
 
@@ -452,7 +453,7 @@ ASTNode parseFunction(Token *current) {
 	PARSE_OR_CLEANUP(paramList, parseCommaSeparatedLists(current, PARAMETER_LIST, parseParameter),
 					 functionNode);
 	PARSE_OR_CLEANUP(returnType, parseReturnType(current), functionNode, paramList);
-	EXPECT_TOKEN(current, TokenLeftBrace, "Expected '{' for function body");
+	EXPECT_TOKEN(current, TK_LBRACE, "Expected '{' for function body");
 	PARSE_OR_CLEANUP(body, parseBlock(current), functionNode, paramList, returnType);
 
 	functionNode->children = paramList;
@@ -472,19 +473,19 @@ static ASTNode parseDeclaration(Token *current, NodeTypes decType) {
 	CREATE_NODE_OR_FAIL(decNode, *current, decType);
 	ADVANCE_TOKEN(current);
 
-	if (*current && (*current)->type == TokenAssignement) {
+	if (*current && (*current)->type == TK_ASSIGN) {
 		ADVANCE_TOKEN(current);
 		PARSE_OR_CLEANUP(decNode->children, parseExpression(current, PREC_NONE), decNode);
 	}
 
-	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
+	EXPECT_AND_ADVANCE(current, TK_SEMI, "Expected ';'");
 	return decNode;
 }
 
 static ASTNode parseExpressionStatement(Token *current) {
 	ASTNode expressionNode;
 	PARSE_OR_CLEANUP(expressionNode, parseExpression(current, PREC_NONE));
-	EXPECT_AND_ADVANCE(current, TokenPunctuation, "Expected ';'");
+	EXPECT_AND_ADVANCE(current, TK_SEMI, "Expected ';'");
 	return expressionNode;
 }
 
@@ -520,12 +521,12 @@ static ASTNode parseExpressionStatement(Token *current) {
 ASTNode parseStatement(Token *current) {
 	if (!current || !*current) return NULL;
 
-	if ((*current)->type == TokenPunctuation) {
+	if ((*current)->type == TK_SEMI) {
 		ADVANCE_TOKEN(current);
 		return NULL;
 	}
 
-	for (int i = 0; statementHandlers[i].token != TokenNULL; i++) {
+	for (int i = 0; statementHandlers[i].token != TK_NULL; i++) {
 		if ((*current)->type == statementHandlers[i].token) {
 			return statementHandlers[i].handler(current);
 		}
@@ -561,8 +562,8 @@ ASTNode parseStatement(Token *current) {
  *       to determine if parsing was successful. The dummy head token from
  *       tokenization() is automatically skipped.
  */
-ASTNode ASTGenerator(Token token) {
-	if (!token) return NULL;
+ASTNode ASTGenerator(TokenType * tokenList) {
+	if (!tokenList) return NULL;
 
 	ASTNode programNode;
 	CREATE_NODE_OR_FAIL(programNode, NULL, PROGRAM);

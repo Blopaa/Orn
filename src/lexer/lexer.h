@@ -1,190 +1,90 @@
-/**
-* @file lexer.h
- * @brief Lexical analysis interface for the C compiler.
- *
- * Defines token types, data structures, and function prototypes for
- * the two-phase lexical analysis process: splitting and tokenization.
- * Supports comprehensive token recognition including keywords, operators,
- * literals, and special symbols.
- */
-
 #ifndef LEXER_H
 #define LEXER_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /**
  * @brief Enumeration of all possible token types in the language.
  *
  */
 typedef enum {
-    TokenAssignement,
-    TokenLiteral,
-    TokenIntDefinition,
-    TokenStringDefinition,
-    TokenFloatDefinition,
-    TokenBoolDefinition,
-    TokenFunctionDefinition,
-    TokenVoidDefinition,
-    TokenReturn,
-    TokenArrow,
-    TokenPunctuation,
-    TokenQuotes,
-    TokenWhileLoop,
-    TokenTrue,
-    TokenFalse,
-    TokenSum,
-    TokenSub,
-    TokenMult,
-    TokenDiv,
-    TokenMod,
-    TokenIncrement,
-    TokenDecrement,
-    TokenAnd,
-    TokenOr,
-    TokenNot,
-    TokenString,
-    TokenPlusAssign,
-    TokenSubAssign,
-    TokenMultAssign,
-    TokenDivAssign,
-    TokenEqual,
-    TokenNotEqual,
-    TokenLess,
-    TokenGreater,
-    TokenLessEqual,
-    TokenGreaterEqual,
-    TokenLeftBrace,
-    TokenRightBrace,
-    TokenLeftParen,
-    TokenRightParen,
-    TokenComma,
-    TokenQuestion,
-    TokenColon,
-    TokenNULL
+    TK_ASSIGN,
+    TK_LIT,
+    TK_INT,
+    TK_STRING,
+    TK_FLOAT,
+    TK_BOOL,
+    TK_FN,
+    TK_VOID,
+    TK_RETURN,
+    TK_ARROW,
+    TK_SEMI,
+    TK_QUOTE,
+    TK_WHILE,
+    TK_TRUE,
+    TK_FALSE,
+    TK_PLUS,
+    TK_MINUS,
+    TK_STAR,
+    TK_SLASH,
+    TK_MOD,
+    TK_INCR,
+    TK_DECR,
+    TK_AND,
+    TK_OR,
+    TK_NOT,
+    TK_STR,
+	TK_NUM,
+    TK_PLUS_ASSIGN,
+    TK_MINUS_ASSIGN,
+    TK_STAR_ASSIGN,
+    TK_SLASH_ASSIGN,
+    TK_EQ,
+    TK_NOT_EQ,
+    TK_LESS,
+    TK_GREATER,
+    TK_LESS_EQ,
+    TK_GREATER_EQ,
+    TK_LBRACE,
+    TK_RBRACE,
+    TK_LPAREN,
+    TK_RPAREN,
+    TK_COMMA,
+    TK_QUESTION,
+    TK_COLON,
+	TK_EOF,
+	TK_INVALID,
+    TK_NULL
 } TokenType;
 
-/**
- * @brief Structure mapping token strings to their corresponding types.
- *
- * Used in static lookup tables to convert string literals to token types.
- * The mapping array must be terminated with a NULL entry.
- */
-typedef struct {
-    char *value;
+typedef struct Token {
     TokenType type;
-} TokenMap;
+    const char *start;
+	uint16_t length;
+    uint16_t line;
+    uint16_t column;
+} Token;
 
-/**
- * @brief Static lookup table mapping token strings to types.
- *
- * Used by findTokenType() to identify token types during lexical analysis.
- * Order matters for multi-character operators - longer operators should
- * appear before their shorter prefixes (e.g., "+=" before "+").
- *
- * @note The array MUST be terminated with a {NULL, TokenLiteral} entry.
- */
-static const TokenMap tokenMapping[] = {
-    // Keywords
-    {"fn", TokenFunctionDefinition},
-    {"return", TokenReturn},
-    {"void", TokenVoidDefinition},
-    {"int", TokenIntDefinition},
-    {"string", TokenStringDefinition},
-    {"float", TokenFloatDefinition},
-    {"bool", TokenBoolDefinition},
-    {"true", TokenTrue},
-    {"false", TokenFalse},
-    {"while", TokenWhileLoop},
+typedef struct TokenList {
+	Token *tokens;
+	size_t count;
+	size_t capacity;
+	char * buffer;
+}TokenList;
 
-    // Multi-character operators (must come before single-char versions)
-    {"->", TokenArrow},
-    {"+=", TokenPlusAssign},
-    {"-=", TokenSubAssign},
-    {"*=", TokenMultAssign},
-    {"/=", TokenDivAssign},
-    {"++", TokenIncrement},
-    {"--", TokenDecrement},
-    {"&&", TokenAnd},
-    {"||", TokenOr},
-    {"==", TokenEqual},
-    {"!=", TokenNotEqual},
-    {"<=", TokenLessEqual},
-    {">=", TokenGreaterEqual},
-
-    // Single-character operators
-    {"=", TokenAssignement},
-    {"+", TokenSum},
-    {"-", TokenSub},
-    {"*", TokenMult},
-    {"/", TokenDiv},
-    {"%", TokenMod},
-    {"!", TokenNot},
-    {"<", TokenLess},
-    {">", TokenGreater},
-
-    // Delimiters
-    {";", TokenPunctuation},
-    {"\"", TokenQuotes},
-    {"{", TokenLeftBrace},
-    {"}", TokenRightBrace},
-    {"(", TokenLeftParen},
-    {")", TokenRightParen},
-    {",", TokenComma},
-    {"?", TokenQuestion},
-    {":", TokenColon},
-
-    {NULL, TokenLiteral} // This MUST be the last entry
-};
-
-/**
- * @brief Raw token structure from the splitting phase.
- *
- * Contains the basic token information extracted during the first phase
- * of lexical analysis. Position information is preserved for error reporting.
- */
 typedef struct {
-    char *value;
-    int line;
-    int column;
-} InputToken;
+	const char *src;
+	const char *cur;
+	size_t line;
+	size_t col;
+	size_t line_start;
+	TokenList *list;
+} Lexer;
 
-/**
- * @brief Container for the array of raw tokens from splitting.
- *
- * Manages a dynamic array of InputToken structures with capacity tracking
- * for efficient memory usage and reallocation.
- */
-struct Input {
-    InputToken *tokens;
-    int n;
-    int capacity;
-};
-
-/**
- * @brief Final token structure for parser consumption.
- *
- * Represents a fully processed token with type information, ready for
- * parsing. Forms a linked list for efficient sequential access by the parser.
- */
-typedef struct Input *Input;
-
-// --- Final Token Struct ---
-struct Token {
-    TokenType type;
-    char *value;
-    int line;
-    int column;
-    struct Token *next;
-};
-
-typedef struct Token *Token;
-
-// --- Function Prototypes ---
-Input splitter(const char *input);
-Token tokenization(Input in);
-TokenType findTokenType(const char *val);
-void freeInput(Input in);
-void freeTokenList(Token token);
+TokenList* lex(const char *input);
+void freeTokens(TokenList *list);
+const char* tokenName(TokenType type);
+char *tokenToString(const Token *tok);
 
 #endif //LEXER_H

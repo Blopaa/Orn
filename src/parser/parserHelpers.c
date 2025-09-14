@@ -36,7 +36,7 @@
  *       to their declaration node types during parsing.
  */
 NodeTypes getDecType(TokenType type) {
-    for (int i = 0; TypeDefs[i].TkType != TokenNULL; i++) {
+    for (int i = 0; TypeDefs[i].TkType != TK_NULL; i++) {
         if (TypeDefs[i].TkType == type) return TypeDefs[i].type;
     }
     return null_NODE;
@@ -46,21 +46,24 @@ NodeTypes getDecType(TokenType type) {
  * @brief Unified literal type detection with optimized checks.
  * Single function replaces all validation functions.
  */
-NodeTypes detectLitType(const char *val) {
-	if (!val) return null_NODE;
+NodeTypes detectLitType(Token * tok) {
+	if (!tok || !tok->start) return null_NODE;
 
-	size_t len = strlen(val);
+	size_t len = tok->length;
+	const char *val = tok->start;
+
 	if (len >= 2 && val[0] == '"' && val[len-1] == '"')
 		return STRING_LIT;
-
-	if (!strcmp(val, "true") || !strcmp(val, "false"))
+	if ((len == 4 && memcmp(val, "true", 4)==0 )||
+		(len == 5 && memcmp(val, "false", 5)==0)) {
 		return BOOL_LIT;
+	}
 
-	int start = (val[0] == '-') ? 1 : 0;
-	if (!val[start]) goto check_variable;
+	size_t start = (val[0] == '-') ? 1 : 0;
+	if (start >= len) goto checkVariable;
 
 	int has_dot = 0, all_digits = 1;
-	for (int i = start; val[i]; i++) {
+	for (size_t i = start; i<len; i++) {
 		if (val[i] == '.') {
 			if (has_dot) { all_digits = 0; break; }
 			has_dot = 1;
@@ -73,18 +76,18 @@ NodeTypes detectLitType(const char *val) {
 	if (all_digits)
 		return has_dot ? FLOAT_LIT : INT_LIT;
 
-	check_variable:
+	checkVariable:
 		if (isalpha(val[0]) || val[0] == '_') {
-			for (int i = 1; val[i]; i++) {
+			for (size_t i = 1; i<len; i++) {
 				if (!isalnum(val[i]) && val[i] != '_') {
-					repError(ERROR_INVALID_EXPRESSION, val);
+					repError(ERROR_INVALID_EXPRESSION, tokenToString(tok));
 					return null_NODE;
 				}
 			}
 			return VARIABLE;
 		}
 
-	repError(ERROR_INVALID_EXPRESSION, val);
+	repError(ERROR_INVALID_EXPRESSION, tokenToString(tok));
 	return null_NODE;
 }
 
@@ -126,23 +129,18 @@ const char *getNodeTypeName(NodeTypes nodeType) {
  * @note The value string is duplicated, so the original token can be freed.
  *       The caller is responsible for freeing the returned node.
  */
-ASTNode createNode(Token token, NodeTypes type) {
+ASTNode createNode(Token * token, NodeTypes type) {
+	if (!token) return NULL;
     ASTNode node = malloc(sizeof(struct ASTNode));
 	if (!node) {
-		repError(ERROR_MEMORY_ALLOCATION_FAILED, token && token->value ? token->value : "");
+		repError(ERROR_MEMORY_ALLOCATION_FAILED,  token->start ? token->start : "");
 		return NULL;
 	}
 
-    node->value = (token && token->value) ? strdup(token->value) : NULL;
+    node->value = tokenToString(token);
     node->nodeType = type;
-
-    if (token) {
-        node->line = token->line;
-        node->column = token->column;
-    } else {
-        node->line = 0;
-        node->column = 0;
-    }
+	node->line = token->line;
+	node->column = token->column;
 
     node->brothers = NULL;
     node->children = NULL;
@@ -160,16 +158,16 @@ ASTNode createNode(Token token, NodeTypes type) {
  * - Boolean literals (true/false)
  * - Variable references (valid identifiers)
  *
- * @param current_token Token to convert to AST node
+ * @param currentToken Token to convert to AST node
  * @return Newly created AST node or NULL on error
  *
  * @note Reports ERROR_INVALID_EXPRESSION for unrecognized token formats
  */
-ASTNode createValNode(Token current_token) {
-    if (current_token == NULL) return NULL;
-    NodeTypes type = detectLitType(current_token->value);
+ASTNode createValNode(Token * currentToken) {
+    if (currentToken == NULL) return NULL;
+    NodeTypes type = detectLitType(currentToken->start);
     if (type == null_NODE) return NULL;
-	return createNode(current_token, type);
+	return createNode(currentToken, type);
 }
 
 /**
@@ -185,7 +183,7 @@ ASTNode createValNode(Token current_token) {
  *       and associativity during expression parsing.
  */
 const OperatorInfo *getOperatorInfo(TokenType type) {
-    for (int i = 0; operators[i].token != TokenNULL; i++) {
+    for (int i = 0; operators[i].token != TK_NULL; i++) {
         if (operators[i].token == type) return &operators[i];
     }
     return NULL;
@@ -198,11 +196,11 @@ const OperatorInfo *getOperatorInfo(TokenType type) {
  * @return 1 if it's a type token, 0 otherwise
  */
 int isTypeToken(TokenType type) {
-    return (type == TokenIntDefinition ||
-            type == TokenStringDefinition ||
-            type == TokenFloatDefinition ||
-            type == TokenBoolDefinition ||
-            type == TokenVoidDefinition);
+    return (type == TK_INT ||
+            type == TK_STRING ||
+            type == TK_FLOAT ||
+            type == TK_BOOL ||
+            type == TK_VOID);
 }
 
 /**
@@ -213,21 +211,21 @@ int isTypeToken(TokenType type) {
  */
 NodeTypes getReturnTypeFromToken(TokenType type) {
     switch (type) {
-    case TokenIntDefinition: return INT_VARIABLE_DEFINITION;
-    case TokenStringDefinition: return STRING_VARIABLE_DEFINITION;
-    case TokenFloatDefinition: return FLOAT_VARIABLE_DEFINITION;
-    case TokenBoolDefinition: return BOOL_VARIABLE_DEFINITION;
+    case TK_INT: return INT_VARIABLE_DEFINITION;
+    case TK_STRING: return STRING_VARIABLE_DEFINITION;
+    case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
+    case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
     default: return null_NODE;
     }
 }
 
 NodeTypes getUnaryOpType(TokenType t) {
 	switch (t) {
-		case TokenSub: return UNARY_MINUS_OP;
-		case TokenSum: return UNARY_PLUS_OP;
-		case TokenNot: return LOGIC_NOT;
-		case TokenIncrement: return PRE_INCREMENT;
-		case TokenDecrement: return PRE_DECREMENT;
+		case TK_MINUS: return UNARY_MINUS_OP;
+		case TK_PLUS: return UNARY_PLUS_OP;
+		case TK_NOT: return LOGIC_NOT;
+		case TK_INCR: return PRE_INCREMENT;
+		case TK_DECR: return PRE_DECREMENT;
 		default: return null_NODE;
 	}
 }
