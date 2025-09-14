@@ -316,7 +316,7 @@ ASTNode parseLoop(Token* current) {
 	ASTNode condition, loopBody, loopNode;
 	PARSE_OR_CLEANUP(condition, parseExpression(current, PREC_NONE));
 	EXPECT_TOKEN(current, TokenLeftBrace, "Expected '{' after loop condition");
-	PARSE_OR_CLEANUP(loopBody, parseExpression(current, PREC_NONE));
+	PARSE_OR_CLEANUP(loopBody, parseBlock(current));
 	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT);
 
     loopNode->children = condition;
