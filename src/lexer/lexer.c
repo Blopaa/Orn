@@ -137,7 +137,7 @@ static void lexOperator(Lexer *lx) {
             addToken(lx, TK_MINUS, start, 1); return;
         case '*':
             if (next == '=') { lx->cur++; addToken(lx, TK_STAR_ASSIGN, start, 2); return; }
-            addToken(lx, TK_STAR, start, 1); return;  // Note: TK_STAR not TK_START
+            addToken(lx, TK_STAR, start, 1); return;
         case '/':
             if (next == '=') { lx->cur++; addToken(lx, TK_SLASH_ASSIGN, start, 2); return; }
             addToken(lx, TK_SLASH, start, 1); return;

@@ -36,41 +36,6 @@ char *tokenToString(const Token *token);
         if (!var) return NULL; \
     } while(0)
 
-#define PARSE_OR_CLEANUP(var, parse_expr, ...) \
-    do { \
-        var = (parse_expr); \
-        if (!var) { \
-            ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
-            for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \
-                if (_cleanup_nodes[_i]) freeAST(_cleanup_nodes[_i]); \
-            } \
-            return NULL; \
-        } \
-    } while(0)
-
-
-#define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
-
-#define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
-    do { \
-        if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expected_type)) { \
-            repError(ERROR_INVALID_EXPRESSION, err_msg ? err_msg : "Unexpected token"); \
-            return NULL; \
-        } \
-    } while(0)
-
-#define EXPECT_AND_ADVANCE(list, pos, expected_type, err_msg) \
-    do { \
-        EXPECT_TOKEN(list, pos, expected_type, err_msg); \
-        ADVANCE_TOKEN(list, pos); \
-    } while(0)
-
-#define CREATE_NODE_OR_FAIL(var, token, type) \
-    do { \
-        var = createNode(token, type); \
-        if (!var) return NULL; \
-    } while(0)
-
 
 #define PARSE_OR_CLEANUP(var, parse_expr, ...) \
     do { \
