@@ -71,6 +71,7 @@ typedef struct TokenList {
 	size_t count;
 	size_t capacity;
 	char * buffer;
+	const char *filename;
 }TokenList;
 
 typedef struct {
@@ -82,8 +83,9 @@ typedef struct {
 	TokenList *list;
 } Lexer;
 
-TokenList* lex(const char *input);
+TokenList* lex(const char *input, const char *filename);
 void freeTokens(TokenList *list);
 const char* tokenName(TokenType type);
+static char *extractSourceLineForToken(TokenList *list, Token *token);
 
 #endif //LEXER_H

@@ -10,16 +10,20 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "errorHandling.h"
 #include "../lexer/lexer.h"
 
 char *tokenToString(const Token *token);
+static ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) ;
+static const char *getTokenTypeName(TokenType type);
+static const char *getCurrentTokenName(TokenList *list, size_t pos);
 
 #define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
 
 #define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
     do { \
         if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expected_type)) { \
-            repError(ERROR_INVALID_EXPRESSION, err_msg ? err_msg : "Unexpected token"); \
+            reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), err_msg ? err_msg : "Unexpected token"); \
             return NULL; \
         } \
     } while(0)
@@ -30,9 +34,9 @@ char *tokenToString(const Token *token);
         ADVANCE_TOKEN(list, pos); \
     } while(0)
 
-#define CREATE_NODE_OR_FAIL(var, token, type) \
+#define CREATE_NODE_OR_FAIL(var, token, type, list, pos) \
     do { \
-        var = createNode(token, type); \
+        var = createNode(token, type, list, pos); \
         if (!var) return NULL; \
     } while(0)
 
@@ -289,14 +293,14 @@ static const OperatorInfo operators[] = {
 
 // helpers
 NodeTypes getDecType(TokenType type);
-ASTNode createNode(const Token* token, NodeTypes type);
+ASTNode createNode(const Token* token, NodeTypes type, TokenList * list, size_t * pos);
 const char *getNodeTypeName(NodeTypes nodeType);
-ASTNode createValNode(const Token* current_token);
+ASTNode createValNode(const Token* current_token, TokenList *list, size_t* pos);
 const OperatorInfo *getOperatorInfo(TokenType type);
 int isTypeToken(TokenType type);
 NodeTypes getReturnTypeFromToken(TokenType type);
 NodeTypes getUnaryOpType(TokenType t);
-NodeTypes detectLitType(const Token* tok);
+NodeTypes detectLitType(const Token* tok, TokenList * list, size_t * pos);
 
 // Parser function declarations
 ASTNode parseStatement(TokenList* list, size_t* pos);

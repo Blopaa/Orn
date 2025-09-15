@@ -10,6 +10,31 @@
 
 #define INITIAL_CAPACITY 256
 
+static char *extractSourceLineForToken(TokenList *list, Token *token) {
+	if (!list || !list->buffer || !token || !token->start) return NULL;
+
+	// Find start of line
+	const char *line_start = token->start;
+	while (line_start > list->buffer && *(line_start - 1) != '\n') {
+		line_start--;
+	}
+
+	// Find end of line
+	const char *line_end = token->start;
+	while (*line_end != '\0' && *line_end != '\n') {
+		line_end++;
+	}
+
+	// Create line string
+	size_t line_length = line_end - line_start;
+	char *line = malloc(line_length + 1);
+	if (line) {
+		strncpy(line, line_start, line_length);
+		line[line_length] = '\0';
+	}
+	return line;
+}
+
 static TokenType lookUpKeyword(const char * s, size_t len) {
 	if (len < 2) return TK_LIT;
 
@@ -182,12 +207,13 @@ static void lexOperator(Lexer *lx) {
     }
 }
 
-TokenList* lex(const char *input) {
+TokenList* lex(const char *input, const char * filename) {
 	TokenList *list = malloc(sizeof(TokenList));
 	list->capacity = INITIAL_CAPACITY;
 	list->count = 0;
 	list->tokens = malloc(list->capacity * sizeof(Token));
 	list->buffer = strdup(input);  // Keep a copy for token references
+	list->filename = strdup(filename);
 
 	Lexer lx = {
 		.src = list->buffer,
@@ -221,6 +247,7 @@ void freeTokens(TokenList *list) {
 	if (!list) return;
 	free(list->tokens);
 	free(list->buffer);
+	free(list->filename);
 	free(list);
 }
 

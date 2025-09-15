@@ -46,7 +46,7 @@ NodeTypes getDecType(TokenType type) {
  * @brief Unified literal type detection with optimized checks.
  * Single function replaces all validation functions.
  */
-NodeTypes detectLitType(const Token * tok) {
+NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 	if (!tok || !tok->start || tok->length == 0) return null_NODE;
 
 	size_t len = tok->length;
@@ -80,14 +80,14 @@ NodeTypes detectLitType(const Token * tok) {
 		if (isalpha(val[0]) || val[0] == '_') {
 			for (size_t i = 1; i<len; i++) {
 				if (!isalnum(val[i]) && val[i] != '_') {
-					repError(ERROR_INVALID_EXPRESSION, tokenToString(tok));
+					reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
 					return null_NODE;
 				}
 			}
 			return VARIABLE;
 		}
 
-	repError(ERROR_INVALID_EXPRESSION, tokenToString(tok));
+	reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
 	return null_NODE;
 }
 
@@ -129,10 +129,10 @@ const char *getNodeTypeName(NodeTypes nodeType) {
  * @note The value string is duplicated, so the original token can be freed.
  *       The caller is responsible for freeing the returned node.
  */
-ASTNode createNode(const Token * token, NodeTypes type) {
+ASTNode createNode(const Token * token, NodeTypes type, TokenList * list, size_t * pos) {
     ASTNode node = malloc(sizeof(struct ASTNode));
 	if (!node) {
-		repError(ERROR_MEMORY_ALLOCATION_FAILED,  token ? tokenToString(token) : "");
+		reportError(ERROR_MEMORY_ALLOCATION_FAILED,createErrorContextFromParser(list, pos),  token ? tokenToString(token) : "");
 		return NULL;
 	}
 
@@ -161,13 +161,13 @@ ASTNode createNode(const Token * token, NodeTypes type) {
  *
  * @note Reports ERROR_INVALID_EXPRESSION for unrecognized token formats
  */
-ASTNode createValNode(const Token * currentToken) {
+ASTNode createValNode(const Token * currentToken, TokenList * list, size_t*pos) {
     if (currentToken == NULL) return NULL;
 
-    NodeTypes type = detectLitType(currentToken);
+    NodeTypes type = detectLitType(currentToken, list, pos);
     if (type == null_NODE) return NULL;
 
-    return createNode(currentToken, type);
+    return createNode(currentToken, type,  list, pos);
 }
 
 /**

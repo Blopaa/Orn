@@ -30,6 +30,78 @@
 ASTNode parseStatement(TokenList* list, size_t* pos);
 ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
 
+/**
+ * @brief Create error context by extracting source line on-demand
+ */
+static ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
+    static ErrorContext context;
+    static char *lastSourceLine = NULL;  // Static to persist between calls
+
+    if (!list || *pos >= list->count) return NULL;
+
+    Token *token = &list->tokens[*pos];
+
+    // Free previous source line
+    if (lastSourceLine) {
+        free(lastSourceLine);
+        lastSourceLine = NULL;
+    }
+
+    // Extract source line on-demand
+    lastSourceLine = extractSourceLineForToken(list, token);
+
+    context.file = list->filename ? list->filename : "source";
+    context.line = token->line;
+    context.column = token->column;
+    context.source = lastSourceLine;  // Dynamically extracted!
+    context.startColumn = token->column;
+    context.length = token->length;
+
+    return &context;
+}
+
+/**
+ * @brief Helper function to get readable token names
+ */
+static const char *getTokenTypeName(TokenType type) {
+    switch (type) {
+        case TK_SEMI: return "';'";
+        case TK_LBRACE: return "'{'";
+        case TK_RBRACE: return "'}'";
+        case TK_LPAREN: return "'('";
+        case TK_RPAREN: return "')'";
+        case TK_ASSIGN: return "'='";
+        case TK_COMMA: return "','";
+        case TK_COLON: return "':'";
+        case TK_QUESTION: return "'?'";
+        case TK_ARROW: return "'->'";
+        case TK_INT: return "'int'";
+        case TK_STRING: return "'string'";
+        case TK_FLOAT: return "'float'";
+        case TK_BOOL: return "'bool'";
+        case TK_FN: return "'fn'";
+        case TK_RETURN: return "'return'";
+        case TK_WHILE: return "'while'";
+        case TK_EOF: return "end of file";
+        default: return "token";
+    }
+}
+
+static const char *getCurrentTokenName(TokenList *list, size_t pos) {
+    if (!list || pos >= list->count) return "end of input";
+
+    Token *token = &list->tokens[pos];
+    switch (token->type) {
+        case TK_LIT:
+        case TK_NUM:
+        case TK_STR: return "literal";
+        case TK_EOF: return "end of file";
+        case TK_INVALID: return "invalid token";
+        default: return getTokenTypeName(token->type);
+    }
+}
+
+
 const StatementHandler statementHandlers[] = {
 	{TK_FN, parseFunction},
 	{TK_RETURN, parseReturnStatement},
@@ -76,7 +148,7 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 	if (*pos >= list->count) return NULL;
 	Token *token = &list->tokens[*pos];
 
-	if (detectLitType(token) == VARIABLE &&
+	if (detectLitType(token, list, pos) == VARIABLE &&
 		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
 		char *functionName = tokenToString(token);
 		ADVANCE_TOKEN(list, pos);
@@ -85,7 +157,7 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 		return funcCall;
 		}
 
-	ASTNode node = createValNode(token);
+	ASTNode node = createValNode(token, list, pos);
 	if (node){ ADVANCE_TOKEN(list, pos);}
 	else {
 		ADVANCE_TOKEN(list, pos);
@@ -115,12 +187,12 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 		ADVANCE_TOKEN(list, pos);
 
 		ASTNode operand, opNode;
-		PARSE_OR_CLEANUP(operand, parseUnary(list, pos));
+		PARSE_OR_CLEANUP(operand, list, pos, parseUnary(list, pos));
 
 		NodeTypes opType = getUnaryOpType(opToken->type);
 		if (opType == null_NODE) return NULL;
 
-		CREATE_NODE_OR_FAIL(opNode, opToken, opType);
+		CREATE_NODE_OR_FAIL(opNode, opToken, opType, list, pos);
 		opNode->children = operand;
 		return opNode;
 		}
@@ -137,7 +209,7 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 
 		ASTNode opNode;
 		NodeTypes opType = (opToken->type == TK_INCR) ? POST_INCREMENT : POST_DECREMENT;
-		CREATE_NODE_OR_FAIL(opNode, opToken, opType);
+		CREATE_NODE_OR_FAIL(opNode, opToken, opType, list, pos);
 		opNode->children = node;
 		return opNode;
 					 }
@@ -183,7 +255,7 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
 		ASTNode right = parseExpression(list, pos, nextMinPrec);
 		if (right == NULL) return NULL;
 
-		ASTNode opNode = createNode(opToken, opInfo->nodeType);
+		ASTNode opNode = createNode(opToken, opInfo->nodeType, list, pos);
 		opNode->children = left;
 		left->brothers = right;
 		left = opNode;
@@ -204,7 +276,7 @@ ASTNode parseBlock(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode block;
-	CREATE_NODE_OR_FAIL(block, NULL, BLOCK_STATEMENT);
+	CREATE_NODE_OR_FAIL(block, NULL, BLOCK_STATEMENT, list, pos);
 
 	ASTNode lastChild = NULL;
 	while (*pos < list->count && list->tokens[*pos].type != TK_RBRACE) {
@@ -251,7 +323,7 @@ ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
 		: parseExpression(list, pos, PREC_NONE);
 
 	if (!trueBranch) {
-		repError(ERROR_TERNARY_INVALID_CONDITION, NULL);
+		reportError(ERROR_TERNARY_INVALID_CONDITION, createErrorContextFromParser(list, pos), NULL);
 		freeAST(condition);
 		return NULL;
 	}
@@ -267,8 +339,8 @@ ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
 	}
 
 	ASTNode conditionalNode, trueBranchWrap;
-	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, IF_CONDITIONAL);
-	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, IF_TRUE_BRANCH);
+	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, IF_CONDITIONAL, list, pos);
+	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, IF_TRUE_BRANCH, list, pos);
 
 	conditionalNode->children = condition;
 	trueBranchWrap->children = trueBranch;
@@ -276,7 +348,7 @@ ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
 
 	if (falseBranch) {
 		ASTNode falseBranchWrap;
-		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, ELSE_BRANCH);
+		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, ELSE_BRANCH, list, pos);
 		falseBranchWrap->children = falseBranch;
 		trueBranchWrap->brothers = falseBranchWrap;
 	}
@@ -300,7 +372,7 @@ ASTNode parseLoop(TokenList* list, size_t* pos) {
 	PARSE_OR_CLEANUP(condition, parseExpression(list, pos, PREC_NONE));
 	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{' after loop condition");
 	PARSE_OR_CLEANUP(loopBody, parseBlock(list, pos));
-	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT);
+	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT, list, pos);
 
 	loopNode->children = condition;
 	condition->brothers = loopBody;
@@ -318,25 +390,25 @@ ASTNode parseParameter(TokenList* list, size_t* pos) {
 	if (*pos >= list->count) return NULL;
 	Token* token = &list->tokens[*pos];
 
-	if (detectLitType(token) != VARIABLE) {
-		repError(ERROR_INVALID_EXPRESSION, "Expected parameter name");
+	if (detectLitType(token, list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected parameter name");
 		return NULL;
 	}
 
 	ASTNode paramNode, typeNode;
-	CREATE_NODE_OR_FAIL(paramNode, token, PARAMETER);
+	CREATE_NODE_OR_FAIL(paramNode, token, PARAMETER, list, pos);
 	ADVANCE_TOKEN(list, pos);
 
 	EXPECT_AND_ADVANCE(list, pos, TK_COLON, "Expected ':' after parameter name");
 	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
-		repError(ERROR_INVALID_EXPRESSION, "Expected type after ':'");
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after ':'");
 		freeAST(paramNode);
 		return NULL;
 	}
 
 	Token* typeToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
-	CREATE_NODE_OR_FAIL(typeNode, typeToken, getDecType(typeToken->type));
+	CREATE_NODE_OR_FAIL(typeNode, typeToken, getDecType(typeToken->type), list, pos);
 	paramNode->children = typeNode;
 	return paramNode;
 }
@@ -366,7 +438,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
 	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, "Expected '('");
 
 	ASTNode listNode;
-	CREATE_NODE_OR_FAIL(listNode, NULL, listType);
+	CREATE_NODE_OR_FAIL(listNode, NULL, listType, list, pos);
 
 	ASTNode last = NULL;
 	while (*pos < list->count && list->tokens[*pos].type != TK_RPAREN) {
@@ -380,7 +452,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
 		if (*pos < list->count && list->tokens[*pos].type == TK_COMMA) {
 			ADVANCE_TOKEN(list, pos);
 		} else if (list->tokens[*pos].type != TK_RPAREN) {
-			repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')'");
+			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected ',' or ')'");
 			freeAST(listNode);
 			return NULL;
 		}
@@ -401,7 +473,7 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
 	EXPECT_AND_ADVANCE(list, pos, TK_ARROW, "Expected '->'");
 
 	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
-		repError(ERROR_INVALID_EXPRESSION, "Expected type after '->'");
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after '->'");
 		return NULL;
 	}
 
@@ -410,10 +482,10 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode returnTypeNode, typeNode;
-	CREATE_NODE_OR_FAIL(returnTypeNode, typeToken, RETURN_TYPE);
+	CREATE_NODE_OR_FAIL(returnTypeNode, typeToken, RETURN_TYPE, list, pos);
 
 	if (returnType != null_NODE) {
-		CREATE_NODE_OR_FAIL(typeNode, typeToken, returnType);
+		CREATE_NODE_OR_FAIL(typeNode, typeToken, returnType, list, pos);
 		returnTypeNode->children = typeNode;
 	}
 
@@ -432,7 +504,7 @@ ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
 	EXPECT_TOKEN(list, pos, TK_LPAREN, "Expected '(' for function call");
 
 	ASTNode callNode, argList;
-	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL);
+	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL, list, pos);
 	callNode->value = strdup(functionName);
 
 	PARSE_OR_CLEANUP(argList, parseCommaSeparatedLists(list, pos, ARGUMENT_LIST, parseArg),
@@ -455,7 +527,7 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode returnNode;
-	CREATE_NODE_OR_FAIL(returnNode, returnToken, RETURN_STATEMENT);
+	CREATE_NODE_OR_FAIL(returnNode, returnToken, RETURN_STATEMENT, list, pos);
 
 	if (*pos < list->count && list->tokens[*pos].type != TK_SEMI) {
 		returnNode->children = parseExpression(list, pos, PREC_NONE);
@@ -477,13 +549,13 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	Token* fnToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
-	if (*pos >= list->count || detectLitType(&list->tokens[*pos]) != VARIABLE) {
-		repError(ERROR_INVALID_EXPRESSION, "Expected function name after 'fn'");
+	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected function name after 'fn'");
 		return NULL;
 	}
 
 	ASTNode functionNode;
-	CREATE_NODE_OR_FAIL(functionNode, fnToken, FUNCTION_DEFINITION);
+	CREATE_NODE_OR_FAIL(functionNode, fnToken, FUNCTION_DEFINITION, list, pos);
 	functionNode->value = tokenToString(&list->tokens[*pos]);
 	ADVANCE_TOKEN(list, pos);
 
@@ -510,13 +582,13 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
  * @return Declaration AST node or NULL on error
  */
 ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
-	if (*pos >= list->count || detectLitType(&list->tokens[*pos]) != VARIABLE) {
-		repError(ERROR_INVALID_EXPRESSION, "Expected identifier after type");
+	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected identifier after type");
 		return NULL;
 	}
 
 	ASTNode decNode;
-	CREATE_NODE_OR_FAIL(decNode, &list->tokens[*pos], decType);
+	CREATE_NODE_OR_FAIL(decNode, &list->tokens[*pos], decType, list, pos);
 	ADVANCE_TOKEN(list, pos);
 
 	if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
@@ -591,16 +663,16 @@ ASTNode ASTGenerator(TokenList* tokenList) {
 	if (!tokenList || tokenList->count == 0) return NULL;
 
 	ASTNode programNode;
-	CREATE_NODE_OR_FAIL(programNode, NULL, PROGRAM);
-
 	size_t pos = 0;
+	CREATE_NODE_OR_FAIL(programNode, NULL, PROGRAM, tokenList, &pos);
+
 	ASTNode lastStatement = NULL;
 	size_t lastPos = (size_t)-1;
 
 	while (pos < tokenList->count) {
 		if (pos == lastPos) {
 			// Parser is stuck - skip token and continue
-			repError(ERROR_INVALID_EXPRESSION, "Parser stuck - skipping token");
+			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(tokenList, &pos), "Parser stuck - skipping token");
 			pos++;
 			continue;
 		}

@@ -9,8 +9,8 @@
 
 int main() {
     printf("=== COMPILER ===\n");
-
-    const char* input = "int x = 10;\n"
+	const char* outputFile = "../output.s";
+    const char* input = "string x = 10;\n"
                        "string space = \" \";\n"
                        "while x <= 10 && x >= -10 {\n"
                        "    print(x);\n"
@@ -22,7 +22,7 @@ int main() {
 
     // Step 1: Lexical Analysis
     printf("1. LEXICAL ANALYSIS: ");
-    TokenList* tokens = lex(input);
+    TokenList* tokens = lex(input, outputFile);
     if (!tokens || hasErrors()) {
         printf("FAILED\n");
         printErrorSummary();
@@ -59,7 +59,6 @@ int main() {
 
     // Step 4: Code Generation
     printf("4. CODE GENERATION: ");
-    const char* outputFile = "../output.s";
     int codeGenSuccess = generateCode(ast, outputFile);
     if (!codeGenSuccess) {
         printf("FAILED\n");
