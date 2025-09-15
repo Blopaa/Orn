@@ -1,276 +1,264 @@
-/**
-* @file lexer.c
- * @brief Implementation of lexical analysis functions for the C compiler.
- *
- * Provides a two-phase lexical analysis system:
- * 1. Splitting: Raw character-level parsing with position tracking
- * 2. Tokenization: Type classification and linked list construction
- *
- * Handles comprehensive token recognition including multi-character operators,
- * string literals, numeric literals, comments, and proper error reporting.
- */
-
 #include "lexer.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-/**
- * @brief Finds the token type for a given string value.
- *
- * Performs linear search through the static tokenMapping array to classify
- * the input string. This function is the core of token type determination.
- *
- * @param val Null-terminated string to classify
- * @return TokenType corresponding to the string, or TokenLiteral if not found
- *
- * @note Time complexity is O(n) where n is the number of entries in tokenMapping.
- *       For better performance with many tokens, consider hash table lookup.
- */
-TokenType findTokenType(const char *val) {
-    for (int i = 0; tokenMapping[i].value != NULL; i++) {
-        if (strcmp(tokenMapping[i].value, val) == 0) {
-            return tokenMapping[i].type;
-        }
-    }
-    return TokenLiteral;
+#include "lexer.h"
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define INITIAL_CAPACITY 256
+
+char *extractSourceLineForToken(TokenList *list, Token *token) {
+	if (!list || !list->buffer || !token || !token->start) return NULL;
+
+	// Find start of line
+	const char *line_start = token->start;
+	while (line_start > list->buffer && *(line_start - 1) != '\n') {
+		line_start--;
+	}
+
+	// Find end of line
+	const char *line_end = token->start;
+	while (*line_end != '\0' && *line_end != '\n') {
+		line_end++;
+	}
+
+	// Create line string
+	size_t line_length = line_end - line_start;
+	char *line = malloc(line_length + 1);
+	if (line) {
+		strncpy(line, line_start, line_length);
+		line[line_length] = '\0';
+	}
+	return line;
 }
 
-/**
- * @brief Scans input string and splits it into raw tokens with position info.
- *
- * Performs the first phase of lexical analysis by character-level scanning.
- * Handles whitespace, comments, and complex token boundary detection.
- * Maintains line and column information for error reporting.
- *
- * Key features:
- * - Dynamic array allocation with capacity management
- * - Accurate position tracking (line/column)
- * - Comment removal (single-line // comments)
- * - String literal parsing with quote handling
- * - Multi-character operator recognition
- * - Number parsing (integers and floats)
- * - Identifier and keyword recognition
- *
- * @param input Source code string to tokenize
- * @return Input structure containing dynamic array of raw tokens
- *
- * @note The returned Input structure owns all allocated memory and must be
- *       passed to tokenization() or freed with freeInput().
- */
-Input splitter(const char *input) {
-    Input in = malloc(sizeof(struct Input));
-    in->capacity = 64; // Initial capacity
-    in->n = 0;
-    in->tokens = malloc(in->capacity * sizeof(InputToken));
+static TokenType lookUpKeyword(const char * s, size_t len) {
+	if (len < 2) return TK_LIT;
 
-    int i = 0;
-    int line = 1;
-    int start_of_line = 0;
-
-    while (input[i] != '\0') {
-        if (isspace(input[i])) {
-            if (input[i] == '\n') {
-                line++;
-                start_of_line = i + 1;
-            }
-            i++;
-            continue;
-        }
-
-        // Handle Single-line comments ::
-        if (input[i] == ':' && input[i + 1] == ':') {
-            while (input[i] != '\n' && input[i] != '\0') {
-                i++;
-            }
-            continue;
-        }
-
-        // Handle multi-line comments :| ... |:
-        if (input[i] == ':' && input[i + 1] == '|') {
-            i += 2; // Skip :|
-
-            while (input[i] != '\0') {
-                if (input[i] == '|' && input[i + 1] == ':') {
-                    i += 2; // Skip |:
-                    break;
-                }
-
-                if (input[i] == '\n') {
-                    line++;
-                    start_of_line = i + 1;
-                }
-                i++;
-            }
-            continue;
-        }
-
-        int token_start_pos = i;
-        int col = (token_start_pos - start_of_line) + 1;
-        int token_len = 0;
-
-        // Logic to determine token length
-        if (strchr("(){}[];,?:@", input[i])) {
-            token_len = 1;
-        } else if (strchr("=!<>", input[i])) {
-            if (input[i + 1] == '=') token_len = 2;
-            else token_len = 1;
-        } else if (strchr("+-*/%&|", input[i])) {
-            if ((input[i] == '+' && (input[i + 1] == '+' || input[i + 1] == '=')) ||
-                (input[i] == '-' && (input[i + 1] == '-' || input[i + 1] == '=')) ||
-                (input[i] == '&' && input[i + 1] == '&') ||
-                (input[i] == '|' && input[i + 1] == '|') ||
-                (input[i] == '*' && input[i + 1] == '=') ||
-                (input[i] == '/' && input[i + 1] == '=') ||
-                (input[i] == '-' && input[i + 1] == '>')) {
-
-                token_len = 2;
-            } else {
-                token_len = 1;
-            }
-        } else if (input[i] == '\"') {
-            // String literal parsing - FIXED
-            int start = i;
-            i++; // Skip opening quote
-            while (input[i] != '\"' && input[i] != '\0') i++;
-            if (input[i] == '\"') i++; // Skip closing quote
-            token_len = i - start;
-            // Don't reset i here - keep the new position
-        } else if (isdigit(input[i]) || (input[i] == '.' && isdigit(input[i + 1]))) {
-            int start = i;
-            if (input[i] != '.') while (isdigit(input[i])) i++;
-            if (input[i] == '.') {
-                i++;
-                while (isdigit(input[i])) i++;
-            }
-            token_len = i - start;
-            i = start; // Reset for this case only
-        } else if (isalpha(input[i]) || input[i] == '_') {
-            int start = i;
-            while (isalnum(input[i]) || input[i] == '_') i++;
-            token_len = i - start;
-            i = start; // Reset for this case only
-        }
-
-        if (token_len > 0) {
-            if (in->n >= in->capacity) {
-                in->capacity *= 2;
-                InputToken *newTokens = realloc(in->tokens, in->capacity * sizeof(InputToken));
-                if (newTokens == NULL) return NULL;
-                in->tokens = newTokens;
-            }
-
-            InputToken *raw_token = &in->tokens[in->n++];
-            raw_token->value = malloc(token_len + 1);
-            strncpy(raw_token->value, &input[token_start_pos], token_len);
-            raw_token->value[token_len] = '\0';
-            raw_token->line = line;
-            raw_token->column = col;
-
-            // Only advance i if we reset it above
-            if (input[token_start_pos] != '\"') {
-                i += token_len;
-            }
-            // For strings, i is already at the correct position
-        } else {
-            if (input[i] != '\0') i++; // Skip unrecognized character
-        }
-    }
-    return in;
+	switch (s[0]) {
+	case 'b':
+		if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
+		break;
+	case 'f':
+		if (len == 2 && s[1] == 'n') return TK_FN;
+		if (len == 5) {
+			if (memcmp(s, "float", 5) == 0) return TK_FLOAT;
+			if (memcmp(s, "false", 5) == 0) return TK_FALSE;
+		}
+		break;
+	case 'i':
+		if (len == 3 && memcmp(s, "int", 3) == 0) return TK_INT;
+		break;
+	case 'r':
+		if (len == 6 && memcmp(s, "return", 6) == 0) return TK_RETURN;
+		break;
+	case 's':
+		if (len == 6 && memcmp(s, "string", 6) == 0) return TK_STRING;
+		break;
+	case 't':
+		if (len == 4 && memcmp(s, "true", 4) == 0) return TK_TRUE;
+		break;
+	case 'v':
+		if (len == 4 && memcmp(s, "void", 4) == 0) return TK_VOID;
+		break;
+	case 'w':
+		if (len == 5 && memcmp(s, "while", 5) == 0) return TK_WHILE;
+		break;
+	}
+	return TK_LIT;
 }
 
-/**
- * @brief Converts raw tokens to typed tokens in a linked list structure.
- *
- * Performs the second phase of lexical analysis by taking the raw tokens
- * from splitter() and classifying them into specific token types using
- * the tokenMapping lookup table. Creates a linked list suitable for
- * sequential parser consumption.
- *
- * Process:
- * 1. Creates dummy head node for easier list manipulation
- * 2. Transfers string ownership from InputToken to Token
- * 3. Classifies each token using findTokenType()
- * 4. Preserves position information for error reporting
- * 5. Frees the intermediate Input structure
- *
- * @param in Input structure from splitter() (ownership transferred)
- * @return Token linked list with dummy head node
- *
- * @note The input parameter 'in' is consumed and freed by this function.
- *       The returned Token list owns all string memory and should be
- *       freed with freeTokenList() when no longer needed.
- */
-Token tokenization(Input in) {
-    if (in == NULL) return NULL;
-
-    Token head = malloc(sizeof(struct Token)); // Dummy head node
-    head->next = NULL;
-    head->value = NULL;
-    Token current_token_node = head;
-
-    for (int i = 0; i < in->n; i++) {
-        InputToken *raw_token = &in->tokens[i];
-
-        Token new_token = malloc(sizeof(struct Token));
-
-        new_token->value = raw_token->value; // Transfer ownership of the string
-        new_token->type = findTokenType(new_token->value);
-        new_token->line = raw_token->line;
-        new_token->column = raw_token->column;
-        new_token->next = NULL;
-
-        current_token_node->next = new_token;
-        current_token_node = new_token;
-    }
-
-    // The strings now belong to the Token list, so we can free the intermediate containers.
-    free(in->tokens);
-    free(in);
-
-    return head;
+static void addToken(Lexer *lx, TokenType type, const char * start, size_t len) {
+	if (lx->list->count >= lx->list->capacity) {
+		lx->list->capacity *= 2;
+		lx->list->tokens = realloc(lx->list->tokens, lx->list->capacity * sizeof(Token));
+	}
+	Token *token = &lx->list->tokens[lx->list->count++];
+	token->type = type;
+	token->start = start;
+	token->length = len;
+	token->line = lx->line;
+	token->column = (start - lx->src) - lx->line_start + 1;
 }
 
-/**
- * @brief Frees an Input structure without converting to tokens.
- *
- * Use this function only if you call splitter() but decide not to proceed
- * with tokenization(). This prevents memory leaks in error conditions or
- * when tokenization is not needed.
- *
- * @param in Input structure to free (can be NULL)
- *
- * @warning Do not call this if you have already called tokenization(),
- *          as tokenization() consumes and frees the Input structure.
- */
-void freeInput(Input in) {
-    if (in == NULL) return;
-    for (int i = 0; i < in->n; i++) {
-        free(in->tokens[i].value);
-    }
-    free(in->tokens);
-    free(in);
+static void skipWhitespace(Lexer *lx) {
+	while (*lx->cur) {
+		if (*lx->cur == ' ' || *lx->cur == '\t' || *lx->cur == '\r') {
+			lx->cur++;
+		} else if (*lx->cur == '\n') {
+			lx->cur++;
+			lx->line++;
+			lx->line_start = lx->cur - lx->src;
+		} else if (lx->cur[0] == ':' && lx->cur[1] == ':') {
+			// Single-line comment
+			lx->cur += 2;
+			while (*lx->cur && *lx->cur != '\n') lx->cur++;
+		} else if (lx->cur[0] == ':' && lx->cur[1] == '|') {
+			// Multi-line comment
+			lx->cur += 2;
+			while (*lx->cur) {
+				if (lx->cur[0] == '|' && lx->cur[1] == ':') {
+					lx->cur += 2;
+					break;
+				}
+				if (*lx->cur == '\n') {
+					lx->line++;
+					lx->line_start = lx->cur - lx->src + 1;
+				}
+				lx->cur++;
+			}
+		} else {
+			break;
+		}
+	}
 }
 
-/**
- * @brief Frees a complete Token linked list and all associated memory.
- *
- * Traverses the entire linked list, freeing each Token node and its
- * associated string memory. Safe to call on NULL pointer or empty list.
- *
- * @param token Head of Token linked list (including dummy head node)
- *
- * @note This function properly handles the dummy head node created by
- *       tokenization() and frees all memory associated with the token list.
- */
-void freeTokenList(Token token) {
-    Token current = token;
-    while (current != NULL) {
-        Token next = current->next;
-        if (current->value != NULL) {
-            free(current->value);
-        }
-        free(current);
-        current = next;
+static void lexString(Lexer *lx) {
+	const char *start = lx->cur++;
+	while (*lx->cur && *lx->cur != '"') {
+		if (*lx->cur == '\\' && lx->cur[1]) lx->cur += 2;
+		else lx->cur++;
+	}
+	if (*lx->cur == '"') lx->cur++;
+	addToken(lx, TK_STR, start, lx->cur - start);
+}
+
+static void lexNumber(Lexer *lx) {
+	const char *start = lx->cur;
+	while (isdigit(*lx->cur)) lx->cur++;
+	if (*lx->cur == '.' && isdigit(lx->cur[1])) {
+		lx->cur++;
+		while (isdigit(*lx->cur)) lx->cur++;
+	}
+	addToken(lx, TK_NUM, start, lx->cur - start);
+}
+
+static void lexIdent(Lexer *lx) {
+	const char *start = lx->cur;
+	while (isalnum(*lx->cur) || *lx->cur == '_') lx->cur++;
+	size_t len = lx->cur - start;
+	TokenType type = lookUpKeyword(start, len);
+	addToken(lx, type, start, lx->cur - start);
+}
+
+static void lexOperator(Lexer *lx) {
+    const char *start = lx->cur;
+    char c = *lx->cur++;
+    char next = *lx->cur;
+
+    // Two-character operators
+    switch (c) {
+        case '+':
+            if (next == '=') { lx->cur++; addToken(lx, TK_PLUS_ASSIGN, start, 2); return; }
+            if (next == '+') { lx->cur++; addToken(lx, TK_INCR, start, 2); return; }
+            addToken(lx, TK_PLUS, start, 1); return;
+        case '-':
+            if (next == '=') { lx->cur++; addToken(lx, TK_MINUS_ASSIGN, start, 2); return; }
+            if (next == '-') { lx->cur++; addToken(lx, TK_DECR, start, 2); return; }
+            if (next == '>') { lx->cur++; addToken(lx, TK_ARROW, start, 2); return; }
+            addToken(lx, TK_MINUS, start, 1); return;
+        case '*':
+            if (next == '=') { lx->cur++; addToken(lx, TK_STAR_ASSIGN, start, 2); return; }
+            addToken(lx, TK_STAR, start, 1); return;
+        case '/':
+            if (next == '=') { lx->cur++; addToken(lx, TK_SLASH_ASSIGN, start, 2); return; }
+            addToken(lx, TK_SLASH, start, 1); return;
+        case '=':
+            if (next == '=') { lx->cur++; addToken(lx, TK_EQ, start, 2); return; }
+            addToken(lx, TK_ASSIGN, start, 1); return;
+        case '!':
+            if (next == '=') { lx->cur++; addToken(lx, TK_NOT_EQ, start, 2); return; }
+            addToken(lx, TK_NOT, start, 1); return;
+        case '<':
+            if (next == '=') { lx->cur++; addToken(lx, TK_LESS_EQ, start, 2); return; }
+            addToken(lx, TK_LESS, start, 1); return;
+        case '>':
+            if (next == '=') { lx->cur++; addToken(lx, TK_GREATER_EQ, start, 2); return; }
+            addToken(lx, TK_GREATER, start, 1); return;
+        case '&':
+            if (next == '&') { lx->cur++; addToken(lx, TK_AND, start, 2); return; }
+            addToken(lx, TK_INVALID, start, 1); return;
+        case '|':
+            if (next == '|') { lx->cur++; addToken(lx, TK_OR, start, 2); return; }
+            addToken(lx, TK_INVALID, start, 1); return;
+        case '%':
+            addToken(lx, TK_MOD, start, 1); return;
+        case ';':
+            addToken(lx, TK_SEMI, start, 1); return;
+        case '{':
+            addToken(lx, TK_LBRACE, start, 1); return;
+        case '}':
+            addToken(lx, TK_RBRACE, start, 1); return;
+        case '(':
+            addToken(lx, TK_LPAREN, start, 1); return;
+        case ')':
+            addToken(lx, TK_RPAREN, start, 1); return;
+        case ',':
+            addToken(lx, TK_COMMA, start, 1); return;
+        case '?':
+            addToken(lx, TK_QUESTION, start, 1); return;
+        case ':':
+            addToken(lx, TK_COLON, start, 1); return;
+        default:
+            addToken(lx, TK_INVALID, start, 1); return;
     }
+}
+
+TokenList* lex(const char *input, const char * filename) {
+	TokenList *list = malloc(sizeof(TokenList));
+	list->capacity = INITIAL_CAPACITY;
+	list->count = 0;
+	list->tokens = malloc(list->capacity * sizeof(Token));
+	list->buffer = strdup(input);  // Keep a copy for token references
+	list->filename = strdup(filename);
+
+	Lexer lx = {
+		.src = list->buffer,
+		.cur = list->buffer,
+		.line = 1,
+		.col = 1,
+		.line_start = 0,
+		.list = list
+	};
+
+	while (*lx.cur) {
+		skipWhitespace(&lx);
+		if (!*lx.cur) break;
+
+		if (*lx.cur == '"') {
+			lexString(&lx);
+		} else if (isdigit(*lx.cur) || (*lx.cur == '.' && isdigit(lx.cur[1]))) {
+			lexNumber(&lx);
+		} else if (isalpha(*lx.cur) || *lx.cur == '_') {
+			lexIdent(&lx);
+		} else {
+			lexOperator(&lx);
+		}
+	}
+
+	addToken(&lx, TK_EOF, lx.cur, 0);
+	return list;
+}
+
+void freeTokens(TokenList *list) {
+	if (!list) return;
+	free(list->tokens);
+	free(list->buffer);
+	free(list->filename);
+	free(list);
+}
+
+const char* tokenName(TokenType type) {
+	static const char *names[] = {
+		"ASSIGN", "LIT", "INT", "STRING", "FLOAT", "BOOL", "FN", "VOID", "RETURN", "ARROW",
+		"SEMI", "QUOTE", "WHILE", "TRUE", "FALSE", "PLUS", "MINUS", "STAR", "SLASH", "MOD",
+		"INCR", "DECR", "AND", "OR", "NOT", "STR", "PLUS_ASSIGN", "MINUS_ASSIGN",
+		"STAR_ASSIGN", "SLASH_ASSIGN", "EQ", "NOT_EQ", "LESS", "GREATER", "LESS_EQ",
+		"GREATER_EQ", "LBRACE", "RBRACE", "LPAREN", "RPAREN", "COMMA", "QUESTION",
+		"COLON", "NULL", "NUM", "EOF", "INVALID"
+	};
+	return (type < sizeof(names)/sizeof(names[0])) ? names[type] : "UNKNOWN";
 }

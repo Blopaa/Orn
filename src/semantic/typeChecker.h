@@ -18,9 +18,11 @@ typedef struct TypeCheckContext {
     SymbolTable current;
     SymbolTable global;
     Symbol currentFunction;
+    const char *sourceFile;
+    const char *filename;
 } *TypeCheckContext;
 
-TypeCheckContext createTypeCheckContext();
+TypeCheckContext createTypeCheckContext(const char *sourceCode, const char *filename);
 
 void freeTypeCheckContext(TypeCheckContext context);
 
@@ -42,7 +44,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context);
 
 int typeCheckChildren(ASTNode node, TypeCheckContext context);
 
-int typeCheckAST(ASTNode ast);
+int typeCheckAST(ASTNode ast,const char *sourceCode, const char *filename);
 
 int validateFunctionDef(ASTNode node, TypeCheckContext context);
 

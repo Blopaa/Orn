@@ -27,10 +27,108 @@
 
 #include <string.h>
 
-ASTNode parseStatement(Token *current); // Forward declaration
-ASTNode parseConditional(Token *current, ASTNode condition);
+ASTNode parseStatement(TokenList* list, size_t* pos);
+ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
 
-// --- PARSER IMPLEMENTATION ---
+/**
+ * @brief Create error context by extracting source line on-demand
+ */
+ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
+    static ErrorContext context;
+    static char *lastSourceLine = NULL;  // Static to persist between calls
+
+    if (!list || *pos >= list->count) return NULL;
+
+    Token *token = &list->tokens[*pos];
+
+    // Free previous source line
+    if (lastSourceLine) {
+        free(lastSourceLine);
+        lastSourceLine = NULL;
+    }
+
+    // Extract source line on-demand
+    lastSourceLine = extractSourceLineForToken(list, token);
+
+    context.file = list->filename ? list->filename : "source";
+    context.line = token->line;
+    context.column = token->column;
+    context.source = lastSourceLine;  // Dynamically extracted!
+    context.startColumn = token->column;
+    context.length = token->length;
+
+    return &context;
+}
+
+/**
+ * @brief Helper function to get readable token names
+ */
+const char *getTokenTypeName(TokenType type) {
+    switch (type) {
+        case TK_SEMI: return "';'";
+        case TK_LBRACE: return "'{'";
+        case TK_RBRACE: return "'}'";
+        case TK_LPAREN: return "'('";
+        case TK_RPAREN: return "')'";
+        case TK_ASSIGN: return "'='";
+        case TK_COMMA: return "','";
+        case TK_COLON: return "':'";
+        case TK_QUESTION: return "'?'";
+        case TK_ARROW: return "'->'";
+        case TK_INT: return "'int'";
+        case TK_STRING: return "'string'";
+        case TK_FLOAT: return "'float'";
+        case TK_BOOL: return "'bool'";
+        case TK_FN: return "'fn'";
+        case TK_RETURN: return "'return'";
+        case TK_WHILE: return "'while'";
+        case TK_EOF: return "end of file";
+        default: return "token";
+    }
+}
+
+const char *getCurrentTokenName(TokenList *list, size_t pos) {
+    if (!list || pos >= list->count) return "end of input";
+
+    Token *token = &list->tokens[pos];
+    switch (token->type) {
+        case TK_LIT:
+        case TK_NUM:
+        case TK_STR: return "literal";
+        case TK_EOF: return "end of file";
+        case TK_INVALID: return "invalid token";
+        default: return getTokenTypeName(token->type);
+    }
+}
+
+
+const StatementHandler statementHandlers[] = {
+	{TK_FN, parseFunction},
+	{TK_RETURN, parseReturnStatement},
+	{TK_WHILE, parseLoop},
+	{TK_LBRACE, parseBlock},
+	{TK_NULL, NULL}  // Sentinel
+};
+
+/**
+ * @brief Helper function to convert token to string.
+ *
+ * Extracts the substring from the token's start pointer and length.
+ *
+ * @param token Token to convert
+ * @return Newly allocated string (must be freed by caller) or NULL on error
+ */
+char* tokenToString(const Token* token) {
+	if (!token || !token->start || token->length == 0) return NULL;
+
+	char* str = malloc(token->length + 1);
+	if (!str) return NULL;
+
+	memcpy(str, token->start, token->length);
+	str[token->length] = '\0';
+	return str;
+}
+
 /**
  * @brief Parses primary expressions (literals, identifiers, parentheses).
  *
@@ -39,862 +137,624 @@ ASTNode parseConditional(Token *current, ASTNode condition);
  * - String literals
  * - Boolean literals
  * - Variable identifiers
- * - Parenthesized expressions (future enhancement)
+ * - Function calls
+ * - Parenthesized expressions
  *
- * This is the base case for the recursive expression parser, handling
- * the fundamental building blocks of expressions.
- *
- * @param current Pointer to current token (updated after consumption)
- * @param fatherType Parent node type for context
+ * @param list Token list
+ * @param pos Current position in token list (updated after consumption)
  * @return AST node for the primary expression or NULL on error
- *
- * @note Advances the token pointer past the consumed token
  */
-ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
-    if (current == NULL || *current == NULL) return NULL;
-    if ((*current)->type == TokenLiteral &&
-        (*current)->next != NULL &&
-        (*current)->next->type == TokenLeftParen) {
+ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
+	if (*pos >= list->count) return NULL;
+	Token *token = &list->tokens[*pos];
 
-        char *functionName = strdup((*current)->value);
-        *current = (*current)->next;
+	if (detectLitType(token, list, pos) == VARIABLE &&
+		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
+		char *functionName = tokenToString(token);
+		ADVANCE_TOKEN(list, pos);
+		ASTNode funcCall = parseFunctionCall(list, pos, functionName);
+		free(functionName);
+		return funcCall;
+		}
 
-        ASTNode funcCall = parseFunctionCall(current, functionName);
-        free(functionName);
-        return funcCall;
-        }
-    ASTNode node = createValNode(*current, fatherType);
-    if (node != NULL) {
-        *current = (*current)->next;
-    }
-    return node;
+	ASTNode node = createValNode(token, list, pos);
+	if (node){ ADVANCE_TOKEN(list, pos);}
+	else {
+		ADVANCE_TOKEN(list, pos);
+		return NULL;
+	}
+	return node;
 }
 
 /**
  * @brief Parses unary expressions and postfix operators.
  *
- * Handles prefix unary operators and postfix increment/decrement:
- * - Prefix: !, ++, --, unary -
- * - Postfix: ++, --
+ * Handles prefix unary operators and postfix increment/decrement.
  *
- * Uses recursive calls for prefix operators to handle nested unary expressions
- * (e.g., !!x, ++--y) and iterative approach for postfix operators to maintain
- * correct precedence and associativity.
- *
- * @param current Pointer to current token (updated during parsing)
- * @param fatherType Parent node type for context
+ * @param list Token list
+ * @param pos Current position in token list
  * @return AST node representing the unary expression
- *
- * Grammar supported:
- * ```
- * UnaryExpr := ('!' | '++' | '--' | '-' | '+') UnaryExpr
- *            | PrimaryExpr ('++' | '--')?
- * ```
- *
- * @note Prefix operators have higher precedence than postfix operators
  */
-ASTNode parseUnary(Token *current, NodeTypes fatherType) {
-    if (current == NULL || *current == NULL) return NULL;
-    if ((*current)->type == TokenSub ||
-        (*current)->type == TokenNot ||
-        (*current)->type == TokenIncrement ||
-        (*current)->type == TokenDecrement ||
-        (*current)->type == TokenSum) {
-        Token opToken = *current;
-        *current = (*current)->next;
-        ASTNode operand = parseUnary(current, fatherType);
-        if (operand == NULL) return NULL;
-        NodeTypes opType;
-        if (opToken->type == TokenSub) opType = UNARY_MINUS_OP;
-        else if (opToken->type == TokenSum) opType = UNARY_PLUS_OP;
-        else if (opToken->type == TokenNot) opType = LOGIC_NOT;
-        else if (opToken->type == TokenIncrement) opType = PRE_INCREMENT;
-        else opType = PRE_DECREMENT;
-        ASTNode opNode = createNode(opToken, opType);
-        opNode->children = operand;
-        return opNode;
-    }
-    ASTNode node = parsePrimaryExp(current, fatherType);
-    if (node != NULL && *current != NULL && ((*current)->type == TokenIncrement || (*current)->type ==
-                                             TokenDecrement)) {
-        Token opToken = *current;
-        *current = (*current)->next;
-        NodeTypes opType = (opToken->type == TokenIncrement) ? POST_INCREMENT : POST_DECREMENT;
-        ASTNode opNode = createNode(opToken, opType);
-        opNode->children = node;
-        return opNode;
-    }
-    return node;
+ASTNode parseUnary(TokenList * list, size_t *pos) {
+	if (*pos >= list->count) return NULL;
+	Token *token = &list->tokens[*pos];
+
+	// Handle prefix operators
+	if (token->type == TK_MINUS || token->type == TK_NOT ||
+		token->type == TK_INCR || token->type == TK_DECR ||
+		token->type == TK_PLUS) {
+		Token * opToken = token;
+		ADVANCE_TOKEN(list, pos);
+
+		ASTNode operand, opNode;
+		PARSE_OR_CLEANUP(operand,parseUnary(list, pos));
+
+		NodeTypes opType = getUnaryOpType(opToken->type);
+		if (opType == null_NODE) return NULL;
+
+		CREATE_NODE_OR_FAIL(opNode, opToken, opType, list, pos);
+		opNode->children = operand;
+		return opNode;
+		}
+
+	// Parse primary expression
+	ASTNode node = parsePrimaryExp(list, pos);
+	if (!node) return NULL;  // Return early if parsing failed
+
+	// Check for postfix operators
+	if (*pos < list->count && (list->tokens[*pos].type == TK_INCR ||
+								list->tokens[*pos].type == TK_DECR)) {
+		Token * opToken = &list->tokens[*pos];
+		ADVANCE_TOKEN(list, pos);
+
+		ASTNode opNode;
+		NodeTypes opType = (opToken->type == TK_INCR) ? POST_INCREMENT : POST_DECREMENT;
+		CREATE_NODE_OR_FAIL(opNode, opToken, opType, list, pos);
+		opNode->children = node;
+		return opNode;
+					 }
+
+	return node;
 }
 
 /**
  * @brief Parses expressions using operator precedence climbing algorithm.
  *
  * Implements the Pratt parser algorithm for handling operator precedence
- * and associativity correctly. This is the core of expression parsing,
- * supporting complex nested expressions with proper precedence rules.
+ * and associativity correctly.
  *
- * Algorithm:
- * 1. Parse left operand (unary expression)
- * 2. While current operator has sufficient precedence:
- *    a. Determine minimum precedence for right operand
- *    b. Parse right operand recursively
- *    c. Create binary operator node
- *    d. Continue with the result as new left operand
- *
- * @param current Pointer to current token (advanced during parsing)
- * @param fatherType Parent node type for context
+ * @param list Token list
+ * @param pos Current position in token list
  * @param minPrec Minimum precedence level required for operators
  * @return AST node representing the parsed expression
- *
- * @note Handles both left-associative (a+b+c = (a+b)+c) and
- *       right-associative (a=b=c = a=(b=c)) operators correctly
  */
-ASTNode parseExpression(Token *current, NodeTypes fatherType, Precedence minPrec) {
-    if (current == NULL || *current == NULL) return NULL;
-    ASTNode left = parseUnary(current, fatherType);
-    if (left == NULL) return NULL;
-    while (*current != NULL) {
-        if ((*current)->type == TokenQuestion && PREC_TERNARY >= minPrec) {
-            left = parseConditional(current, left);
-            if (left == NULL) return NULL;
-            continue;
-        }
-        const OperatorInfo *opInfo = getOperatorInfo((*current)->type);
-        if (opInfo == NULL || opInfo->precedence < minPrec) break;
+ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
+	if (*pos >= list->count) return NULL;
 
-        Precedence nextMinPrec = opInfo->isRightAssociative ? opInfo->precedence : opInfo->precedence + 1;
+	ASTNode left = parseUnary(list, pos);
+	if (left == NULL) return NULL;
 
-        Token opToken = *current;
-        *current = (*current)->next;
-        ASTNode right = parseExpression(current, fatherType, nextMinPrec);
-        if (right == NULL) return NULL;
+	while (*pos < list->count) {
+		Token* currentToken = &list->tokens[*pos];
 
-        ASTNode opNode = createNode(opToken, opInfo->nodeType);
-        opNode->children = left;
-        left->brothers = right;
-        left = opNode;
-    }
-    return left;
-}
+		if (currentToken->type == TK_QUESTION && PREC_TERNARY >= minPrec) {
+			left = parseConditional(list, pos, left);
+			if (left == NULL) return NULL;
+			continue;
+		}
 
-/**
- * @brief Entry point for expression parsing with default precedence.
- *
- * Convenient wrapper around parseExpression() that starts with the
- * lowest precedence level (PREC_NONE), allowing all operators to be parsed.
- *
- * @param crrnt Pointer to current token (advanced during parsing)
- * @param fatherType Parent node type for context
- * @return AST node representing the complete expression
- *
- * @note This is the main interface used by statement parsers to parse
- *       expressions in assignments, declarations, and standalone expressions.
- */
-ASTNode ExpParser(Token *crrnt, NodeTypes fatherType) {
-    return parseExpression(crrnt, fatherType, PREC_NONE);
+		const OperatorInfo* opInfo = getOperatorInfo(currentToken->type);
+		if (opInfo == NULL || opInfo->precedence < minPrec) break;
+
+		Precedence nextMinPrec = opInfo->isRightAssociative ?
+								opInfo->precedence : opInfo->precedence + 1;
+
+		Token* opToken = currentToken;
+		ADVANCE_TOKEN(list, pos);
+
+		ASTNode right = parseExpression(list, pos, nextMinPrec);
+		if (right == NULL) return NULL;
+
+		ASTNode opNode = createNode(opToken, opInfo->nodeType, list, pos);
+		opNode->children = left;
+		left->brothers = right;
+		left = opNode;
+	}
+
+	return left;
 }
 
 /**
  * @brief Parses block statements enclosed in curly braces.
  *
- * Handles block structure parsing for scoped statements:
- * - Creates BLOCK_STATEMENT node
- * - Parses all statements within the block
- * - Links statements as siblings under the block
- * - Validates proper brace matching
- *
- * Supports:
- * - Empty blocks: {}
- * - Single statement blocks: { x = 5; }
- * - Multi-statement blocks: { int x = 1; y = x + 2; }
- * - Nested blocks: { int x = 1; { int y = 2; } }
- *
- * @param current Pointer to current token (advanced during parsing)
+ * @param list Token list
+ * @param pos Current position in token list
  * @return BLOCK_STATEMENT AST node containing all parsed statements
- *
- * @note Reports ERROR_INVALID_EXPRESSION for missing closing brace
- *       and performs proper cleanup on error conditions
  */
-ASTNode parseBlock(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenLeftBrace) return NULL;
-    *current = (*current)->next;
-    ASTNode block = createNode(NULL, BLOCK_STATEMENT);
-    ASTNode lastChild = NULL;
-    while (*current != NULL && (*current)->type != TokenRightBrace) {
-        ASTNode statement = parseStatement(current);
-        if (statement != NULL) {
-            if (block->children == NULL) block->children = statement;
-            else if (lastChild != NULL) lastChild->brothers = statement;
-            lastChild = statement;
-        }
-    }
-    if (*current == NULL || (*current)->type != TokenRightBrace) {
-        repError(ERROR_INVALID_EXPRESSION, "Missing closing brace '}'");
-        freeAST(block);
-        return NULL;
-    }
-    *current = (*current)->next;
-    return block;
+ASTNode parseBlock(TokenList* list, size_t* pos) {
+	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{'");
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode block;
+	CREATE_NODE_OR_FAIL(block, NULL, BLOCK_STATEMENT, list, pos);
+
+	ASTNode lastChild = NULL;
+	while (*pos < list->count && list->tokens[*pos].type != TK_RBRACE) {
+		ASTNode statement = parseStatement(list, pos);
+		if (statement) {
+			if (!block->children) block->children = statement;
+			else if (lastChild) lastChild->brothers = statement;
+			lastChild = statement;
+		}
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, "Missing closing brace '}'");
+	return block;
 }
 
 /**
  * @brief Converts existing BLOCK_STATEMENT to BLOCK_EXPRESSION for ternary use.
  *
- * Reuses existing parseBlock() function and converts the node type
- * to BLOCK_EXPRESSION for use in ternary operators.
- *
- * @param current Pointer to current token (advanced during parsing)
+ * @param list Token list
+ * @param pos Current position in token list
  * @return BLOCK_EXPRESSION AST node or NULL on error
  */
-ASTNode parseBlockExpression(Token *current) {
-    ASTNode block = parseBlock(current);
-    if (block == NULL) return NULL;
-
-    // Convert BLOCK_STATEMENT to BLOCK_EXPRESSION so later on it differences
-    // enhanced ternary from block statements
-    block->nodeType = BLOCK_EXPRESSION;
-    return block;
+ASTNode parseBlockExpression(TokenList* list, size_t* pos) {
+	ASTNode block = parseBlock(list, pos);
+	if (block) block->nodeType = BLOCK_EXPRESSION;
+	return block;
 }
 
 /**
-* @brief Parses conditional expressions with optional else clause (? syntax).
-*
-* Handles if-else constructs using ? syntax:
-* - condition ? action (if-only)
-* - condition ? action1 : action2 (if-else)
-* - condition ? { block } : { block } (with blocks)
-*/
-ASTNode parseConditional(Token *current, ASTNode condition) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenQuestion) return NULL;
-
-    Token questionToken = *current;
-    *current = (*current)->next; // skip ?
-    ASTNode trueBranch = NULL;
-    if (*current != NULL && (*current)->type == TokenLeftBrace) {
-        trueBranch = parseBlockExpression(current);
-    } else {
-        trueBranch = parseExpression(current, null_NODE, PREC_NONE);
-    }
-
-    if (trueBranch == NULL) {
-        repError(ERROR_TERNARY_INVALID_CONDITION, NULL);
-        freeAST(condition);
-        return NULL;
-    };
-    ASTNode falseBranch = NULL;
-    if (*current != NULL && (*current)->type == TokenColon) {
-        *current = (*current)->next; //skip :
-        if (*current != NULL && (*current)->type == TokenLeftBrace) {
-            falseBranch = parseBlockExpression(current);
-        } else {
-            falseBranch = parseExpression(current, null_NODE, PREC_NONE);
-        }
-
-        if (falseBranch == NULL) {
-            repError(ERROR_TERNARY_MISSING_FALSE_BRANCH, NULL);
-            freeAST(condition);
-            freeAST(trueBranch);
-            return NULL;
-        }
-    }
-    ASTNode conditionalNode = createNode(questionToken, IF_CONDITIONAL);
-    if (conditionalNode == NULL) {
-        repError(ERROR_TERNARY_INVALID_CONDITION, "failed to create a conditional node");
-        freeAST(condition);
-        freeAST(trueBranch);
-        if (falseBranch) freeAST(falseBranch);
-        return NULL;
-    }
-    conditionalNode->children = condition;
-    ASTNode trueBranchWrap = createNode(NULL, IF_TRUE_BRANCH);
-    if (trueBranchWrap == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
-        freeAST(condition);
-        freeAST(trueBranch);
-        if (falseBranch)freeAST(falseBranch);
-        return NULL;
-    }
-    trueBranchWrap->children = trueBranch;
-    condition->brothers = trueBranchWrap;
-    if (falseBranch != NULL) {
-        ASTNode falseBranchWrap = createNode(NULL, ELSE_BRANCH);
-        if (falseBranchWrap == NULL) {
-            repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
-            freeAST(trueBranch);
-            freeAST(falseBranch);
-            return NULL;
-        }
-        falseBranchWrap->children = falseBranch;
-        trueBranchWrap->brothers = falseBranchWrap;
-    }
-
-    return conditionalNode;
-}
-
-/**
-* @brief Parses while loop statements using @ syntax.
-*
-* Handles while loop constructs:
-* - @ condition { statements } (basic while)
-* - @ complex_expr { body; } (any expression condition)
-*
-* Can be combined with declarations for for-like patterns:
-* int i = 0; @ i < 10; { i++; process(i); }
-*
-* @param current Pointer to current token (advanced during parsing)
-* @return LOOP_STATEMENT AST node or NULL on error
-*
-* @note Condition can be any expression. Body must be block statement.
-*/
-ASTNode parseLoop(Token* current) {
-    if (current == NULL || *current == NULL) return NULL;
-    Token loopToken = *current;
-    *current = (*current)->next;
-
-    ASTNode condition = parseExpression(current, null_NODE, PREC_NONE);
-    if (condition == NULL) {
-        return NULL;
-    }
-
-    if (*current == NULL || (*current)->type != TokenLeftBrace) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected '{' after loop condition");
-        freeAST(condition);
-        return NULL;
-    }
-
-    ASTNode loopBody = parseBlock(current);
-    if (loopBody == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Failed to parse loop body");
-        freeAST(condition);
-        return NULL;
-    }
-
-    ASTNode loopNode = createNode(loopToken, LOOP_STATEMENT);
-    if (loopNode == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Memory allocation failed");
-        freeAST(condition);
-        freeAST(loopBody);
-        return NULL;
-    }
-
-    loopNode->children = condition;
-    condition->brothers = loopBody;
-
-    return loopNode;
-}
-
-ASTNode parseParameter(Token * current) {
-    if (current == NULL || *current == NULL || !isValidVariable((*current)->value)) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected parameter name");
-        return NULL;
-    }
-    ASTNode paramNode = createNode(*current, PARAMETER);
-    *current = (*current)->next;
-
-    if (*current == NULL || (*current)->type != TokenColon) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected ':' after parameter name");
-        freeAST(paramNode);
-        return NULL;
-    }
-    *current = (*current)->next;
-
-    if (*current == NULL || !isTypeToken((*current)->type)) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected type after ':'");
-        freeAST(paramNode);
-        return NULL;
-    }
-
-    Token typeToken = *current;
-    NodeTypes paramType = getDecType(typeToken->type);
-    *current = (*current)->next;
-
-    ASTNode typeNode = createNode(typeToken, paramType);
-    paramNode->children = typeNode;
-
-    return paramNode;
-}
-
-ASTNode parseParameterList(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
-        return NULL;
-    }
-    *current = (*current)->next;
-    ASTNode paramListNode = createNode(NULL, PARAMETER_LIST);
-    ASTNode lastParam = NULL;
-    if (*current != NULL && (*current)->type == TokenRightParen) {
-        *current = (*current)->next;
-        return paramListNode;
-    }
-    while (*current != NULL && (*current)->type != TokenRightParen) {
-        ASTNode param = parseParameter(current);
-        if (param == NULL) {
-            freeAST(paramListNode);
-            return NULL;
-        }
-
-        if (paramListNode->children == NULL) {
-            paramListNode->children = param;
-        } else if (lastParam != NULL) {
-            lastParam->brothers = param;
-        }
-        lastParam = param;
-
-        if (*current != NULL && (*current)->type == TokenComma) {
-            *current = (*current)->next;
-        } else if (*current != NULL && (*current)->type == TokenRightParen) {
-            break;
-        } else {
-            repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')' in parameter list");
-            freeAST(paramListNode);
-            return NULL;
-        }
-    }
-    if (*current == NULL || (*current)->type != TokenRightParen) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected ')' to close parameter list");
-        freeAST(paramListNode);
-        return NULL;
-    }
-    *current = (*current)->next; // Skip ')'
-    return paramListNode;
-}
-
-ASTNode parseReturnType(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenArrow) {
-        return NULL;
-    }
-
-    *current = (*current)->next;
-
-    if (*current == NULL || !isTypeToken((*current)->type)) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected type after '->'");
-        return NULL;
-    }
-
-    Token typeToken = *current;
-    NodeTypes returnType = getReturnTypeFromToken(typeToken->type);
-    *current = (*current)->next;
-
-    ASTNode returnTypeNode = createNode(typeToken, RETURN_TYPE);
-    if (returnType != null_NODE) {
-        ASTNode typeNode = createNode(typeToken, returnType);
-        returnTypeNode->children = typeNode;
-    }
-
-    return returnTypeNode;
-}
-
-ASTNode parseFunction(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenFunctionDefinition) {
-        return NULL;
-    }
-    Token fnToken = *current;
-    *current = (*current)->next;
-
-    if (*current == NULL || !isValidVariable((*current)->value)) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected function name after 'fn'");
-        return NULL;
-    }
-    ASTNode functionNode = createNode(fnToken, FUNCTION_DEFINITION);
-    functionNode->value = strdup((*current)->value);
-    *current = (*current)->next;
-    if (*current == NULL || (*current)->type != TokenLeftParen) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected '(' after function name");
-        freeAST(functionNode);
-        return NULL;
-    }
-
-    ASTNode paramList = parseParameterList(current);
-    if (paramList == NULL) {
-        freeAST(functionNode);
-        return NULL;
-    }
-
-    if (*current == NULL || (*current)->type != TokenArrow) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected '->' after parameter list. Return type is mandatory.");
-        freeAST(functionNode);
-        freeAST(paramList);
-        return NULL;
-    }
-
-    ASTNode returnType = parseReturnType(current);
-    if (returnType == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected return type after '->'");
-        freeAST(functionNode);
-        freeAST(paramList);
-        return NULL;
-    }
-
-    if (*current == NULL || (*current)->type != TokenLeftBrace) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected '{' for function body");
-        freeAST(functionNode);
-        freeAST(paramList);
-        freeAST(returnType);
-        return NULL;
-    }
-
-    ASTNode body = parseBlock(current);
-    if (body == NULL) {
-        freeAST(functionNode);
-        freeAST(paramList);
-        freeAST(returnType);
-        return NULL;
-    }
-    functionNode->children = paramList;
-    paramList->brothers = returnType;
-    returnType->brothers = body;
-
-    return functionNode;
-}
-
-ASTNode parseArgumentList(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
-        return NULL;
-    }
-
-    *current = (*current)->next;
-
-    ASTNode argListNode = createNode(NULL, ARGUMENT_LIST);
-    ASTNode lastArg = NULL;
-
-    if (*current != NULL && (*current)->type == TokenRightParen) {
-        *current = (*current)->next;
-        return argListNode;
-    }
-
-    while (*current != NULL && (*current)->type != TokenRightParen) {
-        ASTNode arg = ExpParser(current, null_NODE);
-        if (arg == NULL) {
-            freeAST(argListNode);
-            return NULL;
-        }
-
-        if (argListNode->children == NULL) {
-            argListNode->children = arg;
-        } else if (lastArg != NULL) {
-            lastArg->brothers = arg;
-        }
-        lastArg = arg;
-
-        if (*current != NULL && (*current)->type == TokenComma) {
-            *current = (*current)->next;
-        } else if (*current != NULL && (*current)->type == TokenRightParen) {
-            break;
-        } else {
-            repError(ERROR_INVALID_EXPRESSION, "Expected ',' or ')' in argument list");
-            freeAST(argListNode);
-            return NULL;
-        }
-    }
-
-    if (*current == NULL || (*current)->type != TokenRightParen) {
-        repError(ERROR_INVALID_EXPRESSION, "Expected ')' to close argument list");
-        freeAST(argListNode);
-        return NULL;
-    }
-
-    *current = (*current)->next;
-    return argListNode;
-}
-
-ASTNode parseFunctionCall(Token *current, char *functionName) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenLeftParen) {
-        return NULL;
-    }
-
-    ASTNode callNode = createNode(NULL, FUNCTION_CALL);
-    callNode->value = strdup(functionName);
-
-    ASTNode argList = parseArgumentList(current);
-    if (argList == NULL) {
-        freeAST(callNode);
-        return NULL;
-    }
-
-    callNode->children = argList;
-    return callNode;
-}
-
-ASTNode parseReturnStatement(Token *current) {
-    if (current == NULL || *current == NULL || (*current)->type != TokenReturn) {
-        return NULL;
-    }
-
-    Token returnToken = *current;
-    *current = (*current)->next;
-
-    ASTNode returnNode = createNode(returnToken, RETURN_STATEMENT);
-
-    if (*current != NULL && (*current)->type != TokenPunctuation) {
-        ASTNode expr = ExpParser(current, null_NODE);
-        if (expr != NULL) {
-            returnNode->children = expr;
-        }
-    }
-
-    if (*current != NULL && (*current)->type == TokenPunctuation) {
-        *current = (*current)->next;
-    } else {
-        repError(ERROR_INVALID_EXPRESSION, "Expected ';' after return statement");
-        freeAST(returnNode);
-        return NULL;
-    }
-
-    return returnNode;
-}
-
-/**
- * @brief Parses individual statements (declarations, assignments, expressions).
+ * @brief Parses conditional expressions with optional else clause (? syntax).
  *
- * Main statement parsing function that handles:
- * - Variable declarations: int x = 5;
- * - Block statements: { ... }
- * - Expression statements: x = y + z;
- * - Assignment operations: x += 10;
- * - Empty statements: ;
- *
- * Implements error recovery by continuing parsing after invalid statements
- * and provides detailed error reporting for syntax issues.
- *
- * @param current Pointer to current token (advanced during parsing)
- * @return AST node for the parsed statement or NULL for empty/invalid statements
- *
- * Grammar supported:
- * ```
- * Statement := VarDecl | Block | ExprStatement | EmptyStatement | loop
- * VarDecl   := Type IDENTIFIER ('=' Expression)? ';'
- * Block     := '{' Statement* '}'
- * ExprStatement := Expression ';'
- * EmptyStatement := ';'
- * Loop = @ condition { code } ';'
- * ```
- *
- * @note Returns NULL for empty statements (standalone semicolons) which
- *       are silently skipped by the caller
+ * @param list Token list
+ * @param pos Current position in token list
+ * @param condition Already parsed condition expression
+ * @return IF_CONDITIONAL AST node or NULL on error
  */
-ASTNode parseStatement(Token *current) {
-    if (current == NULL || *current == NULL) return NULL;
+ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
+	EXPECT_TOKEN(list, pos, TK_QUESTION, "Expected '?'");
+	Token* questionToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
 
-    if ((*current)->type == TokenFunctionDefinition) {
-        return parseFunction(current);
-    }
+	ASTNode trueBranch = (*pos < list->count && list->tokens[*pos].type == TK_LBRACE)
+		? parseBlockExpression(list, pos)
+		: parseExpression(list, pos, PREC_NONE);
 
-    if ((*current)->type == TokenReturn) {
-        return parseReturnStatement(current);
-    }
+	if (!trueBranch) {
+		reportError(ERROR_TERNARY_INVALID_CONDITION, createErrorContextFromParser(list, pos), NULL);
+		freeAST(condition);
+		return NULL;
+	}
 
-    if ((*current)->type == TokenWhileLoop) {
-        return parseLoop(current);
-    }
+	ASTNode falseBranch = NULL;
+	if (*pos < list->count && list->tokens[*pos].type == TK_COLON) {
+		ADVANCE_TOKEN(list, pos);
+		PARSE_OR_CLEANUP(falseBranch,
+			(*pos < list->count && list->tokens[*pos].type == TK_LBRACE)
+				? parseBlockExpression(list, pos)
+				: parseExpression(list, pos, PREC_NONE),
+			condition, trueBranch);
+	}
 
-    if ((*current)->type == TokenLeftBrace) {
-        return parseBlock(current);
-    }
+	ASTNode conditionalNode, trueBranchWrap;
+	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, IF_CONDITIONAL, list, pos);
+	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, IF_TRUE_BRANCH, list, pos);
 
-    NodeTypes decType = getDecType((*current)->type);
-    if (decType != null_NODE) {
-        *current = (*current)->next;
-        if (*current == NULL || !isValidVariable((*current)->value)) {
-            repError(ERROR_INVALID_EXPRESSION, "Expected identifier after type");
-            return NULL;
-        }
-        ASTNode decNode = createNode(*current, decType);
-        *current = (*current)->next;
-        if (*current != NULL && (*current)->type == TokenAssignement) {
-            *current = (*current)->next;
-            decNode->children = ExpParser(current, decType);
-            if (decNode->children == NULL) {
-                freeAST(decNode);
-                return NULL;
-            }
-        }
-        if (*current != NULL && (*current)->type == TokenPunctuation) {
-            *current = (*current)->next;
-        } else {
-            repError(ERROR_INVALID_EXPRESSION, (*current != NULL) ? (*current)->value : "EOF");
-            freeAST(decNode);
-            return NULL;
-        }
-        return decNode;
-    }
+	conditionalNode->children = condition;
+	trueBranchWrap->children = trueBranch;
+	condition->brothers = trueBranchWrap;
 
-    // Check if we're at a semicolon without any expression before it
-    if ((*current)->type == TokenPunctuation) {
-        // This is an empty statement (just a semicolon), skip it
-        *current = (*current)->next;
-        return NULL; // Return NULL to indicate no statement was parsed
-    }
+	if (falseBranch) {
+		ASTNode falseBranchWrap;
+		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, ELSE_BRANCH, list, pos);
+		falseBranchWrap->children = falseBranch;
+		trueBranchWrap->brothers = falseBranchWrap;
+	}
 
-    ASTNode expressionNode = ExpParser(current, null_NODE);
-    if (expressionNode) {
-        if (*current != NULL && (*current)->type == TokenPunctuation) {
-            *current = (*current)->next;
-        } else {
-            repError(ERROR_INVALID_EXPRESSION, (*current != NULL) ? (*current)->value : "EOF");
-            freeAST(expressionNode);
-            return NULL;
-        }
-        return expressionNode;
-    }
+	return conditionalNode;
+}
 
-    // If we reach here, we couldn't parse anything valid
-    if (*current != NULL) {
-        // Skip the problematic token to avoid infinite loops
-        *current = (*current)->next;
-    }
-    return NULL;
+/**
+ * @brief Parses while loop statements using @ syntax.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return LOOP_STATEMENT AST node or NULL on error
+ */
+ASTNode parseLoop(TokenList* list, size_t* pos) {
+	if (*pos >= list->count) return NULL;
+	Token* loopToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode condition, loopBody, loopNode;
+	PARSE_OR_CLEANUP(condition, parseExpression(list, pos, PREC_NONE));
+	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{' after loop condition");
+	PARSE_OR_CLEANUP(loopBody, parseBlock(list, pos));
+	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT, list, pos);
+
+	loopNode->children = condition;
+	condition->brothers = loopBody;
+	return loopNode;
+}
+
+/**
+ * @brief Parses a single parameter in a function declaration.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return PARAMETER AST node or NULL on error
+ */
+ASTNode parseParameter(TokenList* list, size_t* pos) {
+	if (*pos >= list->count) return NULL;
+	Token* token = &list->tokens[*pos];
+
+	if (detectLitType(token, list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected parameter name");
+		return NULL;
+	}
+
+	ASTNode paramNode, typeNode;
+	CREATE_NODE_OR_FAIL(paramNode, token, PARAMETER, list, pos);
+	ADVANCE_TOKEN(list, pos);
+
+	EXPECT_AND_ADVANCE(list, pos, TK_COLON, "Expected ':' after parameter name");
+	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after ':'");
+		freeAST(paramNode);
+		return NULL;
+	}
+
+	Token* typeToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+	CREATE_NODE_OR_FAIL(typeNode, typeToken, getDecType(typeToken->type), list, pos);
+	paramNode->children = typeNode;
+	return paramNode;
+}
+
+/**
+ * @brief Wrapper for parsing arguments in function calls.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return Parsed expression or NULL on error
+ */
+ASTNode parseArg(TokenList* list, size_t* pos) {
+	return parseExpression(list, pos, PREC_NONE);
+}
+
+/**
+ * @brief Parses comma-separated lists (parameters or arguments).
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @param listType Type of list node to create
+ * @param parseElement Function to parse individual elements
+ * @return List AST node or NULL on error
+ */
+ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
+								 ASTNode (*parseElement)(TokenList*, size_t*)) {
+	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, "Expected '('");
+
+	ASTNode listNode;
+	CREATE_NODE_OR_FAIL(listNode, NULL, listType, list, pos);
+
+	ASTNode last = NULL;
+	while (*pos < list->count && list->tokens[*pos].type != TK_RPAREN) {
+		ASTNode elem;
+		PARSE_OR_CLEANUP(elem, parseElement(list, pos), listNode);
+
+		if (!listNode->children) listNode->children = elem;
+		else last->brothers = elem;
+		last = elem;
+
+		if (*pos < list->count && list->tokens[*pos].type == TK_COMMA) {
+			ADVANCE_TOKEN(list, pos);
+		} else if (list->tokens[*pos].type != TK_RPAREN) {
+			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected ',' or ')'");
+			freeAST(listNode);
+			return NULL;
+		}
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_RPAREN, "Expected ')'");
+	return listNode;
+}
+
+/**
+ * @brief Parses function return type declaration.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return RETURN_TYPE AST node or NULL on error
+ */
+ASTNode parseReturnType(TokenList* list, size_t* pos) {
+	EXPECT_AND_ADVANCE(list, pos, TK_ARROW, "Expected '->'");
+
+	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after '->'");
+		return NULL;
+	}
+
+	Token* typeToken = &list->tokens[*pos];
+	NodeTypes returnType = getReturnTypeFromToken(typeToken->type);
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode returnTypeNode, typeNode;
+	CREATE_NODE_OR_FAIL(returnTypeNode, typeToken, RETURN_TYPE, list, pos);
+
+	if (returnType != null_NODE) {
+		CREATE_NODE_OR_FAIL(typeNode, typeToken, returnType, list, pos);
+		returnTypeNode->children = typeNode;
+	}
+
+	return returnTypeNode;
+}
+
+/**
+ * @brief Parses function call expressions.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @param functionName Name of the function being called
+ * @return FUNCTION_CALL AST node or NULL on error
+ */
+ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
+	EXPECT_TOKEN(list, pos, TK_LPAREN, "Expected '(' for function call");
+
+	ASTNode callNode, argList;
+	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL, list, pos);
+	callNode->value = strdup(functionName);
+
+	PARSE_OR_CLEANUP(argList, parseCommaSeparatedLists(list, pos, ARGUMENT_LIST, parseArg),
+					 callNode);
+
+	callNode->children = argList;
+	return callNode;
+}
+
+/**
+ * @brief Parses return statements.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return RETURN_STATEMENT AST node or NULL on error
+ */
+ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
+	EXPECT_TOKEN(list, pos, TK_RETURN, "Expected 'return' keyword");
+	Token* returnToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode returnNode;
+	CREATE_NODE_OR_FAIL(returnNode, returnToken, RETURN_STATEMENT, list, pos);
+
+	if (*pos < list->count && list->tokens[*pos].type != TK_SEMI) {
+		returnNode->children = parseExpression(list, pos, PREC_NONE);
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';' after return statement");
+	return returnNode;
+}
+
+/**
+ * @brief Parses function definitions.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return FUNCTION_DEFINITION AST node or NULL on error
+ */
+ASTNode parseFunction(TokenList* list, size_t* pos) {
+	EXPECT_TOKEN(list, pos, TK_FN, "Expected 'fn'");
+	Token* fnToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+
+	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected function name after 'fn'");
+		return NULL;
+	}
+
+	ASTNode functionNode;
+	CREATE_NODE_OR_FAIL(functionNode, fnToken, FUNCTION_DEFINITION, list, pos);
+	functionNode->value = tokenToString(&list->tokens[*pos]);
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode paramList, returnType, body;
+	PARSE_OR_CLEANUP(paramList, parseCommaSeparatedLists(list, pos, PARAMETER_LIST, parseParameter),
+					 functionNode);
+	PARSE_OR_CLEANUP(returnType, parseReturnType(list, pos), functionNode, paramList);
+	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{' for function body");
+	PARSE_OR_CLEANUP(body, parseBlock(list, pos), functionNode, paramList, returnType);
+
+	functionNode->children = paramList;
+	paramList->brothers = returnType;
+	returnType->brothers = body;
+
+	return functionNode;
+}
+
+/**
+ * @brief Parses variable declarations.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @param decType Declaration type
+ * @return Declaration AST node or NULL on error
+ */
+ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
+	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected identifier after type");
+		return NULL;
+	}
+
+	ASTNode decNode;
+	CREATE_NODE_OR_FAIL(decNode, &list->tokens[*pos], decType, list, pos);
+	ADVANCE_TOKEN(list, pos);
+
+	if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
+		ADVANCE_TOKEN(list, pos);
+		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';'");
+	return decNode;
+}
+
+/**
+ * @brief Parses expression statements.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return Expression AST node or NULL on error
+ */
+ASTNode parseExpressionStatement(TokenList* list, size_t* pos) {
+	ASTNode expressionNode;
+	PARSE_OR_CLEANUP(expressionNode, parseExpression(list, pos, PREC_NONE));
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';'");
+	return expressionNode;
+}
+
+/**
+ * @brief Parses individual statements.
+ *
+ * Main statement parsing function that handles various statement types.
+ *
+ * @param list Token list
+ * @param pos Current position in token list
+ * @return AST node for the parsed statement or NULL for empty/invalid statements
+ */
+ASTNode parseStatement(TokenList* list, size_t* pos) {
+	if (*pos >= list->count) return NULL;
+
+	Token* currentToken = &list->tokens[*pos];
+
+	if (currentToken->type == TK_SEMI) {
+		ADVANCE_TOKEN(list, pos);
+		return NULL;
+	}
+
+	// Check for statement handlers
+	for (int i = 0; statementHandlers[i].token != TK_NULL; i++) {
+		if (currentToken->type == statementHandlers[i].token) {
+			return statementHandlers[i].handler(list, pos);
+		}
+	}
+
+	// Check for variable declarations
+	NodeTypes decType = getDecType(currentToken->type);
+	if (decType != null_NODE) {
+		ADVANCE_TOKEN(list, pos);
+		return parseDeclaration(list, pos, decType);
+	}
+
+	// Default to expression statement
+	return parseExpressionStatement(list, pos);
 }
 
 /**
  * @brief Main AST generation function - parses complete token stream.
  *
  * Creates the root PROGRAM node and parses all statements in the token stream.
- * Handles multiple statements by linking them as siblings under the program node.
- * Implements error recovery by skipping invalid statements and continuing parsing.
  *
- * Process:
- * 1. Create PROGRAM root node
- * 2. Skip dummy head token from tokenization
- * 3. Parse statements sequentially until end of tokens
- * 4. Link valid statements as siblings under program
- * 5. Handle error recovery for invalid statements
- *
- * @param token Token linked list from tokenization (with dummy head)
+ * @param tokenList Token list from lexer
  * @return Root PROGRAM node containing all parsed statements
- *
- * @note Returns a PROGRAM node even if parsing fails - check hasErrors()
- *       to determine if parsing was successful. The dummy head token from
- *       tokenization() is automatically skipped.
  */
-ASTNode ASTGenerator(Token token) {
-    if (token == NULL) return NULL;
-    ASTNode programNode = createNode(NULL, PROGRAM);
-    ASTNode lastStatement = NULL;
-    Token current = token->next;
-    while (current != NULL) {
-        ASTNode currentStatement = parseStatement(&current);
-        if (currentStatement != NULL) {
-            // Only add non-NULL statements
-            if (programNode->children == NULL) {
-                programNode->children = currentStatement;
-            } else if (lastStatement != NULL) {
-                lastStatement->brothers = currentStatement;
-            }
+ASTNode ASTGenerator(TokenList* tokenList) {
+	if (!tokenList || tokenList->count == 0) return NULL;
 
-            ASTNode tail = currentStatement;
-            while (tail != NULL && tail->brothers != NULL) tail = tail->brothers;
-            lastStatement = tail;
-        }
-        // If currentStatement is NULL, just continue to the next iteration
-        // This handles empty statements (standalone semicolons) gracefully
-    }
-    return programNode;
+	ASTNode programNode;
+	size_t pos = 0;
+	CREATE_NODE_OR_FAIL(programNode, NULL, PROGRAM, tokenList, &pos);
+
+	ASTNode lastStatement = NULL;
+	size_t lastPos = (size_t)-1;
+
+	while (pos < tokenList->count) {
+		if (pos == lastPos) {
+			// Parser is stuck - skip token and continue
+			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(tokenList, &pos), "Parser stuck - skipping token");
+			pos++;
+			continue;
+		}
+		ASTNode currentStatement = parseStatement(tokenList, &pos);
+		if (currentStatement) {
+			if (!programNode->children) {
+				programNode->children = currentStatement;
+			} else if (lastStatement) {
+				lastStatement->brothers = currentStatement;
+			}
+
+			// Find the tail of the statement chain
+			ASTNode tail = currentStatement;
+			while (tail && tail->brothers) tail = tail->brothers;
+			lastStatement = tail;
+		}
+	}
+
+	return programNode;
 }
 
 /**
  * @brief Recursively prints AST tree structure with visual formatting.
  *
- * Creates a visual tree representation using Unicode box-drawing characters
- * for clear hierarchical display. Handles both child and sibling relationships
- * to show the complete tree structure.
- *
  * @param node Current AST node to print
  * @param prefix String prefix for indentation and tree lines
- * @param isLast Flag indicating if this is the last sibling (affects formatting)
- *
- * Output format uses Unicode characters:
- * - ├── for non-terminal siblings
- * - └── for terminal siblings
- * - │   for continuation lines
- * - (space) for final indentation
- *
- * Example output:
- * ```
- * ├── INT_VAR_DEF: x
- * │   └── ADD_OP
- * │       ├── INT_LIT: 5
- * │       └── INT_LIT: 3
- * └── ASSIGNMENT: y
- *     └── VARIABLE: x
- * ```
+ * @param isLast Flag indicating if this is the last sibling
  */
-void printASTTree(ASTNode node, char *prefix, int isLast) {
-    if (node == NULL) return;
+void printASTTree(ASTNode node, char* prefix, int isLast) {
+	if (node == NULL) return;
 
-    const char *nodeTypeStr = getNodeTypeName(node->nodeType);
+	const char* nodeTypeStr = getNodeTypeName(node->nodeType);
 
-    printf("%s%s%s", prefix, isLast ? "|___ " : "|-- ", nodeTypeStr);
-    if (node->value) {
-        printf(": %s", node->value);
-    }
-    printf("\n");
+	printf("%s%s%s", prefix, isLast ? "|___ " : "|-- ", nodeTypeStr);
+	if (node->value) {
+		printf(": %s", node->value);
+	}
+	printf("\n");
 
-    char newPrefix[256];
-    sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "|   ");
+	char newPrefix[256];
+	sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "|   ");
 
-    ASTNode child = node->children;
-    while (child != NULL) {
-        printASTTree(child, newPrefix, child->brothers == NULL);
-        child = child->brothers;
-    }
+	ASTNode child = node->children;
+	while (child != NULL) {
+		printASTTree(child, newPrefix, child->brothers == NULL);
+		child = child->brothers;
+	}
 }
 
 /**
  * @brief Main AST printing function with validation and formatting.
  *
- * Provides the main interface for displaying AST trees with proper
- * validation and error handling. Ensures the AST is valid before
- * attempting to print and provides clear error messages for invalid trees.
- *
  * @param node Root AST node to print (typically PROGRAM node)
  * @param depth Indentation depth (maintained for compatibility, unused)
- *
- * @note The depth parameter is maintained for backward compatibility
- *       but is not used in the current tree-printing implementation.
- *       Only prints trees rooted at PROGRAM or null_NODE types.
  */
 void printAST(ASTNode node, int depth) {
-    (void) depth; // depth is unused
-    if (node == NULL || (node->nodeType != PROGRAM && node->nodeType != null_NODE)) {
-        printf("Empty or invalid AST.\n");
-        return;
-    }
-    printf("AST:\n");
-    ASTNode child = node->children;
-    while (child != NULL) {
-        printASTTree(child, "", child->brothers == NULL);
-        child = child->brothers;
-    }
+	(void) depth; // depth is unused
+	if (node == NULL || (node->nodeType != PROGRAM && node->nodeType != null_NODE)) {
+		printf("Empty or invalid AST.\n");
+		return;
+	}
+	printf("AST:\n");
+	ASTNode child = node->children;
+	while (child != NULL) {
+		printASTTree(child, "", child->brothers == NULL);
+		child = child->brothers;
+	}
 }
 
 /**
  * @brief Recursively frees an AST and all associated memory.
  *
- * Performs deep deallocation of the entire AST structure using
- * post-order traversal to ensure all child nodes are freed before
- * their parents. Handles arbitrary tree structures with both
- * child and sibling relationships.
- *
- * Memory freed includes:
- * - All child nodes (recursive)
- * - All sibling nodes (recursive)
- * - Node value string (if present)
- * - Node structure itself
- *
  * @param node Root node to free (can be NULL)
- *
- * @note Safe to call on NULL pointer. Uses post-order traversal
- *       to ensure proper cleanup order. All strings created with
- *       strdup() in createNode() are properly freed.
  */
 void freeAST(ASTNode node) {
-    if (node == NULL) return;
+	if (node == NULL) return;
 
-    freeAST(node->children);
-    freeAST(node->brothers);
+	freeAST(node->children);
+	freeAST(node->brothers);
 
-    if (node->value) {
-        free(node->value);
-    }
-    free(node);
+	if (node->value) {
+		free(node->value);
+	}
+	free(node);
 }

@@ -10,7 +10,48 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "errorHandling.h"
 #include "../lexer/lexer.h"
+
+char *tokenToString(const Token *token);
+ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) ;
+const char *getTokenTypeName(TokenType type);
+const char *getCurrentTokenName(TokenList *list, size_t pos);
+
+#define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
+
+#define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
+    do { \
+        if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expected_type)) { \
+            reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), err_msg ? err_msg : "Unexpected token"); \
+            return NULL; \
+        } \
+    } while(0)
+
+#define EXPECT_AND_ADVANCE(list, pos, expected_type, err_msg) \
+    do { \
+        EXPECT_TOKEN(list, pos, expected_type, err_msg); \
+        ADVANCE_TOKEN(list, pos); \
+    } while(0)
+
+#define CREATE_NODE_OR_FAIL(var, token, type, list, pos) \
+    do { \
+        var = createNode(token, type, list, pos); \
+        if (!var) return NULL; \
+    } while(0)
+
+
+#define PARSE_OR_CLEANUP(var, parse_expr, ...) \
+    do { \
+        var = (parse_expr); \
+        if (!var) { \
+            ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
+            for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \
+                if (_cleanup_nodes[_i]) freeAST(_cleanup_nodes[_i]); \
+            } \
+            return NULL; \
+        } \
+    } while(0)
 
 /**
  * @brief Enumeration of all Abstract Syntax Tree node types.
@@ -145,10 +186,19 @@ struct ASTNode {
 
 typedef struct ASTNode *ASTNode;
 
+typedef ASTNode (*ParseFunc)(TokenList*, size_t*);
+
+typedef struct {
+    TokenType token;
+    ParseFunc handler;
+} StatementHandler;
+
+extern const StatementHandler statementHandlers[];
+
 /**
  * @brief Static mapping table for type definitions.
  *
- * Terminated with TokenNULL entry for easy iteration.
+ * Terminated with TK_NULL entry for easy iteration.
  * Used by getDecType() to convert tokens to AST node types.
  */
 typedef struct {
@@ -157,11 +207,11 @@ typedef struct {
 } TypeDefMap;
 
 static const TypeDefMap TypeDefs[] = {
-    {TokenIntDefinition, INT_VARIABLE_DEFINITION},
-    {TokenStringDefinition, STRING_VARIABLE_DEFINITION},
-    {TokenFloatDefinition, FLOAT_VARIABLE_DEFINITION},
-    {TokenBoolDefinition, BOOL_VARIABLE_DEFINITION},
-    {TokenNULL, null_NODE}
+    {TK_INT, INT_VARIABLE_DEFINITION},
+    {TK_STRING, STRING_VARIABLE_DEFINITION},
+    {TK_FLOAT, FLOAT_VARIABLE_DEFINITION},
+    {TK_BOOL, BOOL_VARIABLE_DEFINITION},
+    {TK_NULL, null_NODE}
 };
 
 /**
@@ -219,61 +269,63 @@ typedef struct {
  *       All other operators are left-associative (a + b + c evaluates as (a + b) + c)
  */
 static const OperatorInfo operators[] = {
-    {TokenAssignement, ASSIGNMENT, PREC_ASSIGN, 1},
-    {TokenPlusAssign, COMPOUND_ADD_ASSIGN, PREC_ASSIGN, 1},
-    {TokenSubAssign, COMPOUND_SUB_ASSIGN, PREC_ASSIGN, 1},
-    {TokenMultAssign, COMPOUND_MUL_ASSIGN, PREC_ASSIGN, 1},
-    {TokenDivAssign, COMPOUND_DIV_ASSIGN, PREC_ASSIGN, 1},
-    {TokenOr, LOGIC_OR, PREC_OR, 0},
-    {TokenAnd, LOGIC_AND, PREC_AND, 0},
-    {TokenEqual, EQUAL_OP, PREC_EQUALITY, 0},
-    {TokenNotEqual, NOT_EQUAL_OP, PREC_EQUALITY, 0},
-    {TokenLess, LESS_THAN_OP, PREC_COMPARISON, 0},
-    {TokenGreater, GREATER_THAN_OP, PREC_COMPARISON, 0},
-    {TokenLessEqual, LESS_EQUAL_OP, PREC_COMPARISON, 0},
-    {TokenGreaterEqual, GREATER_EQUAL_OP, PREC_COMPARISON, 0},
-    {TokenSum, ADD_OP, PREC_TERM, 0},
-    {TokenSub, SUB_OP, PREC_TERM, 0},
-    {TokenMult, MUL_OP, PREC_FACTOR, 0},
-    {TokenDiv, DIV_OP, PREC_FACTOR, 0},
-    {TokenMod, MOD_OP, PREC_FACTOR, 0},
-    {TokenNULL, null_NODE, PREC_NONE, 0}
+    {TK_ASSIGN, ASSIGNMENT, PREC_ASSIGN, 1},
+    {TK_PLUS_ASSIGN, COMPOUND_ADD_ASSIGN, PREC_ASSIGN, 1},
+    {TK_MINUS_ASSIGN, COMPOUND_SUB_ASSIGN, PREC_ASSIGN, 1},
+    {TK_STAR_ASSIGN, COMPOUND_MUL_ASSIGN, PREC_ASSIGN, 1},
+    {TK_SLASH_ASSIGN, COMPOUND_DIV_ASSIGN, PREC_ASSIGN, 1},
+    {TK_OR, LOGIC_OR, PREC_OR, 0},
+    {TK_AND, LOGIC_AND, PREC_AND, 0},
+    {TK_EQ, EQUAL_OP, PREC_EQUALITY, 0},
+    {TK_NOT_EQ, NOT_EQUAL_OP, PREC_EQUALITY, 0},
+    {TK_LESS, LESS_THAN_OP, PREC_COMPARISON, 0},
+    {TK_GREATER, GREATER_THAN_OP, PREC_COMPARISON, 0},
+    {TK_LESS_EQ, LESS_EQUAL_OP, PREC_COMPARISON, 0},
+    {TK_GREATER_EQ, GREATER_EQUAL_OP, PREC_COMPARISON, 0},
+    {TK_PLUS, ADD_OP, PREC_TERM, 0},
+    {TK_MINUS, SUB_OP, PREC_TERM, 0},
+    {TK_STAR, MUL_OP, PREC_FACTOR, 0},
+    {TK_SLASH, DIV_OP, PREC_FACTOR, 0},
+    {TK_MOD, MOD_OP, PREC_FACTOR, 0},
+    {TK_NULL, null_NODE, PREC_NONE, 0}
 };
 
 
-// --- HELPER FUNCTION DECLARATIONS ---
+// helpers
 NodeTypes getDecType(TokenType type);
-
-ASTNode createNode(Token token, NodeTypes type);
-
+ASTNode createNode(const Token* token, NodeTypes type, TokenList * list, size_t * pos);
 const char *getNodeTypeName(NodeTypes nodeType);
-
-// --- VALIDATION FUNCTION DECLARATIONS ---
-int isFloatLit(const char *val);
-
-int isValidVariable(const char *val);
-
-int isIntLit(const char *val);
-
-int isValidStringLit(const char *val);
-
-ASTNode createValNode(Token current_token, NodeTypes fatherType);
-
+ASTNode createValNode(const Token* current_token, TokenList *list, size_t* pos);
 const OperatorInfo *getOperatorInfo(TokenType type);
-
 int isTypeToken(TokenType type);
-
 NodeTypes getReturnTypeFromToken(TokenType type);
+NodeTypes getUnaryOpType(TokenType t);
+NodeTypes detectLitType(const Token* tok, TokenList * list, size_t * pos);
 
-ASTNode parseFunction(Token *current);
-
-ASTNode parseFunctionCall(Token *current, char *functionName);
+// Parser function declarations
+ASTNode parseStatement(TokenList* list, size_t* pos);
+ASTNode parseExpression(TokenList* list, size_t* pos, Precedence minPrec);
+ASTNode parseUnary(TokenList* list, size_t* pos);
+ASTNode parsePrimaryExp(TokenList* list, size_t* pos);
+ASTNode parseFunction(TokenList* list, size_t* pos);
+ASTNode parseFunctionCall(TokenList* list, size_t* pos, char *functionName);
+ASTNode parseReturnStatement(TokenList* list, size_t* pos);
+ASTNode parseLoop(TokenList* list, size_t* pos);
+ASTNode parseBlock(TokenList* list, size_t* pos);
+ASTNode parseBlockExpression(TokenList* list, size_t* pos);
+ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
+ASTNode parseParameter(TokenList* list, size_t* pos);
+ASTNode parseArg(TokenList* list, size_t* pos);
+ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
+                                  ASTNode (*parseElement)(TokenList*, size_t*));
+ASTNode parseReturnType(TokenList* list, size_t* pos);
+ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
+ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 
 // Public function prototypes
-ASTNode ASTGenerator(Token token);
-
+ASTNode ASTGenerator(TokenList* tokenList);
 void printAST(ASTNode node, int depth);
-
+void printASTTree(ASTNode node, char *prefix, int isLast);
 void freeAST(ASTNode node);
 
 #endif //PARSER_H
