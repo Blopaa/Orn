@@ -7,8 +7,10 @@
 #include "builtIns.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "errorHandling.h"
+#include "semanticHelpers.h"
 
 /**
  * @brief Creates and initializes a new type checking context.
@@ -23,7 +25,7 @@
  *       freeTypeCheckContext(). Reports specific error codes for
  *       allocation failures.
  */
-TypeCheckContext createTypeCheckContext() {
+TypeCheckContext createTypeCheckContext(const char * sourceCode, const char * filename) {
     TypeCheckContext context = malloc(sizeof(struct TypeCheckContext));
     if (context == NULL) {
         repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate type check context");
@@ -38,6 +40,8 @@ TypeCheckContext createTypeCheckContext() {
     }
     context->current = context->global;
     context->currentFunction = NULL;
+    context->sourceFile = sourceCode;
+    context->filename = filename;
 
     initBuiltIns(context->global);
 
@@ -161,11 +165,11 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->value);
             if (symbol == NULL) {
-                repError(ERROR_INVALID_EXPRESSION, node->value);
+                reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromType(node, context), node->value);
                 return TYPE_UNKNOWN;
             }
             if (!symbol->isInitialized) {
-                repError(ERROR_VARIABLE_NOT_INITIALIZED, node->value);
+                reportError(ERROR_VARIABLE_NOT_INITIALIZED,createErrorContextFromType(node, context), node->value);
                 return TYPE_UNKNOWN;
             }
             return symbol->type;
@@ -176,13 +180,13 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             if (opType == TYPE_INT || opType == TYPE_FLOAT) {
                 return opType;
             }
-            repError(ERROR_INVALID_UNARY_OPERAND, "Arithmetic unary operators require numeric operands");
+            reportError(ERROR_INVALID_UNARY_OPERAND,createErrorContextFromType(node, context), "Arithmetic unary operators require numeric operands");
             return TYPE_UNKNOWN;
         }
         case LOGIC_NOT: {
             DataType opType = getExpressionType(node->children, context);
             if (opType == TYPE_BOOL) return TYPE_BOOL;
-            repError(ERROR_INVALID_UNARY_OPERAND, "Logical NOT requires boolean operand");
+            reportError(ERROR_INVALID_UNARY_OPERAND,createErrorContextFromType(node, context), "Logical NOT requires boolean operand");
             return TYPE_UNKNOWN;
         }
         case PRE_INCREMENT:
@@ -193,7 +197,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             if (operandType == TYPE_INT || operandType == TYPE_FLOAT) {
                 return operandType;
             }
-            repError(ERROR_INVALID_UNARY_OPERAND, "Increment/decrement operators require numeric operands");
+            reportError(ERROR_INVALID_UNARY_OPERAND,createErrorContextFromType(node, context), "Increment/decrement operators require numeric operands");
             return TYPE_UNKNOWN;
         }
         case ADD_OP:
@@ -210,7 +214,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case LOGIC_AND:
         case LOGIC_OR: {
             if (node->children == NULL || node->children->brothers == NULL) {
-                repError(ERROR_INTERNAL_PARSER_ERROR, "Binary operation missing operands");
+                reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Binary operation missing operands");
                 return TYPE_UNKNOWN;
             }
 
@@ -238,13 +242,13 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
 int validateFunctionCall(ASTNode node, TypeCheckContext context) {
   if (node == NULL || node->nodeType != FUNCTION_CALL || node->value == NULL) {
-    repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function call node");
+    reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Invalid function call node");
     return 0;
   }
 
   ASTNode argListNode = node->children;
   if (argListNode == NULL || argListNode->nodeType != ARGUMENT_LIST) {
-    repError(ERROR_INTERNAL_PARSER_ERROR, "Function call missing argument list");
+    reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Function call missing argument list");
     return 0;
   }
 
@@ -269,7 +273,7 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
     if (argCount > 0) {
         argTypes = malloc(argCount * sizeof(DataType));
         if (argTypes == NULL) {
-            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types array");
+            reportError(ERROR_MEMORY_ALLOCATION_FAILED,createErrorContextFromType(node, context), "Failed to allocate argument types array");
             return 0;
         }
 
@@ -289,7 +293,7 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
     int result = (builtinId != BUILTIN_UNKNOWN);
 
     if (!result) {
-        repError(ERROR_INVALID_EXPRESSION, "No matching overload for built-in function");
+        reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromType(node, context), "No matching overload for built-in function");
     }
 
     if (argTypes != NULL) {
@@ -302,12 +306,12 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
     Symbol funcSymbol = lookupSymbol(context->current, node->value);
     if (funcSymbol == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, node->value);
+        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromType(node, context), node->value);
         return 0;
     }
 
     if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
-        repError(ERROR_INVALID_EXPRESSION, "Attempting to call non-function");
+        reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromType(node, context), "Attempting to call non-function");
         return 0;
     }
 
@@ -323,7 +327,7 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
 
     // Check argument count
     if (argCount != funcSymbol->paramCount) {
-        repError(ERROR_INVALID_EXPRESSION, "Function call argument count mismatch");
+        reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromType(node, context), "Function call argument count mismatch");
         return 0;
     }
 
@@ -338,7 +342,7 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
         }
 
         if (!areCompatible(param->type, argType)) {
-            repError(variableErrorCompatibleHandling(param->type, argType), param->name);
+            reportError(variableErrorCompatibleHandling(param->type, argType),createErrorContextFromType(node, context), param->name);
             return 0;
         }
 
@@ -428,30 +432,30 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
  */
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->value == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null or has no name");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Variable declaration node is null or has no name");
         return 0;
     };
     DataType varType = getDataTypeFromNode(node->nodeType);
     if (varType == TYPE_UNKNOWN) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Unknown variable type in declaration");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Unknown variable type in declaration");
         return 0;
     }
 
     Symbol existing = lookUpSymbolCurrentOnly(context->current, node->value);
     if (existing != NULL) {
-        repError(ERROR_VARIABLE_REDECLARED, node->value);
+        reportError(ERROR_VARIABLE_REDECLARED,createErrorContextFromType(node, context), node->value);
         return 0;
     }
     Symbol newSymbol = addSymbol(context->current, node->value, varType, node->line, node->column);
     if (newSymbol == NULL) {
-        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to add symbol to symbol table");
+        reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED,createErrorContextFromType(node, context), "Failed to add symbol to symbol table");
         return 0;
     }
     if (node->children != NULL) {
         DataType initType = getExpressionType(node->children, context);
         if (initType == TYPE_UNKNOWN) return 0;
         if (!areCompatible(varType, initType)) {
-            repError(variableErrorCompatibleHandling(varType, initType), node->value);
+            reportError(variableErrorCompatibleHandling(varType, initType),createErrorContextFromType(node, context), node->value);
             return 0;
         }
         newSymbol->isInitialized = 1;
@@ -478,26 +482,26 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
  */
 int validateAssignment(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->children == NULL || node->children->brothers == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Assignment node missing operands");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Assignment node missing operands");
         return 0;
     }
     ASTNode left = node->children;
     ASTNode right = node->children->brothers;
 
     if (left->nodeType != VARIABLE) {
-        repError(ERROR_INVALID_ASSIGNMENT_TARGET, "Left side of assignment must be a variable");
+        reportError(ERROR_INVALID_ASSIGNMENT_TARGET,createErrorContextFromType(node, context), "Left side of assignment must be a variable");
         return 0;
     }
     Symbol symbol = lookupSymbol(context->current, left->value);
     if (symbol == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, left->value);
+        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromType(node, context), left->value);
         return 0;
     }
 
     DataType rightType = getExpressionType(right, context);
     if (rightType == TYPE_UNKNOWN) return 0;
     if (!areCompatible(symbol->type, rightType)) {
-        repError(variableErrorCompatibleHandling(symbol->type, rightType), left->value);
+        reportError(variableErrorCompatibleHandling(symbol->type, rightType),createErrorContextFromType(node, context), left->value);
         return 0;
     }
 
@@ -526,18 +530,18 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
  */
 int validateVariableUsage(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->value == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable usage node is null or has no name");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Variable usage node is null or has no name");
         return 0;
     };
 
     Symbol symbol = lookupSymbol(context->current, node->value);
     if (symbol == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, node->value);
+        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromType(node, context), node->value);
         return 0;
     }
 
     if (!symbol->isInitialized) {
-        repError(ERROR_VARIABLE_NOT_INITIALIZED, node->value);
+        reportError(ERROR_VARIABLE_NOT_INITIALIZED,createErrorContextFromType(node, context), node->value);
         return 0;
     }
 
@@ -585,7 +589,7 @@ DataType getReturnTypeFromNode(ASTNode returnTypeNode) {
 
 int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->nodeType != FUNCTION_DEFINITION || node->value == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function definition node");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Invalid function definition node");
         return 0;
     }
 
@@ -594,7 +598,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     ASTNode bodyNode = returnTypeNode ? returnTypeNode->brothers : NULL;
 
     if (paramListNode == NULL || paramListNode->nodeType != PARAMETER_LIST) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Function missing parameter list");
+        reportError(ERROR_INTERNAL_PARSER_ERROR,createErrorContextFromType(node, context), "Function missing parameter list");
         return 0;
     }
 
@@ -611,7 +615,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     Symbol funcSymbol = addFunctionSymbol(context->current, node->value, returnType,
                                          parameters, paramCount, node->line, node->column);
     if (funcSymbol == NULL) {
-        repError(ERROR_VARIABLE_REDECLARED, node->value);
+        reportError(ERROR_VARIABLE_REDECLARED,createErrorContextFromType(node, context), node->value);
         freeParamList(parameters);
         return 0;
     }
@@ -623,7 +627,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     context->currentFunction = funcSymbol;
 
     if (context->current == NULL) {
-        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create function scope");
+        reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED,createErrorContextFromType(node, context), "Failed to create function scope");
         context->current = oldScope;
         context->currentFunction = oldFunction;
         return 0;
@@ -743,7 +747,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             context->current = createSymbolTable(oldScope);
 
             if (context->current == NULL) {
-                repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create new scope for block");
+                reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED,createErrorContextFromType(node, context), "Failed to create new scope for block");
                 success = 0;
                 break;
             }
@@ -833,12 +837,8 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
  *       and will return 0 if any errors were reported during type checking,
  *       even if the local type checking operations succeeded.
  */
-int typeCheckAST(ASTNode ast) {
-    if (ast == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Cannot type check null AST");
-        return 0;
-    }
-    TypeCheckContext context = createTypeCheckContext();
+int typeCheckAST(ASTNode ast,const char *sourceCode, const char *filename) {
+    TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
     if (context == NULL) {
         repError(ERROR_INVALID_EXPRESSION, "Failed to create type check context");
         return 0;

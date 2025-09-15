@@ -36,10 +36,59 @@
  *       to their declaration node types during parsing.
  */
 NodeTypes getDecType(TokenType type) {
-    for (int i = 0; TypeDefs[i].TkType != TokenNULL; i++) {
+    for (int i = 0; TypeDefs[i].TkType != TK_NULL; i++) {
         if (TypeDefs[i].TkType == type) return TypeDefs[i].type;
     }
     return null_NODE;
+}
+
+/**
+ * @brief Unified literal type detection with optimized checks.
+ * Single function replaces all validation functions.
+ */
+NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
+	if (!tok || !tok->start || tok->length == 0) return null_NODE;
+
+	size_t len = tok->length;
+	const char *val = tok->start;
+
+	if (len >= 2 && val[0] == '"' && val[len-1] == '"')
+		return STRING_LIT;
+	if ((len == 4 && memcmp(val, "true", 4)==0 )||
+		(len == 5 && memcmp(val, "false", 5)==0)) {
+		return BOOL_LIT;
+	}
+
+	size_t start = (val[0] == '-') ? 1 : 0;
+	if (start >= len) goto checkVariable;
+
+	int has_dot = 0, all_digits = 1;
+	for (size_t i = start; i<len; i++) {
+		if (val[i] == '.') {
+			if (has_dot) { all_digits = 0; break; }
+			has_dot = 1;
+		} else if (!isdigit(val[i])) {
+			all_digits = 0;
+			break;
+		}
+	}
+
+	if (all_digits)
+		return has_dot ? FLOAT_LIT : INT_LIT;
+
+	checkVariable:
+		if (isalpha(val[0]) || val[0] == '_') {
+			for (size_t i = 1; i<len; i++) {
+				if (!isalnum(val[i]) && val[i] != '_') {
+					reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
+					return null_NODE;
+				}
+			}
+			return VARIABLE;
+		}
+
+	reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
+	return null_NODE;
 }
 
 /**
@@ -80,124 +129,20 @@ const char *getNodeTypeName(NodeTypes nodeType) {
  * @note The value string is duplicated, so the original token can be freed.
  *       The caller is responsible for freeing the returned node.
  */
-ASTNode createNode(Token token, NodeTypes type) {
+ASTNode createNode(const Token * token, NodeTypes type, TokenList * list, size_t * pos) {
     ASTNode node = malloc(sizeof(struct ASTNode));
-    if (node == NULL) return NULL;
+	if (!node) {
+		reportError(ERROR_MEMORY_ALLOCATION_FAILED,createErrorContextFromParser(list, pos),  token ? tokenToString(token) : "");
+		return NULL;
+	}
 
-    node->value = (token && token->value) ? strdup(token->value) : NULL;
+    node->value = token ? tokenToString(token) : NULL;
     node->nodeType = type;
-
-    if (token) {
-        node->line = token->line;
-        node->column = token->column;
-    } else {
-        node->line = 0;
-        node->column = 0;
-    }
-
+	node->line = token ? token->line : 0;
+	node->column = token ? token->column : 0;
     node->brothers = NULL;
     node->children = NULL;
     return node;
-}
-
-// --- VALIDATION FUNCTIONS ---
-
-/**
- * @brief Checks if a string represents a valid floating-point literal.
- *
- * Validates float format by checking for presence of decimal point.
- * Handles negative floats by skipping the minus sign.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid float format, 0 otherwise
- *
- * Examples:
- * - "3.14" -> 1 (valid)
- * - "-2.5" -> 1 (valid)
- * - "42" -> 0 (integer, not float)
- * - NULL -> 0 (invalid)
- */
-int isFloatLit(const char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (val[i] == '.') return 1;
-    }
-    return 0;
-}
-
-/**
- * @brief Validates identifier naming rules.
- *
- * Checks if a string follows valid identifier conventions:
- * - Must start with letter or underscore
- * - Subsequent characters can be letters, digits, or underscores
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid identifier, 0 otherwise
- *
- * Examples:
- * - "variable_name" -> 1 (valid)
- * - "_private" -> 1 (valid)
- * - "123invalid" -> 0 (starts with digit)
- * - "my-var" -> 0 (contains hyphen)
- */
-int isValidVariable(const char *val) {
-    if (val == NULL || (!isalpha(val[0]) && val[0] != '_')) {
-        return 0;
-    }
-    for (int i = 1; val[i] != '\0'; i++) {
-        if (!isalnum(val[i]) && val[i] != '_') {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-/**
- * @brief Checks if a string represents a valid integer literal.
- *
- * Validates integer format, handling negative numbers by skipping
- * the leading minus sign and checking remaining digits.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid integer format, 0 otherwise
- *
- * Examples:
- * - "42" -> 1 (valid)
- * - "-123" -> 1 (valid)
- * - "3.14" -> 0 (contains decimal)
- * - "abc" -> 0 (non-numeric)
- */
-int isIntLit(const char *val) {
-    if (val == NULL) return 0;
-    int start = (val[0] == '-') ? 1 : 0;
-    if (val[start] == '\0') return 0;
-    for (int i = start; val[i] != '\0'; i++) {
-        if (!isdigit(val[i])) return 0;
-    }
-    return 1;
-}
-
-/**
- * @brief Validates string literal format with proper quote delimiters.
- *
- * Checks that string has opening and closing quotes and minimum length.
- *
- * @param val String to validate (can be NULL)
- * @return 1 if valid string literal format, 0 otherwise
- *
- * Examples:
- * - "\"hello\"" -> 1 (valid)
- * - "\"\"" -> 1 (valid empty string)
- * - "hello" -> 0 (missing quotes)
- * - "\"unclosed -> 0 (missing closing quote)
- */
-int isValidStringLit(const char *val) {
-    if (val == NULL) return 0;
-    size_t len = strlen(val);
-    return (len >= 2 && val[0] == '"' && val[len - 1] == '"');
 }
 
 /**
@@ -211,23 +156,18 @@ int isValidStringLit(const char *val) {
  * - Boolean literals (true/false)
  * - Variable references (valid identifiers)
  *
- * @param current_token Token to convert to AST node
- * @param fatherType Parent node type for context (currently unused)
+ * @param currentToken Token to convert to AST node
  * @return Newly created AST node or NULL on error
  *
  * @note Reports ERROR_INVALID_EXPRESSION for unrecognized token formats
  */
-ASTNode createValNode(Token current_token, NodeTypes fatherType) {
-    (void)fatherType;
-    if (current_token == NULL) return NULL;
-    char *val = current_token->value;
-    if (isValidStringLit(val)) return createNode(current_token, STRING_LIT);
-    if (isFloatLit(val)) return createNode(current_token, FLOAT_LIT);
-    if (isIntLit(val)) return createNode(current_token, INT_LIT);
-    if (strcmp(val, "true") == 0 || strcmp(val, "false") == 0) return createNode(current_token, BOOL_LIT);
-    if (isValidVariable(val)) return createNode(current_token, VARIABLE);
-    repError(ERROR_INVALID_EXPRESSION, val);
-    return NULL;
+ASTNode createValNode(const Token * currentToken, TokenList * list, size_t*pos) {
+    if (currentToken == NULL) return NULL;
+
+    NodeTypes type = detectLitType(currentToken, list, pos);
+    if (type == null_NODE) return NULL;
+
+    return createNode(currentToken, type,  list, pos);
 }
 
 /**
@@ -243,7 +183,7 @@ ASTNode createValNode(Token current_token, NodeTypes fatherType) {
  *       and associativity during expression parsing.
  */
 const OperatorInfo *getOperatorInfo(TokenType type) {
-    for (int i = 0; operators[i].token != TokenNULL; i++) {
+    for (int i = 0; operators[i].token != TK_NULL; i++) {
         if (operators[i].token == type) return &operators[i];
     }
     return NULL;
@@ -256,11 +196,11 @@ const OperatorInfo *getOperatorInfo(TokenType type) {
  * @return 1 if it's a type token, 0 otherwise
  */
 int isTypeToken(TokenType type) {
-    return (type == TokenIntDefinition ||
-            type == TokenStringDefinition ||
-            type == TokenFloatDefinition ||
-            type == TokenBoolDefinition ||
-            type == TokenVoidDefinition);
+    return (type == TK_INT ||
+            type == TK_STRING ||
+            type == TK_FLOAT ||
+            type == TK_BOOL ||
+            type == TK_VOID);
 }
 
 /**
@@ -271,11 +211,21 @@ int isTypeToken(TokenType type) {
  */
 NodeTypes getReturnTypeFromToken(TokenType type) {
     switch (type) {
-    case TokenIntDefinition: return INT_VARIABLE_DEFINITION;
-    case TokenStringDefinition: return STRING_VARIABLE_DEFINITION;
-    case TokenFloatDefinition: return FLOAT_VARIABLE_DEFINITION;
-    case TokenBoolDefinition: return BOOL_VARIABLE_DEFINITION;
-    case TokenVoidDefinition: return null_NODE;
+    case TK_INT: return INT_VARIABLE_DEFINITION;
+    case TK_STRING: return STRING_VARIABLE_DEFINITION;
+    case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
+    case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
     default: return null_NODE;
     }
+}
+
+NodeTypes getUnaryOpType(TokenType t) {
+	switch (t) {
+		case TK_MINUS: return UNARY_MINUS_OP;
+		case TK_PLUS: return UNARY_PLUS_OP;
+		case TK_NOT: return LOGIC_NOT;
+		case TK_INCR: return PRE_INCREMENT;
+		case TK_DECR: return PRE_DECREMENT;
+		default: return null_NODE;
+	}
 }
