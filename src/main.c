@@ -10,13 +10,8 @@
 int main() {
     printf("=== COMPILER ===\n");
 	const char* outputFile = "../output.s";
-    const char* input = "string x = 10;\n"
-                       "string space = \" \";\n"
-                       "while x <= 10 && x >= -10 {\n"
-                       "    print(x);\n"
-                       "    print(space);\n"
-                       "    x--;\n"
-                       "};";
+    const char* input = "int x = \"hi\";\n"
+                        "bool y = 1;\n";
 
     printf("Input:\n%s\n\n", input);
 
@@ -32,7 +27,7 @@ int main() {
     printf("OK (%zu tokens)\n", tokens->count);
 
     // Step 2: Parsing
-    printf("2. PARSING: ");
+    printf("2. PARSING: \n");
     ASTNode ast = ASTGenerator(tokens);
     if (!ast || hasErrors()) {
         printf("FAILED\n");
@@ -46,8 +41,8 @@ int main() {
     printf("\n");
 
     // Step 3: Type Checking
-    printf("3. TYPE CHECKING: ");
-    int typeCheckSuccess = typeCheckAST(ast);
+    printf("3. TYPE CHECKING: \n");
+    int typeCheckSuccess = typeCheckAST(ast, input, outputFile);
     if (!typeCheckSuccess) {
         printf("FAILED\n");
         printErrorSummary();

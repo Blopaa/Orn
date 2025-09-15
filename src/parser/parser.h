@@ -14,9 +14,9 @@
 #include "../lexer/lexer.h"
 
 char *tokenToString(const Token *token);
-static ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) ;
-static const char *getTokenTypeName(TokenType type);
-static const char *getCurrentTokenName(TokenList *list, size_t pos);
+ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) ;
+const char *getTokenTypeName(TokenType type);
+const char *getCurrentTokenName(TokenList *list, size_t pos);
 
 #define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
 

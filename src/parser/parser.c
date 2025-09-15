@@ -33,7 +33,7 @@ ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
 /**
  * @brief Create error context by extracting source line on-demand
  */
-static ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
+ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
     static ErrorContext context;
     static char *lastSourceLine = NULL;  // Static to persist between calls
 
@@ -63,7 +63,7 @@ static ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos)
 /**
  * @brief Helper function to get readable token names
  */
-static const char *getTokenTypeName(TokenType type) {
+const char *getTokenTypeName(TokenType type) {
     switch (type) {
         case TK_SEMI: return "';'";
         case TK_LBRACE: return "'{'";
@@ -87,7 +87,7 @@ static const char *getTokenTypeName(TokenType type) {
     }
 }
 
-static const char *getCurrentTokenName(TokenList *list, size_t pos) {
+const char *getCurrentTokenName(TokenList *list, size_t pos) {
     if (!list || pos >= list->count) return "end of input";
 
     Token *token = &list->tokens[pos];
@@ -187,7 +187,7 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 		ADVANCE_TOKEN(list, pos);
 
 		ASTNode operand, opNode;
-		PARSE_OR_CLEANUP(operand, list, pos, parseUnary(list, pos));
+		PARSE_OR_CLEANUP(operand,parseUnary(list, pos));
 
 		NodeTypes opType = getUnaryOpType(opToken->type);
 		if (opType == null_NODE) return NULL;

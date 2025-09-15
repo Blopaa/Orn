@@ -406,5 +406,6 @@ int getErrorCount(void);
 int getWarningCount(void);
 int getFatalCount(void);
 void resetErrorCount(void);
+void repError(ErrorCode code, const char *extraContext);
 
 #endif

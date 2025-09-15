@@ -22,6 +22,8 @@ set(LIB_SOURCES
         src/codeGeneration/asmTemplate.h
         src/semantic/builtIns.c
         src/semantic/builtIns.h
+        src/semantic/semanticHelpers.c
+        src/semantic/semanticHelpers.h
 )
 
 # Create compiler library

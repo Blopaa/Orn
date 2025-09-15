@@ -10,7 +10,7 @@
 
 #define INITIAL_CAPACITY 256
 
-static char *extractSourceLineForToken(TokenList *list, Token *token) {
+char *extractSourceLineForToken(TokenList *list, Token *token) {
 	if (!list || !list->buffer || !token || !token->start) return NULL;
 
 	// Find start of line

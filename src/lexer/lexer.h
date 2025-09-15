@@ -86,6 +86,6 @@ typedef struct {
 TokenList* lex(const char *input, const char *filename);
 void freeTokens(TokenList *list);
 const char* tokenName(TokenType type);
-static char *extractSourceLineForToken(TokenList *list, Token *token);
+char *extractSourceLineForToken(TokenList *list, Token *token);
 
 #endif //LEXER_H

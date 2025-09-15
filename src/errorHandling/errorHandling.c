@@ -20,8 +20,11 @@ static int warningCount = 0;
 /** @internal Global counter for fatal errors */
 static int fatalCount = 0;
 
+void repError(ErrorCode code, const char *extraContext) {
+	reportError(code, NULL, extraContext);
+}
 
-char * formatCode(ErrorCode err) {
+char * formatErrorCode(ErrorCode err) {
 	static char buffer[8];
 	snprintf(buffer, sizeof(buffer), "E%04d", err);
 	return buffer;
@@ -39,10 +42,9 @@ const ErrorInfo * getErrorInfo(ErrorCode err) {
 void printSourceSnippet (ErrorContext * context) {
 	if (!context || !context->source) return;
 	const char *RED_COLOR = RED;
-	const char *BLUE_COLOR = BLUE;
 	const char *RESET_COLOR = RESET;
-	printf("%s%4zu |%s %s\n", BLUE_COLOR, context->line, RESET_COLOR, context->source);
-	printf("%s     |%s ", BLUE_COLOR, RESET_COLOR);
+	printf("%s%4zu |%s %s\n", GRAY, context->line, RESET_COLOR, context->source);
+	printf("%s     |%s ", GRAY, RESET_COLOR);
 	for (size_t i = 0; i < context->startColumn - 1; i++) {
 		printf(" ");
 	}
@@ -79,15 +81,14 @@ void reportError(ErrorCode code, ErrorContext *context, const char *extraContext
     }
 
     const char *RESET_COLOR = RESET ;
-    const char *BOLD_COLOR = BOLD;
     const char *BLUE_COLOR = BLUE;
 
     // Print main error line: error[E1002]: mismatched types
-    printf("%s%s%s[%s]:%s %s%s%s",
-           levelColor, levelText, RESET_COLOR,
+    printf("%s%s %s[%s]:%s %s%s",
+           levelColor, levelText, RED,
            formatErrorCode(code),
            RESET_COLOR,
-           BOLD_COLOR, info->message, RESET_COLOR);
+           YELLOW, info->message);
 
     if (extraContext) {
         printf(" (%s)", extraContext);
@@ -95,22 +96,22 @@ void reportError(ErrorCode code, ErrorContext *context, const char *extraContext
     printf("\n");
     if (context && context->file) {
         printf("%s  --> %s:%zu:%zu%s\n",
-               BLUE_COLOR, context->file, context->line, context->column, RESET_COLOR);
-        printf("%s   |%s\n", BLUE_COLOR, RESET_COLOR);
+               YELLOW, context->file, context->line, context->column, RESET_COLOR);
+        printf("%s   |%s\n", GRAY, RESET_COLOR);
         printSourceSnippet(context);
-        printf("%s   |%s\n", BLUE_COLOR, RESET_COLOR);
+        printf("%s   |%s\n", GRAY, RESET_COLOR);
     }
 
     if (info->help) {
-        printf("%s   = help:%s %s\n", BLUE_COLOR, RESET_COLOR, info->help);
+        printf("%s   = help:%s %s\n", BLUE_COLOR, GRAY, info->help);
     }
 
     if (info->note) {
-        printf("%s   = note:%s %s\n", BLUE_COLOR, RESET_COLOR, info->note);
+        printf("%s   = note:%s %s\n", BLUE_COLOR, GRAY, info->note);
     }
 
     if (info->suggestion) {
-        printf("%s   = suggestion:%s %s\n", BLUE_COLOR, RESET_COLOR, info->suggestion);
+        printf("%s   = suggestion:%s %s\n", BLUE_COLOR, GRAY, info->suggestion);
     }
 
     printf("\n");
