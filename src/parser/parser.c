@@ -272,7 +272,7 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
  * @return BLOCK_STATEMENT AST node containing all parsed statements
  */
 ASTNode parseBlock(TokenList* list, size_t* pos) {
-	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{'");
+	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{'");
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode block;
@@ -288,7 +288,7 @@ ASTNode parseBlock(TokenList* list, size_t* pos) {
 		}
 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, "Missing closing brace '}'");
+	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, ERROR_EXPECTED_CLOSING_BRACE, "Missing closing brace '}'");
 	return block;
 }
 
@@ -314,7 +314,7 @@ ASTNode parseBlockExpression(TokenList* list, size_t* pos) {
  * @return IF_CONDITIONAL AST node or NULL on error
  */
 ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
-	EXPECT_TOKEN(list, pos, TK_QUESTION, "Expected '?'");
+	EXPECT_TOKEN(list, pos, TK_QUESTION, ERROR_EXPECTED_QUESTION_MARK, "Expected '?'");
 	Token* questionToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
@@ -370,7 +370,7 @@ ASTNode parseLoop(TokenList* list, size_t* pos) {
 
 	ASTNode condition, loopBody, loopNode;
 	PARSE_OR_CLEANUP(condition, parseExpression(list, pos, PREC_NONE));
-	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{' after loop condition");
+	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' after loop condition");
 	PARSE_OR_CLEANUP(loopBody, parseBlock(list, pos));
 	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT, list, pos);
 
@@ -399,7 +399,7 @@ ASTNode parseParameter(TokenList* list, size_t* pos) {
 	CREATE_NODE_OR_FAIL(paramNode, token, PARAMETER, list, pos);
 	ADVANCE_TOKEN(list, pos);
 
-	EXPECT_AND_ADVANCE(list, pos, TK_COLON, "Expected ':' after parameter name");
+	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after parameter name");
 	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
 		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after ':'");
 		freeAST(paramNode);
@@ -435,7 +435,7 @@ ASTNode parseArg(TokenList* list, size_t* pos) {
  */
 ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
 								 ASTNode (*parseElement)(TokenList*, size_t*)) {
-	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, "Expected '('");
+	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_PAREN, "Expected '('");
 
 	ASTNode listNode;
 	CREATE_NODE_OR_FAIL(listNode, NULL, listType, list, pos);
@@ -458,7 +458,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
 		}
 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_RPAREN, "Expected ')'");
+	EXPECT_AND_ADVANCE(list, pos, TK_RPAREN, ERROR_EXPECTED_CLOSING_PAREN, "Expected ')'");
 	return listNode;
 }
 
@@ -470,7 +470,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
  * @return RETURN_TYPE AST node or NULL on error
  */
 ASTNode parseReturnType(TokenList* list, size_t* pos) {
-	EXPECT_AND_ADVANCE(list, pos, TK_ARROW, "Expected '->'");
+	EXPECT_AND_ADVANCE(list, pos, TK_ARROW, ERROR_EXPECTED_ARROW, "Expected '->'");
 
 	if (*pos >= list->count || !isTypeToken(list->tokens[*pos].type)) {
 		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected type after '->'");
@@ -501,7 +501,7 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
  * @return FUNCTION_CALL AST node or NULL on error
  */
 ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
-	EXPECT_TOKEN(list, pos, TK_LPAREN, "Expected '(' for function call");
+	EXPECT_TOKEN(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_PAREN, "Expected '(' for function call");
 
 	ASTNode callNode, argList;
 	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL, list, pos);
@@ -522,7 +522,7 @@ ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
  * @return RETURN_STATEMENT AST node or NULL on error
  */
 ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
-	EXPECT_TOKEN(list, pos, TK_RETURN, "Expected 'return' keyword");
+	EXPECT_TOKEN(list, pos, TK_RETURN, ERROR_EXPECTED_RETURN, "Expected 'return' keyword");
 	Token* returnToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
@@ -533,7 +533,7 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
 		returnNode->children = parseExpression(list, pos, PREC_NONE);
 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';' after return statement");
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after return statement");
 	return returnNode;
 }
 
@@ -545,7 +545,7 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
  * @return FUNCTION_DEFINITION AST node or NULL on error
  */
 ASTNode parseFunction(TokenList* list, size_t* pos) {
-	EXPECT_TOKEN(list, pos, TK_FN, "Expected 'fn'");
+	EXPECT_TOKEN(list, pos, TK_FN, ERROR_EXPECTED_FN, "Expected 'fn'");
 	Token* fnToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
@@ -563,7 +563,7 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	PARSE_OR_CLEANUP(paramList, parseCommaSeparatedLists(list, pos, PARAMETER_LIST, parseParameter),
 					 functionNode);
 	PARSE_OR_CLEANUP(returnType, parseReturnType(list, pos), functionNode, paramList);
-	EXPECT_TOKEN(list, pos, TK_LBRACE, "Expected '{' for function body");
+	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' for function body");
 	PARSE_OR_CLEANUP(body, parseBlock(list, pos), functionNode, paramList, returnType);
 
 	functionNode->children = paramList;
@@ -596,7 +596,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
 		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';'");
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
 	return decNode;
 }
 
@@ -610,7 +610,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos) {
 	ASTNode expressionNode;
 	PARSE_OR_CLEANUP(expressionNode, parseExpression(list, pos, PREC_NONE));
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';'");
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI,ERROR_EXPECTED_SEMICOLON, "Expected ';'");
 	return expressionNode;
 }
 

@@ -24,6 +24,7 @@ set(LIB_SOURCES
         src/semantic/builtIns.h
         src/semantic/semanticHelpers.c
         src/semantic/semanticHelpers.h
+        src/errorHandling/errors.c
 )
 
 # Create compiler library

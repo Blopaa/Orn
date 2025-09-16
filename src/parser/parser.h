@@ -20,17 +20,17 @@ const char *getCurrentTokenName(TokenList *list, size_t pos);
 
 #define ADVANCE_TOKEN(list, pos) do { if (*(pos) < (list)->count) (*(pos))++; } while(0)
 
-#define EXPECT_TOKEN(list, pos, expected_type, err_msg) \
+#define EXPECT_TOKEN(list, pos, expectedType, errCode, errMsg) \
     do { \
-        if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expected_type)) { \
-            reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), err_msg ? err_msg : "Unexpected token"); \
+        if (*(pos) >= (list)->count || (list)->tokens[*(pos)].type != (expectedType)) { \
+            reportError(errCode,createErrorContextFromParser(list, pos), errMsg ? errMsg : "Unexpected token"); \
             return NULL; \
         } \
     } while(0)
 
-#define EXPECT_AND_ADVANCE(list, pos, expected_type, err_msg) \
+#define EXPECT_AND_ADVANCE(list, pos, expectedType, errCode, errMsg) \
     do { \
-        EXPECT_TOKEN(list, pos, expected_type, err_msg); \
+        EXPECT_TOKEN(list, pos, expectedType,errCode, errMsg); \
         ADVANCE_TOKEN(list, pos); \
     } while(0)
 
@@ -41,9 +41,9 @@ const char *getCurrentTokenName(TokenList *list, size_t pos);
     } while(0)
 
 
-#define PARSE_OR_CLEANUP(var, parse_expr, ...) \
+#define PARSE_OR_CLEANUP(var, parseExpr, ...) \
     do { \
-        var = (parse_expr); \
+        var = (parseExpr); \
         if (!var) { \
             ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
             for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \

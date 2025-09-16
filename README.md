@@ -103,11 +103,11 @@ float rate = 3.14;
 string msg = "Hello, World!";
 bool b = true; :: bools and ints cannot mix
 
-if (x > 0) {
+x > 0 ? {
    print(msg);
 }
 
-while (x > 0) {
+while x > 0 {
     print(x);
      x = x - 1;
 }
