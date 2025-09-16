@@ -54,7 +54,7 @@ ASTNode parsePrimaryExp(Token *current, NodeTypes fatherType) {
     if (node != NULL) {
         *current = (*current)->next;
     }
-    return node;
+    return node; 
 }
 
 /**

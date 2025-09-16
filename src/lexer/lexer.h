@@ -40,6 +40,7 @@ typedef enum {
     TokenOr,
     TokenNot,
     TokenString,
+    TOKEN_STRING,
     TokenPlusAssign,
     TokenSubAssign,
     TokenMultAssign,

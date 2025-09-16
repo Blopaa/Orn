@@ -433,7 +433,6 @@ void test_float_without_leading_zero(void) {
     freeTokenList(tokens);
     freeAST(ast);
 }
-
 void test_empty_string(void) {
     Input res = splitter("string empty = \"\";");
     Token tokens = tokenization(res);
@@ -444,7 +443,7 @@ void test_empty_string(void) {
 
     freeTokenList(tokens);
     freeAST(ast);
-}
+} 
 
 void test_string_with_spaces(void) {
     Input res = splitter("string text = \"hello world\";");
@@ -1715,6 +1714,44 @@ void test_nested_tokens(void) {
     freeInput(res);
 }
 
+// ========== STRING ESCAPES TESTS ==========
+
+void test_string_escapes(void) {
+    // Simple string with no escapes
+    Input res1 = splitter("\"Hello World\"");
+    TEST_ASSERT_NOT_NULL(res1);
+    TEST_ASSERT_EQUAL_STRING("Hello World", res1->tokens[0].value);
+    TEST_ASSERT_EQUAL(1, res1->tokens[0].line);
+    TEST_ASSERT_EQUAL(1, res1->tokens[0].column);
+    freeInput(res1);
+
+    // String with newline and tab
+    Input res2 = splitter("\"Line1\\nLine2\\tTab\"");
+    TEST_ASSERT_NOT_NULL(res2);
+    TEST_ASSERT_EQUAL_STRING("Line1\nLine2\tTab", res2->tokens[0].value);
+    freeInput(res2);
+
+    // String with escaped quotes and backslash
+    Input res3 = splitter("\"Quote:\\\" Backslash:\\\\\"");
+    TEST_ASSERT_NOT_NULL(res3);
+    TEST_ASSERT_EQUAL_STRING("Quote:\" Backslash:\\", res3->tokens[0].value);
+    freeInput(res3);
+
+    // Multiple strings in one input
+    Input res4 = splitter("\"Hello\" \"World\\n\"");
+    TEST_ASSERT_NOT_NULL(res4);
+    TEST_ASSERT_EQUAL_STRING("Hello", res4->tokens[0].value);
+    TEST_ASSERT_EQUAL_STRING("World\n", res4->tokens[1].value);
+    freeInput(res4);
+
+    // Edge case: unknown escape 
+    Input res5 = splitter("\"Unknown\\xEscape\"");
+    TEST_ASSERT_NOT_NULL(res5);
+    TEST_ASSERT_EQUAL_STRING("UnknownxEscape", res5->tokens[0].value);
+    freeInput(res5);
+} 
+
+
 // ========== MAIN TEST RUNNER ==========
 
 int main(void) {
@@ -1908,6 +1945,9 @@ int main(void) {
 
     printf("\n=== LOOPS ===\n");
     RUN_TEST(test_basic_while_loop);
+
+    printf("\n=== STRING ESCAPE TESTS ===\n");
+    RUN_TEST(test_string_escapes);
 
     return UNITY_END();
 }

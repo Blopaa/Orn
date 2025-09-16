@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 /**
  * @brief Finds the token type for a given string value.
@@ -33,6 +34,11 @@ TokenType findTokenType(const char *val) {
             return tokenMapping[i].type;
         }
     }
+
+    if (val[0] != '\0') { 
+        return TOKEN_STRING; 
+    }
+
     return TokenLiteral;
 }
 
@@ -107,13 +113,57 @@ Input splitter(const char *input) {
                 token_len = 1;
             }
         } else if (input[i] == '\"') {
-            // String literal parsing - FIXED
-            int start = i;
-            i++; // Skip opening quote
-            while (input[i] != '\"' && input[i] != '\0') i++;
-            if (input[i] == '\"') i++; // Skip closing quote
-            token_len = i - start;
-            // Don't reset i here - keep the new position
+            int col = (i - start_of_line) + 1;
+            i++; // skip opening quote
+
+            int bufCapacity = 64;
+            char *buffer = malloc(bufCapacity);
+            int bufIndex = 0;
+
+            while (input[i] != '\0') {
+                if (input[i] == '\"') {
+                    i++; // skip closing quote
+                    break;
+                }
+
+                if (input[i] == '\\') {
+                    i++;
+                    if (input[i] == '\0') {
+                        fprintf(stderr, "Error: Unterminated escape sequence");
+                        break;
+                    }
+                    char esc = input[i];
+                    switch (esc) {
+                        case '\"': buffer[bufIndex++] = '\"'; break;
+                        case '\\': buffer[bufIndex++] = '\\'; break;
+                        case 'n':  buffer[bufIndex++] = '\n'; break;
+                        case 't':  buffer[bufIndex++] = '\t'; break;
+                        default:
+                            fprintf(stderr, "Error: Invalid escape sequence");
+                            buffer[bufIndex++] = esc; // store char
+                    }
+                } else {
+                    buffer[bufIndex++] = input[i];
+                }
+
+                i++;
+            }
+
+            buffer[bufIndex] = '\0';
+
+            // Add token to Input list
+            if (in->n >= in->capacity) {
+                in->capacity *= 2;
+                in->tokens = realloc(in->tokens, in->capacity * sizeof(InputToken));
+            }
+
+            InputToken *raw_token = &in->tokens[in->n++];
+            raw_token->value = buffer;
+            raw_token->line = line;
+            raw_token->column = col;
+
+            continue; // skip token handling
+
         } else if (isdigit(input[i]) || (input[i] == '.' && isdigit(input[i + 1]))) {
             int start = i;
             if (input[i] != '.') while (isdigit(input[i])) i++;

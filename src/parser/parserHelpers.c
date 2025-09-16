@@ -19,6 +19,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
@@ -195,10 +197,11 @@ int isIntLit(const char *val) {
  * - "\"unclosed -> 0 (missing closing quote)
  */
 int isValidStringLit(const char *val) {
-    if (val == NULL) return 0;
+    /*if (val == NULL) return 0;
     size_t len = strlen(val);
-    return (len >= 2 && val[0] == '"' && val[len - 1] == '"');
-}
+    return (len >= 2 && val[0] == '"' && val[len - 1] == '"'); */ 
+    return val != NULL && val[0] != '\0';
+} 
 
 /**
  * @brief Creates appropriate AST node based on token value and context.
