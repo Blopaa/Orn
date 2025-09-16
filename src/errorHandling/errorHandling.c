@@ -36,7 +36,7 @@ const ErrorInfo * getErrorInfo(ErrorCode err) {
 			return &errorDatabase[i];
 		}
 	}
-	return &errorDatabase[sizeof(errorDatabase)/sizeof(errorDatabase[0]) - 1];
+	return &errorDatabase[errorDatabaseCount - 1];
 }
 
 void printSourceSnippet (ErrorContext * context) {

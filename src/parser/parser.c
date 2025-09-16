@@ -501,7 +501,10 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
  * @return FUNCTION_CALL AST node or NULL on error
  */
 ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
-	EXPECT_TOKEN(list, pos, TK_LPAREN, "Expected '(' for function call");
+	if (*pos >= list->count || list->tokens[*pos].type != TK_LPAREN) {
+		reportError(ERROR_MISSING_OPENING_PAREN, createErrorContextFromParser(list, pos), "Expected '(' for function call");
+		return NULL;
+	}
 
 	ASTNode callNode, argList;
 	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL, list, pos);
@@ -596,7 +599,11 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
 		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, "Expected ';'");
+	if (*pos >= list->count || list->tokens[*pos].type != TK_SEMI) {
+		reportError(ERROR_MISSING_SEMICOLON, createErrorContextFromParser(list, pos), "Expected ';'");
+		return NULL;
+	}
+	ADVANCE_TOKEN(list, pos);
 	return decNode;
 }
 

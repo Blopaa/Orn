@@ -220,8 +220,11 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
             DataType leftType = getExpressionType(node->children, context);
             DataType rightType = getExpressionType(node->children->brothers, context);
-
-            return getOperationResultType(leftType, rightType, node->nodeType);
+            DataType resultType = getOperationResultType(leftType, rightType, node->nodeType);
+            if (resultType == TYPE_UNKNOWN) {
+                reportError(ERROR_INCOMPATIBLE_BINARY_OPERANDS, createErrorContextFromType(node, context), "Incompatible types in binary operation");
+            }
+            return resultType;
         }
         case FUNCTION_CALL: {
             if (isBuiltinFunction(node->value)) {
@@ -306,12 +309,12 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
     Symbol funcSymbol = lookupSymbol(context->current, node->value);
     if (funcSymbol == NULL) {
-        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromType(node, context), node->value);
+        reportError(ERROR_UNDEFINED_FUNCTION,createErrorContextFromType(node, context), node->value);
         return 0;
     }
 
     if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
-        reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromType(node, context), "Attempting to call non-function");
+        reportError(ERROR_CALLING_NON_FUNCTION,createErrorContextFromType(node, context), "Attempting to call non-function");
         return 0;
     }
 
@@ -327,7 +330,7 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
 
     // Check argument count
     if (argCount != funcSymbol->paramCount) {
-        reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromType(node, context), "Function call argument count mismatch");
+        reportError(ERROR_FUNCTION_ARG_COUNT_MISMATCH,createErrorContextFromType(node, context), "Function call argument count mismatch");
         return 0;
     }
 

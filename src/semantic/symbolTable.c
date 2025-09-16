@@ -74,7 +74,7 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
 
     if (node->children == NULL) {
         if (expectedType != TYPE_VOID) {
-            repError(ERROR_INVALID_EXPRESSION, "Non-void function must return a value");
+            repError(ERROR_MISSING_RETURN_VALUE, "Non-void function must return a value");
             return 0;
         }
     } else {
@@ -84,12 +84,12 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         }
 
         if (expectedType == TYPE_VOID) {
-            repError(ERROR_INVALID_EXPRESSION, "Void function cannot return a value");
+            repError(ERROR_UNEXPECTED_RETURN_VALUE, "Void function cannot return a value");
             return 0;
         }
 
         if (!areCompatible(expectedType, returnType)) {
-            repError(variableErrorCompatibleHandling(expectedType, returnType), "return");
+            repError(ERROR_RETURN_TYPE_MISMATCH, "return");
             return 0;
         }
     }
