@@ -31,7 +31,6 @@ char* readFile(const char* filename) {
         fclose(file);
         return NULL;
     }
-
     size_t bytesRead = fread(content, 1, fileSize, file);
     content[bytesRead] = '\0';
 
