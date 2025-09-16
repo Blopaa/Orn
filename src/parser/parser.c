@@ -435,7 +435,7 @@ ASTNode parseArg(TokenList* list, size_t* pos) {
  */
 ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
 								 ASTNode (*parseElement)(TokenList*, size_t*)) {
-	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_BRACE, "Expected '('");
+	EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_PAREN, "Expected '('");
 
 	ASTNode listNode;
 	CREATE_NODE_OR_FAIL(listNode, NULL, listType, list, pos);
