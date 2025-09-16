@@ -1,0 +1,9 @@
+:: this is a simple add program
+
+fn add(a: int, b:int) -> int {
+    return a + b;
+}
+
+int x  = 10;
+int y = add(x, 5);
+print(y);

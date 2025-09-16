@@ -2,6 +2,7 @@
 *.o
 *.obj
 output.s
+program.orn
 
 # Compiled Dynamic libraries
 *.so

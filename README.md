@@ -98,22 +98,27 @@ cmake --build . --target run_program
 ### Example Program
 
 ```c
-int main() {
-    int x = 42;
-    float rate = 3.14;
-    string msg = "Hello, World!";
+int x = 42;
+float rate = 3.14;
+string msg = "Hello, World!";
+bool b = true; :: bools and ints cannot mix
 
-    if (x > 0) {
-        print(msg);
-    }
-
-    while (x > 0) {
-        print(x);
-        x = x - 1;
-    }
-
-    return 0;
+if (x > 0) {
+   print(msg);
 }
+
+while (x > 0) {
+    print(x);
+     x = x - 1;
+}
+
+:: simple add function
+fn add (a: int, b: int) -> int {
+    return a + b;
+};
+
+print(add(3, 5));
+  
 ```
 
 ### Error Example
