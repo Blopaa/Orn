@@ -191,7 +191,7 @@ const ErrorInfo errorDatabase[] = {
         "add digits before or after the decimal point"
     },
     {
-        ERROR_MISSING_QUOTE,
+        ERROR_EXPECTED_QUOTE,
         ERROR,
         "unterminated string literal",
         "string literals must be enclosed in double quotes",
@@ -239,7 +239,7 @@ const ErrorInfo errorDatabase[] = {
         "use a comparison or boolean expression before `?`"
     },
     {
-        ERROR_MISSING_SEMICOLON,
+        ERROR_EXPECTED_SEMICOLON,
         ERROR,
         "missing semicolon",
         "statements must be terminated with a semicolon",
@@ -255,7 +255,7 @@ const ErrorInfo errorDatabase[] = {
         "check for missing operators, parentheses, or semicolons"
     },
     {
-        ERROR_MISSING_CLOSING_PAREN,
+        ERROR_EXPECTED_CLOSING_PAREN,
         ERROR,
         "missing closing parenthesis",
         "opening parenthesis has no matching closing parenthesis",
@@ -263,12 +263,36 @@ const ErrorInfo errorDatabase[] = {
         "add the missing `)` or remove the extra `(`"
     },
     {
-        ERROR_MISSING_OPENING_PAREN,
+        ERROR_EXPECTED_OPENING_PAREN,
         ERROR,
         "missing opening parenthesis",
         "closing parenthesis has no matching opening parenthesis",
         "expected `(`",
         "add the missing `(` or remove the extra `)`"
+    },
+    {
+        ERROR_EXPECTED_OPENING_BRACE,
+        ERROR,
+        "expected opening brace",
+        "a block must start with an opening brace",
+        "missing `{`",
+        "add `{` at the beginning of the block"
+    },
+    {
+        ERROR_EXPECTED_CLOSING_BRACE,
+        ERROR,
+        "expected closing brace",
+        "a block must end with a closing brace",
+        "missing `}`",
+        "add `}` at the end of the block"
+    },
+    {
+        ERROR_EXPECTED_QUESTION_MARK,
+        ERROR,
+        "expected '?' in ternary expression",
+        "ternary operator requires a '?' after the condition",
+        "missing '?' token",
+        "write the expression as: condition ? true_value : false_value"
     },
 
     // Logic/Control flow errors (4000s)
@@ -336,6 +360,38 @@ const ErrorInfo errorDatabase[] = {
         "non-boolean loop condition",
         "use a comparison or boolean expression for the loop condition"
     },
+    {
+        ERROR_EXPECTED_COLON,
+        ERROR,
+        "expected ':'",
+        "a colon is required after the parameter name in a function declaration",
+        "missing ':'",
+        "write the parameter as `name: type`"
+    },
+    {
+        ERROR_EXPECTED_ARROW,
+        ERROR,
+        "expected '->'",
+        "a function return type must be introduced with '->' after the parameter list",
+        "missing '->' token",
+        "write the function as `fn name(params) -> return_type { ... }`"
+    },
+    {
+        ERROR_EXPECTED_RETURN,
+        ERROR,
+        "expected 'return' keyword",
+        "a return statement must begin with the 'return' keyword",
+        "missing 'return'",
+        "write the statement as `return value;`"
+    },
+{
+    ERROR_EXPECTED_FN,
+    ERROR,
+    "expected 'fn' keyword",
+    "a function declaration must begin with the 'fn' keyword",
+    "missing 'fn'",
+    "write the declaration as `fn name(params) -> return_type { ... }`"
+},
 
     // Function-related errors (5000s)
     {
