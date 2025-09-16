@@ -170,7 +170,3 @@ This README’s structure and presentation were inspired by [TheDevConnor / Luma
 <p align="center">
   <strong>Built with ❤️ </strong>
 </p>
-
----
-
-Would you like me to also **rename the repo references** (`Blopaa/Compiler`) to `Blopaa/Orn` automatically, or keep them as they are for now?
