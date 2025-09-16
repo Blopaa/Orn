@@ -595,8 +595,8 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
 		ADVANCE_TOKEN(list, pos);
 		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
 	}
-
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
+	size_t tempPos = list->tokens[*pos].type != TK_SEMI ? *pos-1 : *pos;
+	EXPECT_AND_ADVANCE(list, &tempPos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
 	return decNode;
 }
 
