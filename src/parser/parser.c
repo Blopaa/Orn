@@ -38,8 +38,8 @@ ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
     static char *lastSourceLine = NULL;  // Static to persist between calls
 
     if (!list || *pos >= list->count) return NULL;
-
-    Token *token = &list->tokens[*pos];
+	size_t tempPos = list->tokens[*pos].type != TK_SEMI ? *pos-1 : *pos;
+    Token *token = &list->tokens[tempPos];
 
     // Free previous source line
     if (lastSourceLine) {
@@ -111,25 +111,6 @@ const StatementHandler statementHandlers[] = {
 };
 
 /**
- * @brief Helper function to convert token to string.
- *
- * Extracts the substring from the token's start pointer and length.
- *
- * @param token Token to convert
- * @return Newly allocated string (must be freed by caller) or NULL on error
- */
-char* tokenToString(const Token* token) {
-	if (!token || !token->start || token->length == 0) return NULL;
-
-	char* str = malloc(token->length + 1);
-	if (!str) return NULL;
-
-	memcpy(str, token->start, token->length);
-	str[token->length] = '\0';
-	return str;
-}
-
-/**
  * @brief Parses primary expressions (literals, identifiers, parentheses).
  *
  * Handles the lowest level of expression parsing for atomic values:
@@ -150,10 +131,9 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 
 	if (detectLitType(token, list, pos) == VARIABLE &&
 		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
-		char *functionName = tokenToString(token);
+		Token * fnNameTok = token;
 		ADVANCE_TOKEN(list, pos);
-		ASTNode funcCall = parseFunctionCall(list, pos, functionName);
-		free(functionName);
+		ASTNode funcCall = parseFunctionCall(list, pos, fnNameTok);
 		return funcCall;
 		}
 
@@ -497,15 +477,13 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
  *
  * @param list Token list
  * @param pos Current position in token list
- * @param functionName Name of the function being called
  * @return FUNCTION_CALL AST node or NULL on error
  */
-ASTNode parseFunctionCall(TokenList* list, size_t* pos, char* functionName) {
+ASTNode parseFunctionCall(TokenList* list, size_t* pos, Token * tok) {
 	EXPECT_TOKEN(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_PAREN, "Expected '(' for function call");
 
 	ASTNode callNode, argList;
-	CREATE_NODE_OR_FAIL(callNode, NULL, FUNCTION_CALL, list, pos);
-	callNode->value = strdup(functionName);
+	CREATE_NODE_OR_FAIL(callNode, tok, FUNCTION_CALL, list, pos);
 
 	PARSE_OR_CLEANUP(argList, parseCommaSeparatedLists(list, pos, ARGUMENT_LIST, parseArg),
 					 callNode);
@@ -556,7 +534,6 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 
 	ASTNode functionNode;
 	CREATE_NODE_OR_FAIL(functionNode, fnToken, FUNCTION_DEFINITION, list, pos);
-	functionNode->value = tokenToString(&list->tokens[*pos]);
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode paramList, returnType, body;
@@ -595,8 +572,8 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
 		ADVANCE_TOKEN(list, pos);
 		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
 	}
-	size_t tempPos = list->tokens[*pos].type != TK_SEMI ? *pos-1 : *pos;
-	EXPECT_AND_ADVANCE(list, &tempPos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
+	// size_t tempPos = list->tokens[*pos].type != TK_SEMI ? *pos-1 : *pos;
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
 	return decNode;
 }
 
@@ -651,6 +628,13 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
 	return parseExpressionStatement(list, pos);
 }
 
+ASTContext * buildASTContextFromTokenList(TokenList* list) {
+	ASTContext * astContext = malloc(sizeof(struct ASTContext));
+	astContext->buffer = list->buffer;
+	astContext->filename = list->filename;
+	return astContext;
+}
+
 /**
  * @brief Main AST generation function - parses complete token stream.
  *
@@ -659,12 +643,13 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
  * @param tokenList Token list from lexer
  * @return Root PROGRAM node containing all parsed statements
  */
-ASTNode ASTGenerator(TokenList* tokenList) {
+ASTContext * ASTGenerator(TokenList* tokenList) {
 	if (!tokenList || tokenList->count == 0) return NULL;
-
+	ASTContext * astContext = buildASTContextFromTokenList(tokenList);
 	ASTNode programNode;
 	size_t pos = 0;
 	CREATE_NODE_OR_FAIL(programNode, NULL, PROGRAM, tokenList, &pos);
+	astContext->root = programNode;
 
 	ASTNode lastStatement = NULL;
 	size_t lastPos = (size_t)-1;
@@ -691,7 +676,7 @@ ASTNode ASTGenerator(TokenList* tokenList) {
 		}
 	}
 
-	return programNode;
+	return astContext;
 }
 
 /**
@@ -707,8 +692,12 @@ void printASTTree(ASTNode node, char* prefix, int isLast) {
 	const char* nodeTypeStr = getNodeTypeName(node->nodeType);
 
 	printf("%s%s%s", prefix, isLast ? "|___ " : "|-- ", nodeTypeStr);
-	if (node->value) {
-		printf(": %s", node->value);
+	if (node->start && node->length > 0) {
+		char* str = extractText(node->start,node->length);
+		if (str) {
+			printf(": %s", str);
+			free(str);
+		}
 	}
 	printf("\n");
 
@@ -752,9 +741,11 @@ void freeAST(ASTNode node) {
 
 	freeAST(node->children);
 	freeAST(node->brothers);
-
-	if (node->value) {
-		free(node->value);
-	}
 	free(node);
+}
+void freeASTContext(ASTContext* ctx) {
+	if (ctx) {
+		if (ctx->root) freeAST(ctx->root);
+		free(ctx);
+	}
 }

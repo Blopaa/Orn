@@ -100,19 +100,19 @@ int main(int argc, char* argv[]) {
     if (verbose) printf("OK (%zu tokens)\n", tokens->count);
 
     if (verbose) printf("2. PARSING: ");
-    ASTNode ast = ASTGenerator(tokens);
-    if (!ast || hasErrors()) {
+    ASTContext * ast = ASTGenerator(tokens);
+    if (!ast->root || hasErrors()) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
-        if (ast) freeAST(ast);
+        if (ast->root) freeASTContext(ast);
         free(input);
         return 1;
     }
     if (verbose) printf("OK\n");
 
     if (verbose) {
-        printAST(ast, 0);
+        printAST(ast->root, 0);
         printf("\n");
     }
 
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
-        freeAST(ast);
+        freeASTContext(ast);
         free(input);
         return 1;
     }

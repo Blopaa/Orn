@@ -13,7 +13,6 @@
 #include "errorHandling.h"
 #include "../lexer/lexer.h"
 
-char *tokenToString(const Token *token);
 ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) ;
 const char *getTokenTypeName(TokenType type);
 const char *getCurrentTokenName(TokenList *list, size_t pos);
@@ -175,16 +174,21 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {null_NODE, NULL} // Sentinel - must be last
 };
 
-struct ASTNode {
-    char *value;
+typedef struct ASTNode {
+    uint16_t length;
+    uint16_t line;
+    uint16_t column;
+    const char * start;
     NodeTypes nodeType;
-    int line;
-    int column;
     struct ASTNode *children;
     struct ASTNode *brothers;
-};
+} * ASTNode;
 
-typedef struct ASTNode *ASTNode;
+typedef struct ASTContext {
+    const char* buffer;
+    const char *filename;
+    ASTNode root;
+} ASTContext;
 
 typedef ASTNode (*ParseFunc)(TokenList*, size_t*);
 
@@ -301,6 +305,8 @@ int isTypeToken(TokenType type);
 NodeTypes getReturnTypeFromToken(TokenType type);
 NodeTypes getUnaryOpType(TokenType t);
 NodeTypes detectLitType(const Token* tok, TokenList * list, size_t * pos);
+char* extractText(const char* start, size_t length);
+int nodeValueEquals(const ASTNode node, const char* str);
 
 // Parser function declarations
 ASTNode parseStatement(TokenList* list, size_t* pos);
@@ -308,7 +314,7 @@ ASTNode parseExpression(TokenList* list, size_t* pos, Precedence minPrec);
 ASTNode parseUnary(TokenList* list, size_t* pos);
 ASTNode parsePrimaryExp(TokenList* list, size_t* pos);
 ASTNode parseFunction(TokenList* list, size_t* pos);
-ASTNode parseFunctionCall(TokenList* list, size_t* pos, char *functionName);
+ASTNode parseFunctionCall(TokenList* list, size_t* pos, Token * tok);
 ASTNode parseReturnStatement(TokenList* list, size_t* pos);
 ASTNode parseLoop(TokenList* list, size_t* pos);
 ASTNode parseBlock(TokenList* list, size_t* pos);
@@ -323,9 +329,11 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 
 // Public function prototypes
-ASTNode ASTGenerator(TokenList* tokenList);
+ASTContext * ASTGenerator(TokenList* tokenList);
 void printAST(ASTNode node, int depth);
 void printASTTree(ASTNode node, char *prefix, int isLast);
 void freeAST(ASTNode node);
+void freeASTContext(ASTContext* ctx);
+
 
 #endif //PARSER_H
