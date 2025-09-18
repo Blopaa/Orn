@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     if (verbose) printf("OK\n");
 
     if (verbose) printf("4. CODE GENERATION: ");
-    int codeGenSuccess = generateCode(astContext->root, outputFile);
+    int codeGenSuccess = generateCode(astContext->root, outputFile, input, inputFile);
     if (!codeGenSuccess) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();

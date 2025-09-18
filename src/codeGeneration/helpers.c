@@ -331,3 +331,48 @@ RegisterId getOppositeBranchRegister(RegisterId reg) {
         default: return REG_XMM0;
     }
 }
+
+ErrorContext *createErrorContextFromCodeGen(ASTNode node, StackContext context) {
+    static ErrorContext errorContext;
+    static char *lastSourceLine = NULL;
+
+    if (!node || !context) return NULL;
+
+    if (lastSourceLine) {
+        free(lastSourceLine);
+        lastSourceLine = NULL;
+    }
+
+    if (context->sourceFile) {
+        const char *lineStart = context->sourceFile;
+        int currentLine = 1;
+
+        while (*lineStart && currentLine < node->line) {
+            if (*lineStart == '\n') {
+                currentLine++;
+            }
+            lineStart++;
+        }
+
+        const char *lineEnd = lineStart;
+        while (*lineEnd && *lineEnd != '\n') {
+            lineEnd++;
+        }
+
+        size_t lineLength = lineEnd - lineStart;
+        lastSourceLine = malloc(lineLength + 1);
+        if (lastSourceLine) {
+            strncpy(lastSourceLine, lineStart, lineLength);
+            lastSourceLine[lineLength] = '\0';
+        }
+    }
+
+    errorContext.file = context->filename ? context->filename : "source";
+    errorContext.line = node->line;
+    errorContext.column = node->column;
+    errorContext.source = lastSourceLine;
+    errorContext.length = node->length;
+    errorContext.startColumn = node->column;
+
+    return &errorContext;
+}

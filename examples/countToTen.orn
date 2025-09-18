@@ -5,6 +5,6 @@ string newLine = ",\n";
 
 while x <= 10 {
     print(x);
-    print(newLine);  :: print builtIn overload, same call for ints, strings, bools, etc.
+    x < 10 ? print(newLine);  :: print builtIn overload, same call for ints, strings, bools, etc.
     x++;
 };

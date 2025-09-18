@@ -42,6 +42,8 @@ typedef struct StackVariable {
  * string literals, and generation counters for unique naming.
  */
 typedef struct StackContext {
+    const char *sourceFile;
+    const char *filename;
     FILE *file;
     StackVariable variable;
     StringEntry string;
@@ -93,42 +95,62 @@ typedef enum {
     REG_XMM5 = 15
 } RegisterId;
 
+// Main entry points
+int generateCode(ASTNode ast, const char *outputFile, const char *sourceCode, const char *filename);
 int generateNodeCode(ASTNode node, StackContext context);
-int generateCode(ASTNode ast, const char *outputFile);
-StringEntry addStringLiteral(StackContext context, const char *value);
-void emitStringTable(StackContext context);
-const char *getRegisterName(RegisterId regId, DataType type);
-const char *getFloatRegisterName(RegisterId regId);
-void generateFloatLoadImmediate(StackContext context, const char *value, RegisterId reg);
-void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg,
-                           RegisterId rightReg, RegisterId resultReg);
-void generateFloatUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg,
-                          RegisterId resultReg);
-void generateStringLoadImmediate(StackContext context, const char *value, RegisterId reg);
-void generateStringOperation(StackContext context, NodeTypes opType, RegisterId leftReg,
-                             RegisterId rightReg, RegisterId resultReg);
-void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize);
-void emitComment(StackContext context, const char *comment);
-StackContext createCodeGenContext(const char *file);
+
+// Context management
+StackContext createCodeGenContext(const char *file, const char *sourceFile, const char *filename);
 void freeCodegenContext(StackContext context);
+ErrorContext *createErrorContextFromCodeGen(ASTNode node, StackContext context);
+
+// Expression and code generation
+RegisterId generateExpressionToRegister(ASTNode node, StackContext context, RegisterId preferredReg);
+int generateConditional(ASTNode node, StackContext context);
+int generateLoop(ASTNode node, StackContext context);
+int generateBuiltinFunctionCall(ASTNode node, StackContext context);
+
+// Variable management
 int allocateVariable(StackContext context, const char *start, size_t len, DataType type);
 StackVariable findStackVariable(StackContext context, const char *start, size_t len);
-void emitPreamble(StackContext context);
-void generateLoadVariable(StackContext context, const char *start, size_t len, RegisterId reg);
-void generateStoreVariable(StackContext context, const char *start, size_t len, RegisterId reg);
+void generateLoadVariable(StackContext context, const char *start, size_t len, RegisterId reg, ASTNode node);
+void generateStoreVariable(StackContext context, const char *start, size_t len, RegisterId reg, ASTNode node);
+
+// Register management
+const char *getRegisterName(RegisterId regId, DataType type);
+const char *getFloatRegisterName(RegisterId regId);
+void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
+void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
+RegisterId getOppositeBranchRegister(RegisterId reg);
+
+// Immediate value loading
 void generateLoadImmediate(StackContext context, const char *value, DataType type, RegisterId reg);
+void generateFloatLoadImmediate(StackContext context, const char *value, RegisterId reg);
+void generateStringLoadImmediate(StackContext context, const char *value, RegisterId reg);
+
+// Operation generation
 void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg, RegisterId rightReg,
                       RegisterId resultReg, DataType operandType, int invert);
 void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg, RegisterId resultReg,
                      DataType operandType);
-RegisterId generateExpressionToRegister(ASTNode node, StackContext context, RegisterId preferredReg);
-int generateConditional(ASTNode node, StackContext context);
-int generateLoop(ASTNode node, StackContext context);
-DataType getOperandType(ASTNode node, StackContext context);
+void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg,
+                           RegisterId rightReg, RegisterId resultReg);
+void generateFloatUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg,
+                          RegisterId resultReg);
+void generateStringOperation(StackContext context, NodeTypes opType, RegisterId leftReg,
+                             RegisterId rightReg, RegisterId resultReg);
+
+// String table management
+StringEntry addStringLiteral(StackContext context, const char *value);
+void emitStringTable(StackContext context);
 void collectStringLiterals(ASTNode node, StackContext context);
+
+// Assembly emission helpers
+void emitPreamble(StackContext context);
+void emitComment(StackContext context, const char *comment);
+void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize);
+
+// Utility functions
+DataType getOperandType(ASTNode node, StackContext context);
 int isLiteral(ASTNode node);
-void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
-void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
-RegisterId getOppositeBranchRegister(RegisterId reg);
-int generateBuiltinFunctionCall(ASTNode node, StackContext context);
 #endif //CINTERPRETER_CODEGENERATION_H

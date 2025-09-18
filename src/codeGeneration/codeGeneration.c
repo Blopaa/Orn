@@ -105,7 +105,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
                 } else {
                     initReg = generateExpressionToRegister(node->children, context, REG_RAX);
                 }
-                generateStoreVariable(context, node->start, node->length, initReg);
+                generateStoreVariable(context, node->start, node->length, initReg, node);
             }
             return 1;
         }
@@ -121,13 +121,13 @@ int generateNodeCode(ASTNode node, StackContext context) {
             ASTNode rightNode = node->children->brothers;
 
             if (leftNode->nodeType != VARIABLE) {
-                repError(ERROR_INVALID_ASSIGNMENT_TARGET, "Left side must be variable");
+                reportError(ERROR_INVALID_ASSIGNMENT_TARGET, createErrorContextFromCodeGen(node, context), "Left side must be variable");
                 return 0;
             }
 
             StackVariable var = findStackVariable(context, leftNode->start, leftNode->length);
             if (var == NULL) {
-                repError(ERROR_UNDEFINED_VARIABLE, extractText(leftNode->start, leftNode->length));
+                reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromCodeGen(node, context), extractText(leftNode->start, leftNode->length));
                 return 0;
             }
 
@@ -139,7 +139,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
             }
 
             if (node->nodeType == ASSIGNMENT) {
-                generateStoreVariable(context, leftNode->start, leftNode->length, rightReg);
+                generateStoreVariable(context, leftNode->start, leftNode->length, rightReg, node);
             } else {
                 // For compound assignments, load current value, perform operation, store back
                 RegisterId leftReg;
@@ -149,7 +149,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
                     leftReg = REG_RBX;
                 }
 
-                generateLoadVariable(context, leftNode->start, leftNode->length, leftReg);
+                generateLoadVariable(context, leftNode->start, leftNode->length, leftReg, node);
 
                 NodeTypes opType;
                 switch (node->nodeType) {
@@ -166,7 +166,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
                 }
 
                 generateBinaryOp(context, opType, leftReg, rightReg, leftReg, var->dataType, 0);
-                generateStoreVariable(context, leftNode->start, leftNode->length, leftReg);
+                generateStoreVariable(context, leftNode->start, leftNode->length, leftReg, node);
             }
             return 1;
         }
@@ -272,7 +272,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
  *       freeCodegenContext(). Reports specific error codes for
  *       different failure conditions.
  */
-StackContext createCodeGenContext(const char *file) {
+StackContext createCodeGenContext(const char *file, const char *sourceFile, const char *filename) {
     if (file == NULL) {
         repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, "No output filename provided");
         return NULL;
@@ -289,6 +289,8 @@ StackContext createCodeGenContext(const char *file) {
         repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, "Failed to open output file");
         return NULL;
     }
+    context->sourceFile = sourceFile;
+    context->filename = filename;
     context->variable = NULL;
     context->string = NULL;
     context->currentOffset = 0;
@@ -353,11 +355,11 @@ void freeCodegenContext(StackContext context) {
  * @note Reports ERROR_UNDEFINED_VARIABLE if variable not found.
  *       Uses movsd for float types and movq for all other types.
  */
-void generateLoadVariable(StackContext context,  const char *start, size_t len, RegisterId reg) {
+void generateLoadVariable(StackContext context,  const char *start, size_t len, RegisterId reg, ASTNode node) {
     StackVariable var = findStackVariable(context, start, len);
     char * tempName = extractText(start, len);
     if (var == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, tempName);
+        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromCodeGen(node, context), tempName);
         return;
     }
 
@@ -387,11 +389,11 @@ void generateLoadVariable(StackContext context,  const char *start, size_t len, 
  * @note Reports ERROR_UNDEFINED_VARIABLE if variable not found.
  *       Uses movsd for float types and movq for all other types.
  */
-void generateStoreVariable(StackContext context, const char * start, size_t len, RegisterId reg) {
+void generateStoreVariable(StackContext context, const char * start, size_t len, RegisterId reg, ASTNode node) {
     StackVariable var = findStackVariable(context, start, len);
     char * tempName = extractText(start, len);
     if (var == NULL) {
-        repError(ERROR_UNDEFINED_VARIABLE, tempName);
+        reportError(ERROR_UNDEFINED_VARIABLE,createErrorContextFromCodeGen(node, context), tempName);
         return;
     }
 
@@ -888,7 +890,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             if (var && var->dataType == TYPE_FLOAT) {
                 preferredReg = REG_XMM0; // Use XMM register for float variables
             }
-            generateLoadVariable(context, node->start, node->length, preferredReg);
+            generateLoadVariable(context, node->start, node->length, preferredReg, node);
             return preferredReg;
         }
 
@@ -989,13 +991,13 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context, Regi
             }
 
             // Load current value
-            generateLoadVariable(context, node->children->start, node->children->length, preferredReg);
+            generateLoadVariable(context, node->children->start, node->children->length, preferredReg, node);
 
             // Store incremented/decremented value back to variable
             RegisterId tempReg = (operandType == TYPE_FLOAT) ? REG_XMM1 : (preferredReg == REG_RAX) ? REG_RBX : REG_RAX;
-            generateLoadVariable(context, node->children->start, node->children->length, tempReg);
+            generateLoadVariable(context, node->children->start, node->children->length, tempReg, node);
             generateUnaryOp(context, node->nodeType, tempReg, tempReg, operandType);
-            generateStoreVariable(context, node->children->start, node->children->length, tempReg);
+            generateStoreVariable(context, node->children->start, node->children->length, tempReg, node);
 
             return preferredReg; // Return original value
         }
@@ -1354,7 +1356,7 @@ void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandR
  *       comprehensive error handling for all failure modes. The generated
  *       assembly is ready for linking with the GNU assembler and linker.
  */
-int generateCode(ASTNode ast, const char *outputFile) {
+int generateCode(ASTNode ast, const char *outputFile, const char *sourceCode, const char *filename) {
     // Validate input parameters
     if (ast == NULL) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Cannot generate code from null AST");
@@ -1367,7 +1369,7 @@ int generateCode(ASTNode ast, const char *outputFile) {
     }
 
     // Create code generation context
-    StackContext context = createCodeGenContext(outputFile);
+    StackContext context = createCodeGenContext(outputFile, sourceCode, filename);
     if (context == NULL) {
         return 0; // Error already reported in createCodeGenContext
     }
