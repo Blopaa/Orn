@@ -195,7 +195,9 @@ int generateNodeCode(ASTNode node, StackContext context) {
         }
 		case FUNCTION_DEFINITION: {
 			// Generate function label
-			fprintf(context->file, "\n%s:\n", extractText(node->start, node->length));
+            char * tempVal = extractText(node->start, node->length);
+			fprintf(context->file, "\n%s:\n", tempVal);
+            if (tempVal) free(tempVal);
 			fprintf(context->file, "    pushq %%rbp\n");
 			fprintf(context->file, "    movq %%rsp, %%rbp\n");
 

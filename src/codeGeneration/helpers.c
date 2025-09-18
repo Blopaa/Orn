@@ -242,7 +242,9 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     if (node == NULL) return;
 
     if (node->nodeType == STRING_LIT) {
-        addStringLiteral(context, extractText(node->start, node->length));
+        char * tempVal = extractText(node->start, node->length);
+        addStringLiteral(context, tempVal);
+        if (tempVal) free(tempVal);
     }
 
     ASTNode child = node->children;

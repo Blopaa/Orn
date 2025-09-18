@@ -251,7 +251,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 }
 
 int validateFunctionCall(ASTNode node, TypeCheckContext context) {
-    if (node == NULL || node->nodeType != FUNCTION_CALL) {
+    if (node == NULL || node->nodeType != FUNCTION_CALL || node->start == NULL) {
         reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
                     "Invalid function call node");
         return 0;
@@ -449,7 +449,7 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
  *       variable shadowing in nested scopes.
  */
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
-    if (node == NULL) {
+    if (node == NULL || node->start == NULL) {
         reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
                     "Variable declaration node is null or has no name");
         return 0;
@@ -556,7 +556,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
  *       or have been assigned a value.
  */
 int validateVariableUsage(ASTNode node, TypeCheckContext context) {
-    if (node == NULL) {
+    if (node == NULL || node->start == NULL) {
         reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
                     "Variable usage node is null or has no name");
         return 0;
@@ -586,7 +586,7 @@ FunctionParameter extractParameters(ASTNode paramListNode) {
 
     ASTNode paramNode = paramListNode->children;
     while (paramNode != NULL) {
-        if (paramNode->nodeType == PARAMETER && paramNode->length > 0 && paramNode->children != NULL) {
+        if (paramNode->nodeType == PARAMETER && paramNode->length > 0 && paramNode->start != NULL && paramNode->children != NULL) {
             DataType paramType = getDataTypeFromNode(paramNode->children->nodeType);
             FunctionParameter param = createParameter(paramNode->start, paramNode->length, paramType);
             if (param == NULL) {
@@ -618,7 +618,7 @@ DataType getReturnTypeFromNode(ASTNode returnTypeNode) {
 }
 
 int validateFunctionDef(ASTNode node, TypeCheckContext context) {
-    if (node == NULL || node->nodeType != FUNCTION_DEFINITION) {
+    if (node == NULL || node->nodeType != FUNCTION_DEFINITION || node->start == NULL || node->children == NULL) {
         reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
                     "Invalid function definition node");
         return 0;
