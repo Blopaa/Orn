@@ -26,9 +26,10 @@ typedef struct BuiltInFunction {
 } BuiltInFunction;
 
 void initBuiltIns(SymbolTable globalTable);
-BuiltInId resolveOverload(const char *name, DataType argTypes[], int argCount);
-int isBuiltinFunction(const char *name);
-Symbol findMatchingBuiltinFunction(SymbolTable table, const char *name, DataType argTypes[], int argCount);
+BuiltInId resolveOverload(const char *nameStart, size_t nameLength, DataType arg[], int argCount);
+int isBuiltinFunction(const char *nameStart, size_t nameLength);
+Symbol findMatchingBuiltinFunction(SymbolTable table, const char *nameStart, size_t nameLength,
+                                   DataType argTypes[], int argCount);
 
 
 #endif // COMPILER_BUILTINS_H

@@ -43,10 +43,11 @@ typedef enum {
 } SymbolType;
 
 typedef struct FunctionParameter {
-    char * name;
+    const char *nameStart;
+    uint16_t nameLength;
     DataType type;
-    struct FunctionParameter * next;
-} * FunctionParameter;
+    struct FunctionParameter *next;
+} *FunctionParameter;
 
 /**
  * @brief Symbol structure representing a declared variable.
@@ -56,7 +57,8 @@ typedef struct FunctionParameter {
  * Forms a linked list for efficient symbol storage within each scope.
  */
 typedef struct Symbol {
-    char *name;
+    const char *nameStart;
+    uint16_t nameLength;
     SymbolType symbolType;
     DataType type;
     int line;
@@ -84,7 +86,7 @@ typedef struct SymbolTable {
     int symbolCount;
 } *SymbolTable;
 
-Symbol createSymbol(const char *name, DataType type, int line, int column);
+Symbol createSymbol(ASTNode node, DataType type);
 
 void freeSymbol(Symbol symbol);
 
@@ -92,19 +94,29 @@ SymbolTable createSymbolTable(SymbolTable parent);
 
 void freeSymbolTable(SymbolTable symbolTable);
 
-Symbol addSymbol(SymbolTable symbolTable, const char *name, DataType type, int line, int column);
+Symbol addSymbolFromString(SymbolTable table, const char *name, DataType type,
+                          int line, int column);
 
-Symbol lookupSymbol(SymbolTable symbolTable, const char *name);
+Symbol addSymbolFromNode(SymbolTable table, ASTNode node, DataType type) ;
 
-Symbol lookUpSymbolCurrentOnly(SymbolTable table, const char *name);
+Symbol addSymbol(SymbolTable table, const char *nameStart, size_t nameLength,
+                 DataType type, int line, int column);
+
+Symbol lookupSymbol(SymbolTable symbolTable, const char *name, size_t len);
+
+Symbol lookupSymbolCurrentOnly(SymbolTable table, const char *nameStart, size_t nameLength);
 
 DataType getDataTypeFromNode(NodeTypes nodeType);
 
-FunctionParameter createParameter(const char *name, DataType type);
+FunctionParameter createParameter(const char *nameStart, size_t nameLen, DataType type);
 
 void freeParamList(FunctionParameter paramList);
 
-Symbol addFunctionSymbol(SymbolTable symbolTable, const char *name, DataType returnType,
-                        FunctionParameter parameters, int paramCount, int line, int column);
+Symbol addFunctionSymbolFromNode(SymbolTable symbolTable, ASTNode node, DataType returnType,
+                                 FunctionParameter parameters, int paramCount);
+
+Symbol addFunctionSymbolFromString(SymbolTable symbolTable, const char *name,
+                                   DataType returnType, FunctionParameter parameters,
+                                   int paramCount, int line, int column);
 
 #endif //CINTERPRETER_SYMBOLTABLE_H
