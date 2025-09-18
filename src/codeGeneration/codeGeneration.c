@@ -216,8 +216,11 @@ int generateNodeCode(ASTNode node, StackContext context) {
 					DataType paramType = TYPE_INT; // Simplified
 					int offset = allocateVariable(context, param->start, param->length, paramType);
 
-					fprintf(context->file, "    movq %s, %d(%%rbp)    # Store param %s\n",
-						getRegisterName(paramRegs[paramIndex], TYPE_INT), offset);
+				    char * paramName = extractText(param->start, param->length);
+				    fprintf(context->file, "    movq %s, %d(%%rbp)    # Store param %s\n",
+                            getRegisterName(paramRegs[paramIndex], TYPE_INT), offset,
+                            paramName ? paramName : "unknown");
+				    if (paramName) free(paramName);
 
 					param = param->brothers;
 					paramIndex++;
