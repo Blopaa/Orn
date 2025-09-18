@@ -10,173 +10,150 @@
 #include <string.h>
 
 static BuiltInFunction builtInFunctions[] = {
-  {
-    .name = "print",
-    .returnType = TYPE_VOID,
-    .paramTypes = NULL,
-    .paramNames = NULL,
-    .paramCount = 1,
-    .id = BUILTIN_PRINT_INT
-  },
-  {
-    .name = "print",
-    .returnType = TYPE_VOID,
-    .paramTypes = NULL,
-    .paramNames = NULL,
-    .paramCount = 1,
-    .id = BUILTIN_PRINT_STRING
-  },
-{
-  .name = "print",
-  .returnType = TYPE_VOID,
-  .paramTypes = NULL,
-  .paramNames = NULL,
-  .paramCount = 1,
-  .id = BUILTIN_PRINT_FLOAT
-  },
-{
-  .name = "print",
-  .returnType = TYPE_VOID,
-  .paramTypes = NULL,
-  .paramNames = NULL,
-  .paramCount = 1,
-  .id = BUILTIN_PRINT_BOOL
-  }
+    {
+        .name = "print",
+        .returnType = TYPE_VOID,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 1,
+        .id = BUILTIN_PRINT_INT
+    },
+    {
+        .name = "print",
+        .returnType = TYPE_VOID,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 1,
+        .id = BUILTIN_PRINT_STRING
+    },
+    {
+        .name = "print",
+        .returnType = TYPE_VOID,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 1,
+        .id = BUILTIN_PRINT_FLOAT
+    },
+    {
+        .name = "print",
+        .returnType = TYPE_VOID,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 1,
+        .id = BUILTIN_PRINT_BOOL
+    }
 };
 
 static int builtInFnCount = sizeof(builtInFunctions) / sizeof(BuiltInFunction);
 static int builtInsInit = 0;
 
 static void initBuiltInsParams() {
-  if (builtInsInit) return;
-  builtInFunctions[0].paramTypes = malloc(sizeof(DataType));
-  builtInFunctions[0].paramTypes[0] = TYPE_INT;
-  builtInFunctions[0].paramNames = malloc(sizeof(char*));
-  builtInFunctions[0].paramNames[0] = strdup("message");
+    if (builtInsInit) return;
+    builtInFunctions[0].paramTypes = malloc(sizeof(DataType));
+    builtInFunctions[0].paramTypes[0] = TYPE_INT;
+    builtInFunctions[0].paramNames = malloc(sizeof(char *));
+    builtInFunctions[0].paramNames[0] = strdup("message");
 
-  builtInFunctions[1].paramTypes = malloc(sizeof(DataType));
-  builtInFunctions[1].paramTypes[0] = TYPE_STRING;
-  builtInFunctions[1].paramNames = malloc(sizeof(char*));
-  builtInFunctions[1].paramNames[0] = strdup("value");
+    builtInFunctions[1].paramTypes = malloc(sizeof(DataType));
+    builtInFunctions[1].paramTypes[0] = TYPE_STRING;
+    builtInFunctions[1].paramNames = malloc(sizeof(char *));
+    builtInFunctions[1].paramNames[0] = strdup("value");
 
-  builtInFunctions[2].paramTypes = malloc(sizeof(DataType));
-  builtInFunctions[2].paramTypes[0] = TYPE_FLOAT;
-  builtInFunctions[2].paramNames = malloc(sizeof(char*));
-  builtInFunctions[2].paramNames[0] = strdup("value");
+    builtInFunctions[2].paramTypes = malloc(sizeof(DataType));
+    builtInFunctions[2].paramTypes[0] = TYPE_FLOAT;
+    builtInFunctions[2].paramNames = malloc(sizeof(char *));
+    builtInFunctions[2].paramNames[0] = strdup("value");
 
-  builtInFunctions[3].paramTypes = malloc(sizeof(DataType));
-  builtInFunctions[3].paramTypes[0] = TYPE_BOOL;
-  builtInFunctions[3].paramNames = malloc(sizeof(char*));
-  builtInFunctions[3].paramNames[0] = strdup("value");
+    builtInFunctions[3].paramTypes = malloc(sizeof(DataType));
+    builtInFunctions[3].paramTypes[0] = TYPE_BOOL;
+    builtInFunctions[3].paramNames = malloc(sizeof(char *));
+    builtInFunctions[3].paramNames[0] = strdup("value");
 
-  builtInsInit = 1;
+    builtInsInit = 1;
 }
 
 static FunctionParameter createParameterList(char **names, DataType *types, int count) {
-  if (count == 0) return NULL;
+    if (count == 0) return NULL;
 
-  FunctionParameter first = NULL;
-  FunctionParameter last = NULL;
+    FunctionParameter first = NULL;
+    FunctionParameter last = NULL;
 
-  for (int i = 0; i < count; i++) {
-    FunctionParameter param = createParameter(names[i], types[i]);
-    if (param == NULL) {
-      freeParamList(first);
-      return NULL;
+    for (int i = 0; i < count; i++) {
+        FunctionParameter param = createParameter(names[i], strlen(names[i]), types[i]);
+        if (param == NULL) {
+            freeParamList(first);
+            return NULL;
+        }
+
+        if (first == NULL) {
+            first = param;
+        } else {
+            last->next = param;
+        }
+        last = param;
     }
 
-    if (first == NULL) {
-      first = param;
-    } else {
-      last->next = param;
-    }
-    last = param;
-  }
-
-  return first;
+    return first;
 }
 
 void initBuiltIns(SymbolTable globTable) {
-  if (globTable == NULL) return;
+    if (globTable == NULL) return;
 
-  initBuiltInsParams();
+    initBuiltInsParams();
 
-  for (int i = 0; i < builtInFnCount; i++) {
-    BuiltInFunction *builtin = &builtInFunctions[i];
+    for (int i = 0; i < builtInFnCount; i++) {
+        BuiltInFunction *builtin = &builtInFunctions[i];
 
-    FunctionParameter params = createParameterList(
-        builtin->paramNames,
-        builtin->paramTypes,
-        builtin->paramCount
-    );
-    addFunctionSymbol(
-        globTable,
-        builtin->name,
-        builtin->returnType,
-        params,
-        builtin->paramCount,
-        0, 0
-    );
-  }
-}
-
-BuiltInId resolveOverload(const char * name, DataType arg[], int argCount) {
-  if (name == NULL) return BUILTIN_UNKNOWN;
-
-  for (int i = 0; i<builtInFnCount; i++) {
-    BuiltInFunction *builtin = &builtInFunctions[i];
-    if (strcmp(builtin->name, name) != 0) continue;
-    if (builtin->paramCount != argCount) continue;
-    int typesMatch = 1;
-    for (int j = 0; j < argCount; j++) {
-      if (!areCompatible(builtin->paramTypes[j], arg[j])) {
-        typesMatch = 0;
-        break;
-      }
+        FunctionParameter params = createParameterList(
+            builtin->paramNames,
+            builtin->paramTypes,
+            builtin->paramCount
+        );
+        addFunctionSymbolFromString(
+            globTable,
+            builtin->name,
+            builtin->returnType,
+            params,
+            builtin->paramCount,
+            0, 0
+        );
     }
-    if (typesMatch) return builtin->id;
-  }
-  return BUILTIN_UNKNOWN;
 }
 
-int isBuiltinFunction(const char *name) {
-  if (name == NULL) return 0;
+BuiltInId resolveOverload(const char *nameStart, size_t nameLength, DataType arg[], int argCount) {
+    if (nameStart == NULL || nameLength == 0) return BUILTIN_UNKNOWN;
 
-  for (int i = 0; i < builtInFnCount; i++) {
-    if (strcmp(builtInFunctions[i].name, name) == 0) {
-      return 1;
+    for (int i = 0; i < builtInFnCount; i++) {
+        BuiltInFunction *builtin = &builtInFunctions[i];
+
+        size_t builtinNameLen = strlen(builtin->name);
+        if (nameLength != builtinNameLen ||
+            memcmp(nameStart, builtin->name, nameLength) != 0)
+            continue;
+
+        if (builtin->paramCount != argCount) continue;
+
+        int typesMatch = 1;
+        for (int j = 0; j < argCount; j++) {
+            if (!areCompatible(builtin->paramTypes[j], arg[j])) {
+                typesMatch = 0;
+                break;
+            }
+        }
+        if (typesMatch) return builtin->id;
     }
-  }
-  return 0;
+    return BUILTIN_UNKNOWN;
 }
 
-Symbol findMatchingBuiltinFunction(SymbolTable table, const char *name, DataType argTypes[], int argCount) {
-  if (table == NULL || name == NULL) return NULL;
+int isBuiltinFunction(const char *nameStart, size_t nameLength) {
+    if (nameStart == NULL || nameLength == 0) return 0;
 
-  Symbol current = table->symbols;
-  while (current != NULL) {
-    if (current->symbolType == SYMBOL_FUNCTION &&
-        strcmp(current->name, name) == 0 &&
-        current->paramCount == argCount) {
-
-      FunctionParameter param = current->parameters;
-      int match = 1;
-
-      for (int i = 0; i < argCount && param != NULL; i++) {
-        if (!areCompatible(param->type, argTypes[i])) {
-          match = 0;
-          break;
+    for (int i = 0; i < builtInFnCount; i++) {
+        size_t builtinNameLen = strlen(builtInFunctions[i].name);
+        if (nameLength == builtinNameLen &&
+            memcmp(nameStart, builtInFunctions[i].name, nameLength) == 0) {
+            return 1;
         }
-        param = param->next;
-      }
-
-      if (match) {
-        return current;
-      }
-        }
-    current = current->next;
-  }
-
-  return NULL;
+    }
+    return 0;
 }
-

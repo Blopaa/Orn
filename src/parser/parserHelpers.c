@@ -80,14 +80,14 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 		if (isalpha(val[0]) || val[0] == '_') {
 			for (size_t i = 1; i<len; i++) {
 				if (!isalnum(val[i]) && val[i] != '_') {
-					reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
+					reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), extractText(tok->start, tok->length));
 					return null_NODE;
 				}
 			}
 			return VARIABLE;
 		}
 
-	reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), tokenToString(tok));
+	reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), extractText(tok->start, tok->length));
 	return null_NODE;
 }
 
@@ -132,16 +132,25 @@ const char *getNodeTypeName(NodeTypes nodeType) {
 ASTNode createNode(const Token * token, NodeTypes type, TokenList * list, size_t * pos) {
     ASTNode node = malloc(sizeof(struct ASTNode));
 	if (!node) {
-		reportError(ERROR_MEMORY_ALLOCATION_FAILED,createErrorContextFromParser(list, pos),  token ? tokenToString(token) : "");
+		reportError(ERROR_MEMORY_ALLOCATION_FAILED,createErrorContextFromParser(list, pos),  token ? extractText(token->start, token->length) : "");
 		return NULL;
 	}
 
-    node->value = token ? tokenToString(token) : NULL;
-    node->nodeType = type;
-	node->line = token ? token->line : 0;
-	node->column = token ? token->column : 0;
-    node->brothers = NULL;
-    node->children = NULL;
+	if (token) {
+		node->start = token->start;
+		node->length = token->length;
+		node->line = token->line;
+		node->column = token->column;
+	}else {
+		node->start = NULL;
+		node->length = 0;
+		node->line = 0;
+		node->column = 0;
+	}
+
+	node->nodeType = type;
+	node->children = NULL;
+	node->brothers = NULL;
     return node;
 }
 
@@ -228,4 +237,22 @@ NodeTypes getUnaryOpType(TokenType t) {
 		case TK_DECR: return PRE_DECREMENT;
 		default: return null_NODE;
 	}
+}
+
+char* extractText(const char* start, size_t length) {
+	if (!start || length == 0) return NULL;
+
+	char* str = malloc(length + 1);
+	if (!str) return NULL;
+
+	memcpy(str, start, length);
+	str[length] = '\0';
+	return str;
+}
+
+int nodeValueEquals(const ASTNode node, const char* str) {
+	if (!node || !node->start || !str) return 0;
+	size_t strLen = strlen(str);
+	return (node->length == strLen &&
+			memcmp(node->start, str, strLen) == 0);
 }

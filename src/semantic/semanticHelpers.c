@@ -62,7 +62,7 @@ ErrorContext *createErrorContextFromType(ASTNode node, TypeCheckContext context)
     errorContext.line = node->line;
     errorContext.column = node->column;
     errorContext.source = lastSourceLine;
-    errorContext.length = node->value ? strlen(node->value) : 1;
+    errorContext.length = node->length;
     errorContext.startColumn = node->column;
 
     return &errorContext;

@@ -8,6 +8,7 @@
 <p align="center">
   <a href="#why">Why?</a> •
   <a href="#language-goals">Goals</a> •
+  <a href="#performance-architecture">Performance</a> •
   <a href="#project-status">Status</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#usage">Usage</a>
@@ -44,6 +45,26 @@ Many existing compilers trade developer experience for performance, or vice vers
 
 ---
 
+## Performance Architecture
+
+Orn uses a **zero-copy reference design** inspired by production compilers like Clang and Rust:
+
+```
+Source Buffer → Tokens → AST → Symbols → Assembly
+     ↓         (ptr+len) (ptr+len) (ptr+len)    ↓
+   One malloc    ←─── All reference the buffer ──→  New strings
+```
+
+**Benefits:**
+- Single source allocation, thousands fewer mallocs
+- No duplicate string storage throughout pipeline
+- Better memory locality and faster compilation
+- References become copies only in final assembly output
+
+Traditional compilers duplicate every identifier dozens of times. Orn references the original buffer until code generation.
+
+---
+
 ## Project Status
 
 **Current Phase:** Beta
@@ -72,7 +93,7 @@ Orn can already generate x86-64 assembly with working type checking and semantic
 
 ### Prerequisites
 
-You’ll need:
+You'll need:
 
 * **[GCC](https://gcc.gnu.org/)** or **[Clang](https://clang.llvm.org/)** – C compiler
 * **[CMake](https://cmake.org/)** (3.10+) – Build system
@@ -159,16 +180,6 @@ error [E1001]: mismatched types (x)
 
 ---
 
-## Architecture
-
-```
-Source → Lexer → Parser → Type Checker → Code Generator → Assembly
-         ↓        ↓         ↓              ↓
-       Tokens   AST    Symbol Table   x86-64 AT&T Code
-```
-
----
-
 ## Join Us
 
 We welcome contributors and feedback!
@@ -183,7 +194,7 @@ We welcome contributors and feedback!
 
 ### Attribution
 
-This README’s structure and presentation were inspired by [TheDevConnor / Luma](https://github.com/TheDevConnor/luma).
+This README's structure and presentation were inspired by [TheDevConnor / Luma](https://github.com/TheDevConnor/luma).
 
 ---
 
