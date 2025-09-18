@@ -1,13 +1,10 @@
 //
 // Created by pablo on 10/09/2025.
 //
-
 #ifndef CINTERPRETER_CODEGENERATION_H
 #define CINTERPRETER_CODEGENERATION_H
 #include <stdio.h>
-
 #include "symbolTable.h"
-
 /**
  * @brief String literal entry in the global string table.
  *
@@ -32,7 +29,8 @@ typedef struct StringEntry {
 typedef struct StackVariable {
     int stackOffset;
     DataType dataType;
-    char *name;
+    const char *start;
+    size_t length;
     struct StackVariable *next;
 } *StackVariable;
 
@@ -96,77 +94,41 @@ typedef enum {
 } RegisterId;
 
 int generateNodeCode(ASTNode node, StackContext context);
-
 int generateCode(ASTNode ast, const char *outputFile);
-
-
 StringEntry addStringLiteral(StackContext context, const char *value);
-
 void emitStringTable(StackContext context);
-
-
 const char *getRegisterName(RegisterId regId, DataType type);
-
 const char *getFloatRegisterName(RegisterId regId);
-
 void generateFloatLoadImmediate(StackContext context, const char *value, RegisterId reg);
-
 void generateFloatBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg,
                            RegisterId rightReg, RegisterId resultReg);
-
 void generateFloatUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg,
                           RegisterId resultReg);
-
 void generateStringLoadImmediate(StackContext context, const char *value, RegisterId reg);
-
 void generateStringOperation(StackContext context, NodeTypes opType, RegisterId leftReg,
                              RegisterId rightReg, RegisterId resultReg);
-
 void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize);
-
 void emitComment(StackContext context, const char *comment);
-
 StackContext createCodeGenContext(const char *file);
-
 void freeCodegenContext(StackContext context);
-
-int allocateVariable(StackContext context, const char *name, DataType type);
-
-StackVariable findStackVariable(StackContext context, const char *name);
-
+int allocateVariable(StackContext context, const char *start, size_t len, DataType type);
+StackVariable findStackVariable(StackContext context, const char *start, size_t len);
 void emitPreamble(StackContext context);
-
-void generateLoadVariable(StackContext context, const char *varName, RegisterId reg);
-
-void generateStoreVariable(StackContext context, const char *varName, RegisterId reg);
-
+void generateLoadVariable(StackContext context, const char *start, size_t len, RegisterId reg);
+void generateStoreVariable(StackContext context, const char *start, size_t len, RegisterId reg);
 void generateLoadImmediate(StackContext context, const char *value, DataType type, RegisterId reg);
-
 void generateBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg, RegisterId rightReg,
                       RegisterId resultReg, DataType operandType, int invert);
-
 void generateUnaryOp(StackContext context, NodeTypes opType, RegisterId operandReg, RegisterId resultReg,
                      DataType operandType);
-
 RegisterId generateExpressionToRegister(ASTNode node, StackContext context, RegisterId preferredReg);
-
 int generateConditional(ASTNode node, StackContext context);
-
 int generateLoop(ASTNode node, StackContext context);
-
 DataType getOperandType(ASTNode node, StackContext context);
-
 void collectStringLiterals(ASTNode node, StackContext context);
-
 int isLiteral(ASTNode node);
-
 void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
-
 void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type);
-
 RegisterId getOppositeBranchRegister(RegisterId reg);
-
 int generateBuiltinFunctionCall(ASTNode node, StackContext context);
-
-
 #endif //CINTERPRETER_CODEGENERATION_H

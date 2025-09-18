@@ -53,7 +53,7 @@ void printUsage(const char* programName) {
 }
 
 int main(int argc, char* argv[]) {
-     const char* inputFile = NULL;
+    const char* inputFile = NULL;
     int verbose = 0;
     const char* outputFile = "output.s";
 
@@ -100,41 +100,41 @@ int main(int argc, char* argv[]) {
     if (verbose) printf("OK (%zu tokens)\n", tokens->count);
 
     if (verbose) printf("2. PARSING: ");
-    ASTContext * ast = ASTGenerator(tokens);
-    if (!ast->root || hasErrors()) {
+    ASTContext *astContext = ASTGenerator(tokens);
+    if (!astContext || !astContext->root || hasErrors()) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
-        if (ast->root) freeASTContext(ast);
+        if (astContext) freeASTContext(astContext);
         free(input);
         return 1;
     }
     if (verbose) printf("OK\n");
 
     if (verbose) {
-        printAST(ast->root, 0);
+        printAST(astContext->root, 0);
         printf("\n");
     }
 
     if (verbose) printf("3. TYPE CHECKING: ");
-    int typeCheckSuccess = typeCheckAST(ast, input, inputFile);
+    int typeCheckSuccess = typeCheckAST(astContext->root, input, inputFile);
     if (!typeCheckSuccess) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
-        freeASTContext(ast);
+        freeASTContext(astContext);
         free(input);
         return 1;
     }
     if (verbose) printf("OK\n");
 
     if (verbose) printf("4. CODE GENERATION: ");
-    int codeGenSuccess = generateCode(ast, outputFile);
+    int codeGenSuccess = generateCode(astContext->root, outputFile);
     if (!codeGenSuccess) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
-        freeAST(ast);
+        freeASTContext(astContext);
         free(input);
         return 1;
     }
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
     }
 
     freeTokens(tokens);
-    freeAST(ast);
+    freeASTContext(astContext);
     free(input);
 
     return 0;

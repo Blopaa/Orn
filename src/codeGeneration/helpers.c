@@ -141,24 +141,14 @@ void generateLabel(StackContext context, const char *prefix, char *buffer, int b
  * entry to track the allocation. Emits assembly code to adjust the
  * stack pointer and adds descriptive comments.
  *
- * Process:
- * 1. Calculate space required based on variable type
- * 2. Update current stack offset
- * 3. Create and initialize StackVariable structure
- * 4. Link variable into context's variable list
- * 5. Emit stack allocation assembly code with comments
- *
  * @param context Code generation context
- * @param name Variable name for tracking and comments
+ * @param start Variable name for tracking and comments
+ * @param len
  * @param type Variable data type for size calculation
  * @return Stack offset of allocated variable or 0 on error
- *
- * @note Stack offsets are negative (growing downward from frame pointer).
- *       Reports ERROR_MEMORY_ALLOCATION_FAILED for allocation failures.
- *       Emits assembly comments documenting each allocation.
  */
-int allocateVariable(StackContext context, const char *name, DataType type) {
-    if (context == NULL || name == NULL) return 0;
+int allocateVariable(StackContext context, const char *start, size_t len, DataType type) {
+    if (context == NULL || start == NULL) return 0;
 
     int size = getStackSize(type);
     context->currentOffset += size;
@@ -171,12 +161,17 @@ int allocateVariable(StackContext context, const char *name, DataType type) {
 
     variable->stackOffset = -context->currentOffset;
     variable->dataType = type;
-    variable->name = strdup(name);
+    variable->start = start;
+    variable->length = len;
     variable->next = context->variable;
     context->variable = variable;
 
-    ASM_EMIT_COMMENT(context->file, name);
-    ASM_EMIT_SUBQ_RSP(context->file, size, name);
+    char * tempName = extractText(start, len);
+    if (tempName) {
+        ASM_EMIT_COMMENT(context->file, tempName);
+        ASM_EMIT_SUBQ_RSP(context->file, size, tempName);
+        free(tempName);
+    }
 
     return variable->stackOffset;
 }
@@ -196,12 +191,12 @@ int allocateVariable(StackContext context, const char *name, DataType type) {
  *       Returns NULL safely for invalid parameters (NULL context or name).
  *       Time complexity is O(n) where n is the number of variables.
  */
-StackVariable findStackVariable(StackContext context, const char *name) {
-    if (context == NULL || name == NULL) return NULL;
+StackVariable findStackVariable(StackContext context, const char *start, size_t len) {
+    if (context == NULL || start == NULL) return NULL;
 
     StackVariable current = context->variable;
     while (current != NULL) {
-        if (strcmp(current->name, name) == 0) {
+        if (current->length == len && memcmp(current->start, start, len ) == 0) {
             return current;
         }
         current = current->next;
@@ -225,7 +220,7 @@ DataType getOperandType(ASTNode node, StackContext context) {
 
     DataType type = getDataTypeFromNode(node->nodeType);
     if (type == TYPE_UNKNOWN && node->nodeType == VARIABLE) {
-        StackVariable var = findStackVariable(context, node->value);
+        StackVariable var = findStackVariable(context, node->start, node->length);
         if (var) type = var->dataType;
     }
     return type;
@@ -247,7 +242,7 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     if (node == NULL) return;
 
     if (node->nodeType == STRING_LIT) {
-        addStringLiteral(context, node->value);
+        addStringLiteral(context, extractText(node->start, node->length));
     }
 
     ASTNode child = node->children;
