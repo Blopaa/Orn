@@ -531,9 +531,9 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected function name after 'fn'");
 		return NULL;
 	}
-
+	Token * name = &list->tokens[*pos];
 	ASTNode functionNode;
-	CREATE_NODE_OR_FAIL(functionNode, fnToken, FUNCTION_DEFINITION, list, pos);
+	CREATE_NODE_OR_FAIL(functionNode, name, FUNCTION_DEFINITION, list, pos);
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode paramList, returnType, body;
