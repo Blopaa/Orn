@@ -102,6 +102,29 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 		ADVANCE_TOKEN(list, pos);
 		return NULL;
 	}
+
+	while (list->tokens[*pos].type == TK_DOT) {
+		ADVANCE_TOKEN(list, pos); // consume '.'
+
+		if (detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
+			reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+					   "Expected member name after '.'");
+			freeAST(node);
+			return NULL;
+		}
+
+		Token *memberToken = &list->tokens[*pos];
+		ADVANCE_TOKEN(list, pos);
+
+		ASTNode memberAccess, memberNode;
+		CREATE_NODE_OR_FAIL(memberAccess, memberToken, MEMBER_ACCESS, list, pos);
+		CREATE_NODE_OR_FAIL(memberNode, memberToken, VARIABLE, list, pos);
+
+		memberAccess->children = node;
+		node->brothers = memberNode;
+		node = memberAccess;
+	}
+
 	return node;
 }
 
@@ -617,6 +640,29 @@ ASTNode parseExpressionStatement(TokenList* list, size_t* pos) {
 	return expressionNode;
 }
 
+ASTNode parseStructVarDec(TokenList* list, size_t* pos) {
+	Token * type = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+	Token * varTok = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode structVarNode;
+	CREATE_NODE_OR_FAIL(structVarNode, varTok, STRUCT_VARIABLE_DEFINITION, list, pos);
+	ASTNode typeRefNode;
+	CREATE_NODE_OR_FAIL(typeRefNode, type, REF_CUSTOM, list, pos);
+	structVarNode->children = typeRefNode;
+	if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
+		ADVANCE_TOKEN(list, pos);
+		ASTNode initExpr;
+		PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), structVarNode);
+		typeRefNode->brothers = initExpr;
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
+	return structVarNode;
+}
+
+
 /**
  * @brief Parses individual statements.
  *
@@ -648,6 +694,10 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
 	if (decType != null_NODE) {
 		ADVANCE_TOKEN(list, pos);
 		return parseDeclaration(list, pos, decType);
+	}
+
+	if (currentToken->type == TK_LIT && list->tokens[*pos+1].type == TK_LIT) {
+		return parseStructVarDec(list, pos);
 	}
 
 	// Default to expression statement

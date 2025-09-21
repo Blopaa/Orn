@@ -253,15 +253,19 @@ Symbol addSymbolFromNode(SymbolTable table, ASTNode node, DataType type) {
  */
 DataType getDataTypeFromNode(NodeTypes nodeType) {
     switch (nodeType) {
+        case REF_INT:
         case INT_LIT:
         case INT_VARIABLE_DEFINITION:
             return TYPE_INT;
+        case REF_FLOAT:
         case FLOAT_LIT:
         case FLOAT_VARIABLE_DEFINITION:
             return TYPE_FLOAT;
+        case REF_STRING:
         case STRING_LIT:
         case STRING_VARIABLE_DEFINITION:
             return TYPE_STRING;
+        case REF_BOOL:
         case BOOL_LIT:
         case BOOL_VARIABLE_DEFINITION:
             return TYPE_BOOL;

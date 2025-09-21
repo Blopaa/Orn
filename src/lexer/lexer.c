@@ -203,6 +203,8 @@ static void lexOperator(Lexer *lx) {
             addToken(lx, TK_QUESTION, start, 1); return;
         case ':':
             addToken(lx, TK_COLON, start, 1); return;
+    	case '.':
+    		addToken(lx, TK_DOT, start, 1); return;
         default:
             addToken(lx, TK_INVALID, start, 1); return;
     }
