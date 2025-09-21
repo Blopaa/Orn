@@ -70,12 +70,12 @@ typedef enum {
     PROGRAM,
 
     // Type references
-    TYPE_INT,
-    TYPE_STRING,
-    TYPE_FLOAT,
-    TYPE_BOOL,
-    TYPE_VOID,
-    TYPE_CUSTOM,
+    REF_INT,
+    REF_STRING,
+    REF_FLOAT,
+    REF_BOOL,
+    REF_VOID,
+    REF_CUSTOM,
 
     // Variable definitions
     STRING_VARIABLE_DEFINITION,
@@ -212,6 +212,12 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {STRUCT_FIELD, "STRUCT_FIELD"},
     {STRUCT_VARIABLE_DEFINITION, "STRUCT_VAR_DEF"},
     {MEMBER_ACCESS, "MEMBER_ACCESS"},
+    {REF_INT, "TYPE_INT"},
+    {REF_STRING, "TYPE_STRING"},
+    {REF_FLOAT, "TYPE_FLOAT"},
+    {REF_BOOL, "TYPE_BOOL"},
+    {REF_VOID, "TYPE_VOID"},
+    {REF_CUSTOM, "TYPE_CUSTOM"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 

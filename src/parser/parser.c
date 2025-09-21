@@ -508,6 +508,17 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	return functionNode;
 }
 
+NodeTypes getTypeNodeFromToken(TokenType type) {
+	switch (type) {
+		case TK_INT: return REF_INT;
+		case TK_STRING: return REF_STRING;
+		case TK_FLOAT: return REF_FLOAT;
+		case TK_BOOL: return REF_BOOL;
+		case TK_VOID: return REF_VOID;
+		default: return null_NODE;
+	}
+}
+
 ASTNode parseStructField(TokenList * list, size_t* pos) {
 	Token * name = &list->tokens[*pos];
 	if (detectLitType(name, list, pos) != VARIABLE) {
@@ -525,7 +536,7 @@ ASTNode parseStructField(TokenList * list, size_t* pos) {
 	}
 	Token * typeTok = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
-	CREATE_NODE_OR_FAIL(typeNode, typeTok, getDecType(typeTok->type), list, pos);
+	CREATE_NODE_OR_FAIL(typeNode, typeTok, getTypeNodeFromToken(typeTok->type), list, pos);
 	fieldNode->children = typeNode;
 	return fieldNode;
 }
