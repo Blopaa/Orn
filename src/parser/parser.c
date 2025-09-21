@@ -60,53 +60,12 @@ ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
     return &context;
 }
 
-/**
- * @brief Helper function to get readable token names
- */
-const char *getTokenTypeName(TokenType type) {
-    switch (type) {
-        case TK_SEMI: return "';'";
-        case TK_LBRACE: return "'{'";
-        case TK_RBRACE: return "'}'";
-        case TK_LPAREN: return "'('";
-        case TK_RPAREN: return "')'";
-        case TK_ASSIGN: return "'='";
-        case TK_COMMA: return "','";
-        case TK_COLON: return "':'";
-        case TK_QUESTION: return "'?'";
-        case TK_ARROW: return "'->'";
-        case TK_INT: return "'int'";
-        case TK_STRING: return "'string'";
-        case TK_FLOAT: return "'float'";
-        case TK_BOOL: return "'bool'";
-        case TK_FN: return "'fn'";
-        case TK_RETURN: return "'return'";
-        case TK_WHILE: return "'while'";
-        case TK_EOF: return "end of file";
-        default: return "token";
-    }
-}
-
-const char *getCurrentTokenName(TokenList *list, size_t pos) {
-    if (!list || pos >= list->count) return "end of input";
-
-    Token *token = &list->tokens[pos];
-    switch (token->type) {
-        case TK_LIT:
-        case TK_NUM:
-        case TK_STR: return "literal";
-        case TK_EOF: return "end of file";
-        case TK_INVALID: return "invalid token";
-        default: return getTokenTypeName(token->type);
-    }
-}
-
-
 const StatementHandler statementHandlers[] = {
 	{TK_FN, parseFunction},
 	{TK_RETURN, parseReturnStatement},
 	{TK_WHILE, parseLoop},
 	{TK_LBRACE, parseBlock},
+	{TK_STRUCT, parseStruct},
 	{TK_NULL, NULL}  // Sentinel
 };
 
@@ -524,7 +483,6 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
  */
 ASTNode parseFunction(TokenList* list, size_t* pos) {
 	EXPECT_TOKEN(list, pos, TK_FN, ERROR_EXPECTED_FN, "Expected 'fn'");
-	Token* fnToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
 	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
@@ -548,6 +506,63 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	returnType->brothers = body;
 
 	return functionNode;
+}
+
+ASTNode parseStructField(TokenList * list, size_t* pos) {
+	Token * name = &list->tokens[*pos];
+	if (detectLitType(name, list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected field name");
+		return NULL;
+	}
+	ASTNode fieldNode, typeNode;
+	CREATE_NODE_OR_FAIL(fieldNode, name, STRUCT_FIELD, list, pos);
+	ADVANCE_TOKEN(list, pos);
+	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after field name");
+	if (!isTypeToken(list->tokens[*pos].type)) {
+		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected type after ':'");
+		freeAST(fieldNode);
+		return NULL;
+	}
+	Token * typeTok = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+	CREATE_NODE_OR_FAIL(typeNode, typeTok, getDecType(typeTok->type), list, pos);
+	fieldNode->children = typeNode;
+	return fieldNode;
+}
+
+ASTNode parseStruct(TokenList *list, size_t *pos) {
+	EXPECT_TOKEN(list, pos, TK_STRUCT, ERROR_INVALID_EXPRESSION, "expected struct");
+	ADVANCE_TOKEN(list, pos);
+	Token * name = &list->tokens[*pos];
+	if (detectLitType(name, list, pos) != VARIABLE) {
+		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected name for struct");
+		return NULL;
+	}
+	ASTNode structNode;
+	CREATE_NODE_OR_FAIL(structNode, name, STRUCT_DEFINITION, list, pos);
+	ADVANCE_TOKEN(list, pos);
+	EXPECT_AND_ADVANCE(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{'");
+	ASTNode fieldList;
+	CREATE_NODE_OR_FAIL(fieldList, NULL, STRUCT_FIELD_LIST, list, pos);
+	ASTNode last = NULL;
+	while (list->tokens[*pos].type != TK_RBRACE) {
+		ASTNode field;
+		PARSE_OR_CLEANUP(field, parseStructField(list, pos), structNode, fieldList);
+
+		if (!fieldList->children) fieldList->children = field;
+		else if (last) last->brothers = field;
+		last = field;
+
+		// ';' are optional inside structs
+		if (*pos < list->count && list->tokens[*pos].type == TK_SEMI) {
+			ADVANCE_TOKEN(list, pos);
+		}
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, ERROR_EXPECTED_CLOSING_BRACE, "Expected '}' to close struct");
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after struct definition");
+	structNode->children = fieldList;
+	return structNode;
 }
 
 /**

@@ -56,6 +56,7 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 		if (len == 6 && memcmp(s, "return", 6) == 0) return TK_RETURN;
 		break;
 	case 's':
+		if (len == 6 && memcmp(s, "struct", 6) == 0) return TK_STRUCT;
 		if (len == 6 && memcmp(s, "string", 6) == 0) return TK_STRING;
 		break;
 	case 't':
@@ -249,16 +250,4 @@ void freeTokens(TokenList *list) {
 	free(list->buffer);
 	free(list->filename);
 	free(list);
-}
-
-const char* tokenName(TokenType type) {
-	static const char *names[] = {
-		"ASSIGN", "LIT", "INT", "STRING", "FLOAT", "BOOL", "FN", "VOID", "RETURN", "ARROW",
-		"SEMI", "QUOTE", "WHILE", "TRUE", "FALSE", "PLUS", "MINUS", "STAR", "SLASH", "MOD",
-		"INCR", "DECR", "AND", "OR", "NOT", "STR", "PLUS_ASSIGN", "MINUS_ASSIGN",
-		"STAR_ASSIGN", "SLASH_ASSIGN", "EQ", "NOT_EQ", "LESS", "GREATER", "LESS_EQ",
-		"GREATER_EQ", "LBRACE", "RBRACE", "LPAREN", "RPAREN", "COMMA", "QUESTION",
-		"COLON", "NULL", "NUM", "EOF", "INVALID"
-	};
-	return (type < sizeof(names)/sizeof(names[0])) ? names[type] : "UNKNOWN";
 }

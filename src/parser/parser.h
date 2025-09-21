@@ -65,48 +65,78 @@ const char *getCurrentTokenName(TokenList *list, size_t pos);
  * Each node type represents a distinct syntactic construct in the language.
  */
 typedef enum {
+    // Special nodes
     null_NODE,
     PROGRAM,
+
+    // Type references
+    TYPE_INT,
+    TYPE_STRING,
+    TYPE_FLOAT,
+    TYPE_BOOL,
+    TYPE_VOID,
+    TYPE_CUSTOM,
+
+    // Variable definitions
     STRING_VARIABLE_DEFINITION,
     INT_VARIABLE_DEFINITION,
     FLOAT_VARIABLE_DEFINITION,
     BOOL_VARIABLE_DEFINITION,
+    STRUCT_VARIABLE_DEFINITION,
+
+    // Literals
     STRING_LIT,
     INT_LIT,
     FLOAT_LIT,
     BOOL_LIT,
+
+    // Variables and assignment
     VARIABLE,
     ASSIGNMENT,
     COMPOUND_ADD_ASSIGN,
     COMPOUND_SUB_ASSIGN,
     COMPOUND_MUL_ASSIGN,
     COMPOUND_DIV_ASSIGN,
+
+    // Binary arithmetic operators
     ADD_OP,
     SUB_OP,
     MUL_OP,
     DIV_OP,
     MOD_OP,
+
+    // Unary operators
     UNARY_MINUS_OP,
     UNARY_PLUS_OP,
+
+    // Increment/decrement operators
     PRE_INCREMENT,
     PRE_DECREMENT,
     POST_INCREMENT,
     POST_DECREMENT,
+
+    // Logical operators
     LOGIC_AND,
     LOGIC_OR,
     LOGIC_NOT,
+
+    // Comparison operators
     EQUAL_OP,
     NOT_EQUAL_OP,
     LESS_THAN_OP,
     GREATER_THAN_OP,
     LESS_EQUAL_OP,
     GREATER_EQUAL_OP,
+
+    // Control flow statements
     BLOCK_STATEMENT,
     IF_CONDITIONAL,
     IF_TRUE_BRANCH,
     ELSE_BRANCH,
     BLOCK_EXPRESSION,
     LOOP_STATEMENT,
+
+    // Functions
     FUNCTION_DEFINITION,
     FUNCTION_CALL,
     PARAMETER_LIST,
@@ -114,6 +144,12 @@ typedef enum {
     ARGUMENT_LIST,
     RETURN_STATEMENT,
     RETURN_TYPE,
+
+    // Structs
+    STRUCT_DEFINITION,
+    STRUCT_FIELD_LIST,
+    STRUCT_FIELD,
+    MEMBER_ACCESS,
 } NodeTypes;
 
 
@@ -171,6 +207,11 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {ARGUMENT_LIST, "ARGUMENT_LIST"},
     {RETURN_STATEMENT, "RETURN_STATEMENT"},
     {RETURN_TYPE, "RETURN_TYPE"},
+    {STRUCT_DEFINITION, "STRUCT_DEFINITION"},
+    {STRUCT_FIELD_LIST, "STRUCT_FIELD_LIST"},
+    {STRUCT_FIELD, "STRUCT_FIELD"},
+    {STRUCT_VARIABLE_DEFINITION, "STRUCT_VAR_DEF"},
+    {MEMBER_ACCESS, "MEMBER_ACCESS"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -306,7 +347,7 @@ NodeTypes getReturnTypeFromToken(TokenType type);
 NodeTypes getUnaryOpType(TokenType t);
 NodeTypes detectLitType(const Token* tok, TokenList * list, size_t * pos);
 char* extractText(const char* start, size_t length);
-int nodeValueEquals(const ASTNode node, const char* str);
+int nodeValueEquals(ASTNode node, const char* str);
 
 // Parser function declarations
 ASTNode parseStatement(TokenList* list, size_t* pos);
@@ -327,6 +368,8 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
 ASTNode parseReturnType(TokenList* list, size_t* pos);
 ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
+ASTNode parseStruct(TokenList* list, size_t* pos);
+ASTNode parseStructField(TokenList* list, size_t* pos);
 
 // Public function prototypes
 ASTContext * ASTGenerator(TokenList* tokenList);
