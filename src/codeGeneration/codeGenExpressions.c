@@ -403,9 +403,10 @@ int generateLoop(ASTNode node, StackContext context) {
 }
 
 /**
- * @brief Generates assembly code for built-in function calls with proper argument handling.
- * Resolves function overloads based on argument types and emits appropriate runtime calls
- * for print operations, type conversions, and system functions like exit.
+ * @brief Generates assembly code for built-in function calls with proper
+ * argument handling. Resolves function overloads based on argument types and
+ * emits appropriate runtime calls for print operations, type conversions, and
+ * system functions like exit.
  */
 int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
   if (node == NULL || node->start == NULL)
@@ -451,11 +452,13 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
     if (argList && argList->children) {
       RegisterId strReg =
           generateExpressionToRegister(argList->children, context, REG_RDI);
-
-      fprintf(context->file,
-              "    movq %s, %%rdi       # String pointer\n"
-              "    call print_str_z     # Runtime calculates length & prints\n",
-              getRegisterName(strReg, TYPE_STRING));
+      if (strReg != REG_RDI) {
+        fprintf(context->file, "    movq %s, %%rdi       # String pointer\n",
+                getRegisterName(strReg, TYPE_STRING));
+      }
+      fprintf(
+          context->file,
+          "    call print_str_z     # Runtime calculates length & prints\n");
     }
     break;
   }
@@ -467,10 +470,12 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
       RegisterId intReg =
           generateExpressionToRegister(argList->children, context, REG_RDI);
 
+      if (intReg != REG_RDI) {
+        fprintf(context->file, "    movq %s, %%rdi       # Integer value\n",
+                getRegisterName(intReg, TYPE_INT));
+      }
       fprintf(context->file,
-              "    movq %s, %%rdi       # Integer value\n"
-              "    call print_int       # Runtime converts & prints\n",
-              getRegisterName(intReg, TYPE_INT));
+              "    call print_int       # Runtime converts & prints\n");
     }
     break;
   }
@@ -482,14 +487,15 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
       RegisterId boolReg =
           generateExpressionToRegister(argList->children, context, REG_RDI);
 
+      if (boolReg != REG_RDI) {
+        fprintf(context->file, "    movq %s, %%rdi       # Boolean value\n",
+                getRegisterName(boolReg, TYPE_BOOL));
+      }
       fprintf(context->file,
-              "    movq %s, %%rdi       # Boolean value\n"
-              "    call print_bool      # Runtime prints 'true'/'false'\n",
-              getRegisterName(boolReg, TYPE_BOOL));
+              "    call print_bool      # Runtime prints 'true'/'false'\n");
     }
     break;
   }
-
   case BUILTIN_PRINT_FLOAT: {
     emitComment(context,
                 "print(float) - TODO: implement float conversion in runtime");
@@ -497,11 +503,15 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
     if (argList && argList->children) {
       RegisterId floatReg =
           generateExpressionToRegister(argList->children, context, REG_XMM0);
-
+      if (floatReg != REG_RDI) {
+        fprintf(
+            context->file,
+            "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n",
+            getFloatRegisterName(floatReg));
+      }
       fprintf(context->file,
-              "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n"
-              "    call print_int       # Print as integer for now\n",
-              getFloatRegisterName(floatReg));
+
+              "    call print_int       # Print as integer for now\n");
     }
     break;
   }
