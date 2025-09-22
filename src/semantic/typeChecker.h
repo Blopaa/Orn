@@ -1,12 +1,10 @@
 //
 // Created by pablo on 08/09/2025.
 //
-
 #ifndef CINTERPRETER_TYPECHECKER_H
 #define CINTERPRETER_TYPECHECKER_H
 #include "symbolTable.h"
 #include "../errorHandling/errorHandling.h"
-
 /**
  * @brief Type checking context for managing symbol tables and scope.
  *
@@ -23,41 +21,22 @@ typedef struct TypeCheckContext {
 } *TypeCheckContext;
 
 TypeCheckContext createTypeCheckContext(const char *sourceCode, const char *filename);
-
 void freeTypeCheckContext(TypeCheckContext context);
-
 int areCompatible(DataType target, DataType source);
-
 DataType getOperationResultType(DataType left, DataType right, NodeTypes op);
-
 DataType getExpressionType(ASTNode node, TypeCheckContext context);
-
 ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType);
-
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context);
-
 int validateAssignment(ASTNode node, TypeCheckContext context);
-
 int validateVariableUsage(ASTNode node, TypeCheckContext context);
-
 int typeCheckNode(ASTNode node, TypeCheckContext context);
-
 int typeCheckChildren(ASTNode node, TypeCheckContext context);
-
-int typeCheckAST(ASTNode ast,const char *sourceCode, const char *filename);
-
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename);
 int validateFunctionDef(ASTNode node, TypeCheckContext context);
-
 int validateFunctionCall(ASTNode node, TypeCheckContext context);
-
 int validateReturnStatement(ASTNode node, TypeCheckContext context);
-
 FunctionParameter extractParameters(ASTNode paramListNode);
-
 DataType getReturnTypeFromNode(ASTNode returnTypeNode);
-
 int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context);
-
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context);
-
 #endif //CINTERPRETER_TYPECHECKER_H

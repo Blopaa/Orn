@@ -9,53 +9,72 @@
  *
  */
 typedef enum {
-    TK_ASSIGN,
-    TK_LIT,
-    TK_INT,
-    TK_STRING,
-    TK_FLOAT,
-    TK_BOOL,
-    TK_FN,
-    TK_VOID,
-    TK_RETURN,
-    TK_ARROW,
-    TK_SEMI,
-    TK_QUOTE,
-    TK_WHILE,
-    TK_TRUE,
-    TK_FALSE,
-    TK_PLUS,
-    TK_MINUS,
-    TK_STAR,
-    TK_SLASH,
-    TK_MOD,
-    TK_INCR,
-    TK_DECR,
-    TK_AND,
-    TK_OR,
-    TK_NOT,
-    TK_STR,
+	// Keywords
+	TK_STRUCT,
+	TK_FN,
+	TK_VOID,
+	TK_RETURN,
+	TK_WHILE,
+	TK_TRUE,
+	TK_FALSE,
+
+	// Data types
+	TK_INT,
+	TK_STRING,
+	TK_FLOAT,
+	TK_BOOL,
+
+	// Literals
+	TK_LIT,
+	TK_STR,
 	TK_NUM,
-    TK_PLUS_ASSIGN,
-    TK_MINUS_ASSIGN,
-    TK_STAR_ASSIGN,
-    TK_SLASH_ASSIGN,
-    TK_EQ,
-    TK_NOT_EQ,
-    TK_LESS,
-    TK_GREATER,
-    TK_LESS_EQ,
-    TK_GREATER_EQ,
-    TK_LBRACE,
-    TK_RBRACE,
-    TK_LPAREN,
-    TK_RPAREN,
-    TK_COMMA,
-    TK_QUESTION,
-    TK_COLON,
+
+	// Arithmetic operators
+	TK_PLUS,
+	TK_MINUS,
+	TK_STAR,
+	TK_SLASH,
+	TK_MOD,
+	TK_INCR,
+	TK_DECR,
+
+	// Assignment operators
+	TK_ASSIGN,
+	TK_PLUS_ASSIGN,
+	TK_MINUS_ASSIGN,
+	TK_STAR_ASSIGN,
+	TK_SLASH_ASSIGN,
+
+	// Comparison operators
+	TK_EQ,
+	TK_NOT_EQ,
+	TK_LESS,
+	TK_GREATER,
+	TK_LESS_EQ,
+	TK_GREATER_EQ,
+
+	// Logical operators
+	TK_AND,
+	TK_OR,
+	TK_NOT,
+
+	// Delimiters
+	TK_LBRACE,
+	TK_RBRACE,
+	TK_LPAREN,
+	TK_RPAREN,
+	TK_SEMI,
+	TK_COMMA,
+	TK_QUOTE,
+	TK_ARROW,
+	TK_QUESTION,
+	TK_COLON,
+	TK_DOT,
+
+	// Special tokens
+	TK_NULL,
 	TK_EOF,
-	TK_INVALID,
-    TK_NULL
+	TK_INVALID
 } TokenType;
 
 typedef struct Token {

@@ -34,20 +34,38 @@ typedef enum {
     TYPE_STRING,
     TYPE_BOOL,
     TYPE_VOID,
+    TYPE_STRUCT,
     TYPE_UNKNOWN
 } DataType;
 
 typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION,
+    SYMBOL_TYPE,
 } SymbolType;
 
 typedef struct FunctionParameter {
     const char *nameStart;
-    uint16_t nameLength;
+    size_t nameLength;
     DataType type;
     struct FunctionParameter *next;
 } *FunctionParameter;
+
+typedef struct StructField {
+    const char *nameStart;
+    size_t nameLength;
+    DataType type;
+    size_t offset;
+    struct StructField *next;
+} * StructField;
+
+typedef struct StructType {
+    const char * nameStart;
+    size_t nameLength;
+    StructField fields;
+    size_t size;
+    int fieldCount;
+} *StructType;
 
 /**
  * @brief Symbol structure representing a declared variable.
@@ -61,6 +79,7 @@ typedef struct Symbol {
     uint16_t nameLength;
     SymbolType symbolType;
     DataType type;
+    StructType structType; // only for structs
     int line;
     int column;
     int scope;

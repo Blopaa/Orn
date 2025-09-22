@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../codeGeneration/codeGeneration.h"
 #include "errorHandling.h"
 #include "semanticHelpers.h"
 
@@ -139,6 +140,51 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
     }
 }
 
+DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
+    if (!node || node->nodeType != MEMBER_ACCESS) return TYPE_UNKNOWN;
+
+    ASTNode objectNode = node->children;
+    ASTNode fieldNode = objectNode ? objectNode->brothers : NULL;
+
+    if (!objectNode || !fieldNode) {
+        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
+                   "Invalid member access structure");
+        return TYPE_UNKNOWN;
+    }
+
+    if (objectNode->nodeType != VARIABLE) {
+        reportError(ERROR_INVALID_OPERATION_FOR_TYPE, createErrorContextFromType(node, context),
+                   "Member access requires a variable");
+        return TYPE_UNKNOWN;
+    }
+
+    Symbol objectSymbol = lookupSymbol(context->current, objectNode->start, objectNode->length);
+    if (!objectSymbol) {
+        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(objectNode, context),
+                   "Undefined variable in member access");
+        return TYPE_UNKNOWN;
+    }
+
+    if (objectSymbol->type != TYPE_STRUCT) {
+        reportError(ERROR_INVALID_OPERATION_FOR_TYPE, createErrorContextFromType(node, context),
+                   "Member access on non-struct type");
+        return TYPE_UNKNOWN;
+    }
+
+    StructField field = objectSymbol->structType->fields;
+    while (field) {
+        if (field->nameLength == fieldNode->length &&
+            memcmp(field->nameStart, fieldNode->start, fieldNode->length) == 0) {
+            return field->type;
+            }
+        field = field->next;
+    }
+
+    reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(fieldNode, context),
+               "Struct has no such field");
+    return TYPE_UNKNOWN;
+}
+
 /**
  * @brief Infers the data type of an expression AST node.
  *
@@ -244,6 +290,8 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
             return TYPE_UNKNOWN;
         }
+        case MEMBER_ACCESS:
+            return validateMemberAccess(node, context);
 
         default:
             return TYPE_UNKNOWN;
@@ -486,23 +534,6 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
     return 1;
 }
 
-/**
- * @brief Validates assignment operations for type correctness.
- *
- * Performs comprehensive validation of assignment operations including:
- * - Node structure validation (left and right operands)
- * - Left-side assignment target validation (must be variable)
- * - Variable existence checking
- * - Type compatibility between assigned value and variable
- * - Initialization status updates
- *
- * @param node Assignment AST node (ASSIGNMENT or compound assignment)
- * @param context Type checking context
- * @return 1 if assignment is valid, 0 if validation failed
- *
- * @note Handles both simple assignments (=) and compound assignments (+=, -=, etc.).
- *       Updates the isInitialized flag for simple assignments.
- */
 int validateAssignment(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->children == NULL || node->children->brothers == NULL) {
         reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
@@ -512,28 +543,29 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
     ASTNode left = node->children;
     ASTNode right = node->children->brothers;
 
-    if (left->nodeType != VARIABLE) {
+    if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS) {
         reportError(ERROR_INVALID_ASSIGNMENT_TARGET, createErrorContextFromType(node, context),
-                    "Left side of assignment must be a variable");
+                    "Left side of assignment must be a variable or member access");
         return 0;
     }
-    Symbol symbol = lookupSymbol(context->current, left->start, left->length);
-    if (symbol == NULL) {
-        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(node, context),
-                    extractText(left->start, left->length));
-        return 0;
-    }
+
+    DataType leftType = getExpressionType(left, context);
+    if (leftType == TYPE_UNKNOWN) return 0;
 
     DataType rightType = getExpressionType(right, context);
     if (rightType == TYPE_UNKNOWN) return 0;
-    if (!areCompatible(symbol->type, rightType)) {
-        reportError(variableErrorCompatibleHandling(symbol->type, rightType), createErrorContextFromType(node, context),
-                    extractText(left->start, left->length));
+
+    if (!areCompatible(leftType, rightType)) {
+        reportError(variableErrorCompatibleHandling(leftType, rightType), createErrorContextFromType(node, context),
+                    "Type mismatch in assignment");
         return 0;
     }
 
-    if (node->nodeType == ASSIGNMENT) {
-        symbol->isInitialized = 1;
+    if (left->nodeType == VARIABLE) {
+        Symbol symbol = lookupSymbol(context->current, left->start, left->length);
+        if (symbol && node->nodeType == ASSIGNMENT) {
+            symbol->isInitialized = 1;
+        }
     }
 
     return 1;
@@ -719,6 +751,123 @@ int typeCheckChildren(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
+StructType createStructType(ASTNode node, TypeCheckContext context) {
+    if (!node || node->nodeType != STRUCT_DEFINITION) return NULL;
+    StructType structType = malloc(sizeof(struct StructType));
+    if (!structType) {
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "failed to create struct type");
+        return NULL;
+    };
+    structType->nameStart = node->start;
+    structType->nameLength = node->length;
+    structType->fields = NULL;
+    structType->fieldCount = 0;
+    structType->size = 0;
+
+    ASTNode fieldList = node->children;
+    if (fieldList && fieldList->nodeType == STRUCT_FIELD_LIST) {
+        ASTNode field = fieldList->children;
+        StructField last = NULL;
+
+        while (field) {
+            if (field->nodeType == STRUCT_FIELD && field->children) {
+                StructField structField = malloc(sizeof(struct StructField));
+                if (!structField) {
+                    free(structType);
+                    free(structField);
+                    return NULL;
+                }
+
+                structField->nameStart = field->start;
+                structField->nameLength = field->length;
+                structField->type = getDataTypeFromNode(field->children->nodeType);
+                structField->offset = structType->size;
+                structField->next = NULL;
+
+                StructField check = structType->fields;
+                while (check) {
+                    if (check->nameLength == structField->nameLength && memcmp(check->nameStart, structField->nameStart, check->nameLength) == 0) {
+                        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(field, context), "duplicate field on struct");
+                        free(structField);
+                        return NULL;
+                    }
+                    check = check->next;
+                }
+                size_t fieldSize = getStackSize(structField->type);
+                structType->size += fieldSize;
+                structType->fieldCount++;
+                if (!structType->fields) {
+                    structType->fields = structField;
+                }else {
+                    last->next = structField;
+                }
+                last = structField;
+            }
+            field = field->brothers;
+        }
+    }
+    return structType;
+}
+
+int validateStructDef(ASTNode node, TypeCheckContext context) {
+    if (!node || node->nodeType != STRUCT_DEFINITION) return 0;
+
+    Symbol exists = lookupSymbolCurrentOnly(context->current, node->start, node->length);
+    if (exists) {
+        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context), extractText(node->start, node->length));
+        return 0;
+    }
+    StructType structType = createStructType(node, context);
+    if (!structType) return 0;
+    Symbol structSymbol = addSymbolFromNode(context->current, node, TYPE_STRUCT);
+    if (!structSymbol) {
+        free(structType);
+        return 0;
+    }
+    structSymbol->structType = structType;
+    structSymbol->symbolType = SYMBOL_TYPE;
+
+    return 1;
+}
+
+int validateStructVarDec(ASTNode node, TypeCheckContext context) {
+    if (!node || node->nodeType != STRUCT_VARIABLE_DEFINITION) return 0;
+
+    ASTNode typeRef = node->children;
+    if (!typeRef || typeRef->nodeType != REF_CUSTOM) {
+        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
+                   "Invalid struct variable declaration");
+        return 0;
+    }
+
+    Symbol structSymbol = lookupSymbol(context->current, typeRef->start, typeRef->length);
+    if (!structSymbol) {
+        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(typeRef, context),
+                   "Undefined struct type");
+        return 0;
+    }
+
+    Symbol exists = lookupSymbolCurrentOnly(context->current, node->start, node->length);
+    if (exists) {
+        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context),
+                  extractText(node->start, node->length));
+        return 0;
+    }
+
+    Symbol symbol = addSymbolFromNode(context->current, node, TYPE_STRUCT);
+    if (!symbol) {
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to add struct vairable to symbol table");
+        return 0;
+    }
+
+    symbol->structType = structSymbol->structType;
+    if (typeRef->brothers) {
+        symbol->isInitialized = 1;
+    }
+
+    return 1;
+}
+
 /**
  * @brief Recursively type checks a single AST node and its subtree.
  *
@@ -850,7 +999,12 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case STRING_LIT:
         case BOOL_LIT:
             break;
-
+        case STRUCT_DEFINITION:
+            success = validateStructDef(node, context);
+            break;
+        case STRUCT_VARIABLE_DEFINITION:
+            success = validateStructVarDec(node, context);
+            break;
         default:
             success = typeCheckChildren(node, context);
             break;
@@ -858,28 +1012,16 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
-/**
- * @brief Performs complete type checking on an Abstract Syntax Tree.
- *
- * Main entry point for type checking. Creates a type checking context,
- * performs comprehensive validation of the entire AST, and returns the
- * overall result. Handles context cleanup and integrates with the
- * global error reporting system.
- *
- * @param ast Root AST node (typically PROGRAM node)
- * @return 1 if type checking passed without errors, 0 if errors occurred
- *
- * @note This function integrates with the global error reporting system
- *       and will return 0 if any errors were reported during type checking,
- *       even if the local type checking operations succeeded.
- */
-int typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
     TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
     if (context == NULL) {
         repError(ERROR_INVALID_EXPRESSION, "Failed to create type check context");
         return 0;
     }
     int success = typeCheckNode(ast, context);
-    freeTypeCheckContext(context);
-    return success && !hasErrors();
+    if (!success) {
+        freeTypeCheckContext(context);
+        return NULL;
+    }
+    return context;
 }
