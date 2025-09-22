@@ -335,6 +335,11 @@ void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType typ
     ASM_EMIT_COMMENT(context->file, "Restored intermediate result from stack");
 }
 
+/**
+ * @brief Returns an alternative register for binary operations when register conflicts occur.
+ * Maps between RAX/RBX and XMM0/XMM1 pairs to avoid overwriting operands during
+ * complex expression evaluation with intermediate value storage.
+ */
 RegisterId getOppositeBranchRegister(RegisterId reg) {
     switch (reg) {
         case REG_RAX: return REG_RBX;
@@ -344,6 +349,11 @@ RegisterId getOppositeBranchRegister(RegisterId reg) {
     }
 }
 
+/**
+ * @brief Creates error context for code generation phase with source line extraction.
+ * Builds error reporting context from AST node position and extracts the corresponding
+ * source line from the original file for detailed error messages.
+ */
 ErrorContext *createErrorContextFromCodeGen(ASTNode node, StackContext context) {
     static ErrorContext errorContext;
     static char *lastSourceLine = NULL;
@@ -389,6 +399,11 @@ ErrorContext *createErrorContextFromCodeGen(ASTNode node, StackContext context) 
     return &errorContext;
 }
 
+/**
+ * @brief Searches global symbol table for struct type definitions by name.
+ * Looks up struct types in the global scope to enable struct variable declarations
+ * and validates that the symbol is actually a struct type definition.
+ */
 StructType findGlobalStructType(StackContext context, const char * start, size_t len) {
     if (!context || !start || !context->symbolTable) return NULL;
     Symbol structSymbol = lookupSymbol(context->symbolTable, start, len);
@@ -398,6 +413,11 @@ StructType findGlobalStructType(StackContext context, const char * start, size_t
     return structSymbol->structType;
 }
 
+/**
+ * @brief Calculates total memory size required for a struct type allocation.
+ * Sums up the stack sizes of all fields in the struct to determine the total
+ * bytes needed for stack allocation, with minimum 8-byte alignment.
+ */
 int calcStructSize(StructType structType) {
     if (structType == NULL) return 8;
     int totSize = 0;
@@ -409,6 +429,11 @@ int calcStructSize(StructType structType) {
     return totSize > 0 ? totSize : 8;
 }
 
+/**
+ * @brief Locates a specific field within a struct type definition by name.
+ * Searches through the struct's field list to find a field with matching name
+ * and returns the field information including type and offset data.
+ */
 StructField findStructField(StructType structType, const char * start, size_t len) {
     if (!structType || !start) return NULL;
     StructField field = structType->fields;
@@ -421,6 +446,11 @@ StructField findStructField(StructType structType, const char * start, size_t le
     return NULL;
 }
 
+/**
+ * @brief Allocates stack space for a struct variable and tracks it in the context.
+ * Creates a stack variable entry for a struct instance, calculates required space,
+ * and emits assembly code to reserve the memory on the stack frame.
+ */
 int allocateStructVariable(StackContext context, const char * start, size_t len, StructType structType) {
     if (!context || !start || !structType) return 0;
     int size = calcStructSize(structType);

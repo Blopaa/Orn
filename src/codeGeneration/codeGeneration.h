@@ -113,13 +113,6 @@ int calcStructSize(StructType structType);
 StructField findStructField(StructType structType, const char * start, size_t len);
 int allocateStructVariable(StackContext context, const char * start, size_t len, StructType structType);
 
-// Expression and code generation
-RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
-                                        RegisterId preferredReg);
-int generateConditional(ASTNode node, StackContext context);
-int generateLoop(ASTNode node, StackContext context);
-int generateBuiltinFunctionCall(ASTNode node, StackContext context);
-
 // Variable management
 int allocateVariable(StackContext context, const char *start, size_t len,
                      DataType type);
@@ -146,23 +139,6 @@ void generateFloatLoadImmediate(StackContext context, const char *value,
                                 RegisterId reg);
 void generateStringLoadImmediate(StackContext context, const char *value,
                                  RegisterId reg);
-
-// Operation generation
-void generateBinaryOp(StackContext context, NodeTypes opType,
-                      RegisterId leftReg, RegisterId rightReg,
-                      RegisterId resultReg, DataType operandType, int invert);
-void generateUnaryOp(StackContext context, NodeTypes opType,
-                     RegisterId operandReg, RegisterId resultReg,
-                     DataType operandType);
-void generateFloatBinaryOp(StackContext context, NodeTypes opType,
-                           RegisterId leftReg, RegisterId rightReg,
-                           RegisterId resultReg);
-void generateFloatUnaryOp(StackContext context, NodeTypes opType,
-                          RegisterId operandReg, RegisterId resultReg);
-void generateStringOperation(StackContext context, NodeTypes opType,
-                             RegisterId leftReg, RegisterId rightReg,
-                             RegisterId resultReg);
-
 // String table management
 StringEntry addStringLiteral(StackContext context, const char *value);
 void emitStringTable(StackContext context);

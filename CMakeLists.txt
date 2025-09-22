@@ -25,6 +25,10 @@ set(LIB_SOURCES
         src/semantic/semanticHelpers.c
         src/semantic/semanticHelpers.h
         src/errorHandling/errors.c
+        src/codeGeneration/codeGenOperations.h
+        src/codeGeneration/codeGenOperations.c
+        src/codeGeneration/codeGenExpressions.c
+        src/codeGeneration/codeGenExpressions.h
 )
 
 # Create compiler library
