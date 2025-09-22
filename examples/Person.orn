@@ -1,0 +1,16 @@
+struct Person {
+    age: int
+    score: int
+};
+
+Person player;
+player.age = 25;
+player.score = 100;
+
+:: Give bonus points
+int bonus = 10;
+player.score += bonus;
+
+print(player.age);    :: Should print 25
+print("\n");
+print(player.score);  :: Should print 110
