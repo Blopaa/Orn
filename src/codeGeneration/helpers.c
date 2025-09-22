@@ -222,6 +222,18 @@ DataType getOperandType(ASTNode node, StackContext context) {
     if (type == TYPE_UNKNOWN && node->nodeType == VARIABLE) {
         StackVariable var = findStackVariable(context, node->start, node->length);
         if (var) type = var->dataType;
+    }else if (type == TYPE_UNKNOWN && node->nodeType == MEMBER_ACCESS) {
+        ASTNode objNode = node->children;
+        ASTNode fieldNode = objNode ? objNode->brothers : NULL;
+        if (objNode && fieldNode) {
+            StackVariable var = findStackVariable(context, objNode->start, objNode->length);
+            if (var && var->dataType == TYPE_STRUCT) {
+                StructField field = findStructField(var->structType, fieldNode->start, fieldNode->length);
+                if (field) {
+                    type = field->type;
+                }
+            }
+        }
     }
     return type;
 }
@@ -375,4 +387,64 @@ ErrorContext *createErrorContextFromCodeGen(ASTNode node, StackContext context) 
     errorContext.startColumn = node->column;
 
     return &errorContext;
+}
+
+StructType findGlobalStructType(StackContext context, const char * start, size_t len) {
+    if (!context || !start || !context->symbolTable) return NULL;
+    Symbol structSymbol = lookupSymbol(context->symbolTable, start, len);
+    if (!structSymbol || structSymbol->symbolType != SYMBOL_TYPE || structSymbol->type != TYPE_STRUCT) {
+        return NULL;
+    }
+    return structSymbol->structType;
+}
+
+int calcStructSize(StructType structType) {
+    if (structType == NULL) return 8;
+    int totSize = 0;
+    StructField field = structType->fields;
+    while (field != NULL) {
+        totSize += getStackSize(field->type);
+        field = field->next;
+    }
+    return totSize > 0 ? totSize : 8;
+}
+
+StructField findStructField(StructType structType, const char * start, size_t len) {
+    if (!structType || !start) return NULL;
+    StructField field = structType->fields;
+    while (field != NULL) {
+        if (field->nameLength == len && memcmp(field->nameStart, start, len) == 0) {
+            return field;
+        }
+        field = field->next;
+    }
+    return NULL;
+}
+
+int allocateStructVariable(StackContext context, const char * start, size_t len, StructType structType) {
+    if (!context || !start || !structType) return 0;
+    int size = calcStructSize(structType);
+    context->currentOffset += size;
+    StackVariable variable = malloc(sizeof(struct StackVariable));
+    if (!variable) {
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate struct variable");
+        return 0;
+    }
+
+    variable->stackOffset = -context->currentOffset;
+    variable->dataType = TYPE_STRUCT;
+    variable->structType = structType;
+    variable->start = start;
+    variable->length = len;
+    variable->next = context->variable;
+    context->variable = variable;
+
+    char *tempName = extractText(start, len);
+    if (tempName) {
+        ASM_EMIT_COMMENT(context->file, tempName);
+        ASM_EMIT_SUBQ_RSP(context->file, size, tempName);
+        free(tempName);
+    }
+
+    return variable->stackOffset;
 }

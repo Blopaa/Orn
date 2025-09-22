@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../codeGeneration/codeGeneration.h"
 #include "errorHandling.h"
 #include "semanticHelpers.h"
 
@@ -792,7 +793,7 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                     }
                     check = check->next;
                 }
-                size_t fieldSize = 0;
+                size_t fieldSize = getStackSize(structField->type);
                 structType->size += fieldSize;
                 structType->fieldCount++;
                 if (!structType->fields) {
@@ -1011,28 +1012,16 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
-/**
- * @brief Performs complete type checking on an Abstract Syntax Tree.
- *
- * Main entry point for type checking. Creates a type checking context,
- * performs comprehensive validation of the entire AST, and returns the
- * overall result. Handles context cleanup and integrates with the
- * global error reporting system.
- *
- * @param ast Root AST node (typically PROGRAM node)
- * @return 1 if type checking passed without errors, 0 if errors occurred
- *
- * @note This function integrates with the global error reporting system
- *       and will return 0 if any errors were reported during type checking,
- *       even if the local type checking operations succeeded.
- */
-int typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
     TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
     if (context == NULL) {
         repError(ERROR_INVALID_EXPRESSION, "Failed to create type check context");
         return 0;
     }
     int success = typeCheckNode(ast, context);
-    freeTypeCheckContext(context);
-    return success && !hasErrors();
+    if (!success) {
+        freeTypeCheckContext(context);
+        return NULL;
+    }
+    return context;
 }

@@ -117,8 +117,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (verbose) printf("3. TYPE CHECKING: ");
-    int typeCheckSuccess = typeCheckAST(astContext->root, input, inputFile);
-    if (!typeCheckSuccess) {
+    TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
+    if (!globalSymbolTable || hasErrors()) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     if (verbose) printf("OK\n");
 
     if (verbose) printf("4. CODE GENERATION: ");
-    int codeGenSuccess = generateCode(astContext->root, outputFile, input, inputFile);
+    int codeGenSuccess = generateCode(astContext->root, outputFile, input, inputFile, globalSymbolTable->global);
     if (!codeGenSuccess) {
         if (verbose) printf("FAILED\n");
         printErrorSummary();

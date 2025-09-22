@@ -1,0 +1,22 @@
+struct Rectangle {
+    width: int
+    height: int
+};
+
+Rectangle rect;
+rect.width = 5;
+rect.height = 3;
+
+:: Calculate area and perimeter
+int area = rect.width * rect.height;
+int double_width = rect.width * 2;
+int double_height = rect.height * 2;
+int perimeter = double_width + double_height;
+
+print(rect.width);    :: Should print 5
+print("\n");
+print(rect.height);   :: Should print 3
+print("\n");
+print(area);          :: Should print 15
+print("\n");
+print(perimeter);     :: Should print 16
