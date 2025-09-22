@@ -152,35 +152,36 @@ int generateNodeCode(ASTNode node, StackContext context) {
                     "Struct field not found");
         return 0;
       }
-
-      RegisterId rightReg;
-      if (field->type == TYPE_FLOAT) {
-        rightReg = generateExpressionToRegister(rightNode, context, REG_XMM0);
-      } else {
-        rightReg = generateExpressionToRegister(rightNode, context, REG_RAX);
-      }
-
       int memberOffset = structVar->stackOffset + field->offset;
       if (node->nodeType == ASSIGNMENT) {
+        RegisterId rightReg;
         if (field->type == TYPE_FLOAT) {
+          rightReg = generateExpressionToRegister(rightNode, context, REG_XMM0);
           fprintf(context->file,
                   "    movsd %s, %d(%%rbp)    # Store to struct member\n",
                   getFloatRegisterName(rightReg), memberOffset);
         } else {
+          rightReg = generateExpressionToRegister(rightNode, context, REG_RAX);
           fprintf(context->file,
                   "    movq %s, %d(%%rbp)     # Store to struct member\n",
                   getRegisterName(rightReg, field->type), memberOffset);
         }
       }else {
-        RegisterId leftReg;
-        if (structVar->dataType == TYPE_FLOAT) {
-          leftReg = REG_XMM1;
+        RegisterId leftReg, rightReg;
+        if (field->type == TYPE_FLOAT) {
+          leftReg = REG_XMM0;
+          fprintf(context->file,
+                  "    movsd %d(%%rbp), %s    # Load struct member\n",
+                  memberOffset, getFloatRegisterName(leftReg));
+          rightReg = REG_XMM1;
         } else {
-          leftReg = REG_RBX;
+          leftReg = REG_RAX;
+          fprintf(context->file,
+                  "    movq %d(%%rbp), %s     # Load struct member\n",
+                  memberOffset, getRegisterName(leftReg, field->type));
+          rightReg = REG_RBX;
         }
-
-        generateLoadVariable(context, leftNode->start, leftNode->length,
-                             leftReg, node);
+        rightReg = generateExpressionToRegister(rightNode, context, rightReg);
 
         NodeTypes opType;
         switch (node->nodeType) {
@@ -202,9 +203,17 @@ int generateNodeCode(ASTNode node, StackContext context) {
         }
 
         generateBinaryOp(context, opType, leftReg, rightReg, leftReg,
-                         structVar->dataType, 0);
-        generateStoreVariable(context, leftNode->start, leftNode->length,
-                              leftReg, node);
+                         field->type, 0);
+
+        if (field->type == TYPE_FLOAT) {
+          fprintf(context->file,
+                  "    movsd %s, %d(%%rbp)    # Store back to struct member\n",
+                  getFloatRegisterName(leftReg), memberOffset);
+        } else {
+          fprintf(context->file,
+                  "    movq %s, %d(%%rbp)     # Store back to struct member\n",
+                  getRegisterName(leftReg, field->type), memberOffset);
+        }
       }
     } else {
       StackVariable var =
