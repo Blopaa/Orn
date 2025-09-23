@@ -285,42 +285,27 @@ int isLiteral(ASTNode node) {
 }
 
 /**
- * @brief Spills a register value to the stack.
- *
- * Saves the current contents of a register onto the stack to free it for
- * other computations. Handles both integer/pointer registers and floating-
- * point registers, since floating-point values require specific instructions.
- *
- * @param context Current stack context containing output file stream
- * @param reg     Register identifier to spill
- * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ * @brief Spills a register value to a temporary variable on the stack.
+ * Handles both integer and floating-point registers with appropriate instructions.
  */
-void spillRegisterToStack(StackContext context, RegisterId reg, DataType type) {
+void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
     if (type == TYPE_FLOAT) {
         // Float registers need special handling
-        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP, 8, "float", 8);
-        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_MEM,
-                getFloatRegisterName(reg), 0, "spill float");
+        fprintf(context->file, "    movsd %s, -%d(%%rbp)        # Spill float to tempVar\n",
+                getFloatRegisterName(reg), tempVarOffset);
     } else {
         // Integer/pointer registers
-        fprintf(context->file, "    %s %s          # Spill to stack\n",
-                ASM_PUSHQ, getRegisterName(reg, type));
+        fprintf(context->file, "    movq %s, -%d(%%rbp)         # Spill to tempVar\n",
+               getRegisterName(reg, type), tempVarOffset);
     }
-    ASM_EMIT_COMMENT(context->file, "Saved intermediate result to stack");
+    ASM_EMIT_COMMENT(context->file, "Saved intermediate result to tempVar");
 }
 
 /**
- * @brief Restores a register value from the stack.
- *
- * Loads a previously spilled register value from the stack back into the
- * specified register. Correctly handles both integer/pointer registers and
- * floating-point registers. Also updates the stack pointer after restoring.
- *
- * @param context Current stack context containing output file stream
- * @param reg     Register identifier to restore into
- * @param type    Data type of the value (TYPE_FLOAT or integer/pointer type)
+ * @brief Restores a register value from a temporary variable on the stack.
+ * Loads previously spilled value back into the specified register.
  */
-void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType type) {
+void restoreRegisterFromTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
     if (type == TYPE_FLOAT) {
         // Float registers need special handling
         fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG,
@@ -329,10 +314,9 @@ void restoreRegisterFromStack(StackContext context, RegisterId reg, DataType typ
                 ASM_ADDQ, ASM_REG_RSP);
     } else {
         // Integer/pointer registers
-        fprintf(context->file, "    %s %s           # Restore from stack\n",
-                ASM_POPQ, getRegisterName(reg, type));
+        fprintf(context->file, "    movq -%d(%%rbp), %s           # Restore from tempVar\n", tempVarOffset, getRegisterName(reg, type));
     }
-    ASM_EMIT_COMMENT(context->file, "Restored intermediate result from stack");
+    ASM_EMIT_COMMENT(context->file, "Restored intermediate result from tempVar");
 }
 
 /**

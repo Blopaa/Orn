@@ -120,10 +120,10 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     }
     leftReg = generateExpressionToRegister(left, context, leftReg);
     if (needSpill) {
-      spillRegisterToStack(context, leftReg, operandType);
+      spillRegisterToTempVar(context, leftReg, operandType, TEMP_VAR_A);
       rightReg = generateExpressionToRegister(right, context, REG_RAX);
       leftReg = getOppositeBranchRegister(rightReg);
-      restoreRegisterFromStack(context, leftReg, operandType);
+      restoreRegisterFromTempVar(context, leftReg, operandType, TEMP_VAR_A);
     } else {
       rightReg = generateExpressionToRegister(right, context, rightReg);
     }

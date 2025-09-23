@@ -431,7 +431,7 @@ StackContext createCodeGenContext(const char *file, const char *sourceFile,
   context->symbolTable = symbolTable;
   context->variable = NULL;
   context->string = NULL;
-  context->currentOffset = 0;
+  context->currentOffset = 16;
   context->labelCount = 1;
   context->tempCount = 1;
   context->stringCount = 0;

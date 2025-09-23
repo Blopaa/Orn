@@ -5,6 +5,12 @@
 #define CINTERPRETER_CODEGENERATION_H
 #include "symbolTable.h"
 #include <stdio.h>
+
+typedef enum {
+  TEMP_VAR_A = 8,
+  TEMP_VAR_B = 16,
+} tempVarOffset;
+
 /**
  * @brief String literal entry in the global string table.
  *
@@ -127,9 +133,9 @@ StructType findGlobalStructType(StackContext context, const char * start, size_t
 // Register management
 const char *getRegisterName(RegisterId regId, DataType type);
 const char *getFloatRegisterName(RegisterId regId);
-void spillRegisterToStack(StackContext context, RegisterId reg, DataType type);
-void restoreRegisterFromStack(StackContext context, RegisterId reg,
-                              DataType type);
+void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset);
+void restoreRegisterFromTempVar(StackContext context, RegisterId reg,
+                              DataType type, tempVarOffset tempVarOffset);
 RegisterId getOppositeBranchRegister(RegisterId reg);
 
 // Immediate value loading
