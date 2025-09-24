@@ -270,6 +270,13 @@ DataType getOperandType(ASTNode node, StackContext context) {
                 }
             }
         }
+    }else if (type == TYPE_UNKNOWN && node->nodeType == FUNCTION_CALL) {
+        if (context->symbolTable) {
+            Symbol funcSymbol = lookupSymbol(context->symbolTable, node->start, node->length);
+            if (funcSymbol && funcSymbol->symbolType == SYMBOL_FUNCTION) {
+                type = funcSymbol->type;
+            }
+        }
     }
     return type;
 }
@@ -321,13 +328,13 @@ int isLeafNode(ASTNode node) {
  */
 void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
     if (type == TYPE_FLOAT) {
-        // Float registers need special handling
         fprintf(context->file, "    movsd %s, -%d(%%rbp)        # Spill float to tempVar\n",
                 getFloatRegisterName(reg), tempVarOffset);
     } else {
-        // Integer/pointer registers
-        fprintf(context->file, "    movq %s, -%d(%%rbp)         # Spill to tempVar\n",
-               getRegisterName(reg, type), tempVarOffset);
+        const char *regName = getRegisterNameForSize(reg, type);
+        const char *suffix = getInstructionSuffix(type);
+        fprintf(context->file, "    mov%s %s, -%d(%%rbp)         # Spill to tempVar\n",
+               suffix, regName, tempVarOffset);
     }
     ASM_EMIT_COMMENT(context->file, "Saved intermediate result to tempVar");
 }
@@ -345,7 +352,10 @@ void restoreRegisterFromTempVar(StackContext context, RegisterId reg, DataType t
                 ASM_ADDQ, ASM_REG_RSP);
     } else {
         // Integer/pointer registers
-        fprintf(context->file, "    movq -%d(%%rbp), %s           # Restore from tempVar\n", tempVarOffset, getRegisterName(reg, type));
+        const char *regName = getRegisterNameForSize(reg, type);
+        const char *suffix = getInstructionSuffix(type);
+        fprintf(context->file, "    mov%s -%d(%%rbp), %s           # Restore from tempVar\n",
+               suffix, tempVarOffset, regName);
     }
     ASM_EMIT_COMMENT(context->file, "Restored intermediate result from tempVar");
 }
@@ -477,7 +487,10 @@ StructField findStructField(StructType structType, const char * start, size_t le
 int allocateStructVariable(StackContext context, const char * start, size_t len, StructType structType) {
     if (!context || !start || !structType) return 0;
     int size = calcStructSize(structType);
+    int oldOffset = context->currentOffset;
+    context->currentOffset = alignTo(context->currentOffset, 8);
     context->currentOffset += size;
+    int bytesToAlloc = context->currentOffset - oldOffset;
     StackVariable variable = malloc(sizeof(struct StackVariable));
     if (!variable) {
         repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate struct variable");
@@ -494,8 +507,8 @@ int allocateStructVariable(StackContext context, const char * start, size_t len,
 
     char *tempName = extractText(start, len);
     if (tempName) {
-        ASM_EMIT_COMMENT(context->file, tempName);
-        ASM_EMIT_SUBQ_RSP(context->file, size, tempName);
+        fprintf(context->file, "    # Allocate struct %s (size=%d)\n", tempName, size);
+        fprintf(context->file, "    subq $%d, %%rsp\n", bytesToAlloc);
         free(tempName);
     }
 
