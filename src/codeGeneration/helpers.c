@@ -333,9 +333,6 @@ void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type,
     } else {
         const char *regName = getRegisterNameForSize(reg, type);
         const char *suffix = getInstructionSuffix(type);
-        // Add debug comment to see what's happening
-        fprintf(context->file, "    # DEBUG: reg=%d, type=%d, regName=%s, suffix=%s\n",
-                reg, type, regName, suffix);
         fprintf(context->file, "    mov%s %s, -%d(%%rbp)         # Spill to tempVar\n",
                suffix, regName, tempVarOffset);
     }

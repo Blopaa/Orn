@@ -136,7 +136,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
 
     generateBinaryOp(context, node->nodeType, leftReg, rightReg, resultReg,
                      operandType, invert);
-    return resultReg;
+    return preferredReg;
   }
 
   case UNARY_MINUS_OP:
