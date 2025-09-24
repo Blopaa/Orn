@@ -63,7 +63,11 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 	if (start >= len) goto checkVariable;
 
 	int has_dot = 0, all_digits = 1;
-	for (size_t i = start; i<len; i++) {
+	size_t end = len - 1;
+	if (len > 1 && (val[len-1] == 'f' || val[len-1] == 'F')) {
+		end = len - 1;
+	}
+	for (size_t i = start; i<end; i++) {
 		if (val[i] == '.') {
 			if (has_dot) { all_digits = 0; break; }
 			has_dot = 1;
@@ -73,8 +77,15 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 		}
 	}
 
-	if (all_digits)
-		return has_dot ? FLOAT_LIT : INT_LIT;
+	if (all_digits) {
+		if (has_dot) {
+			if (len > 1 && (val[len-1] == 'f' || val[len-1] == 'F')) {
+				return FLOAT_LIT;
+			}
+			return DOUBLE_LIT;
+		}
+		return INT_LIT;
+	}
 
 	checkVariable:
 		if (isalpha(val[0]) || val[0] == '_') {
@@ -209,6 +220,7 @@ int isTypeToken(TokenType type) {
             type == TK_STRING ||
             type == TK_FLOAT ||
             type == TK_BOOL ||
+            type == TK_DOUBLE ||
             type == TK_VOID);
 }
 
@@ -224,6 +236,7 @@ NodeTypes getReturnTypeFromToken(TokenType type) {
     case TK_STRING: return STRING_VARIABLE_DEFINITION;
     case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
     case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
+    case TK_DOUBLE: return DOUBLE_VARIABLE_DEFINITION;
     default: return null_NODE;
     }
 }

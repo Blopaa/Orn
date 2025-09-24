@@ -537,6 +537,7 @@ NodeTypes getTypeNodeFromToken(TokenType type) {
 		case TK_STRING: return REF_STRING;
 		case TK_FLOAT: return REF_FLOAT;
 		case TK_BOOL: return REF_BOOL;
+		case TK_DOUBLE: return REF_DOUBLE;
 		case TK_VOID: return REF_VOID;
 		default: return null_NODE;
 	}

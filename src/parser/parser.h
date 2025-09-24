@@ -73,6 +73,7 @@ typedef enum {
     REF_INT,
     REF_STRING,
     REF_FLOAT,
+    REF_DOUBLE,
     REF_BOOL,
     REF_VOID,
     REF_CUSTOM,
@@ -83,12 +84,14 @@ typedef enum {
     FLOAT_VARIABLE_DEFINITION,
     BOOL_VARIABLE_DEFINITION,
     STRUCT_VARIABLE_DEFINITION,
+    DOUBLE_VARIABLE_DEFINITION,
 
     // Literals
     STRING_LIT,
     INT_LIT,
     FLOAT_LIT,
     BOOL_LIT,
+    DOUBLE_LIT,
 
     // Variables and assignment
     VARIABLE,
@@ -164,10 +167,12 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {INT_VARIABLE_DEFINITION, "INT_VAR_DEF"},
     {FLOAT_VARIABLE_DEFINITION, "FLOAT_VAR_DEF"},
     {BOOL_VARIABLE_DEFINITION, "BOOL_VAR_DEF"},
+    {DOUBLE_VARIABLE_DEFINITION, "DOUBLE_VAR_DEF"},
     {STRING_LIT, "STRING_LIT"},
     {INT_LIT, "INT_LIT"},
     {FLOAT_LIT, "FLOAT_LIT"},
     {BOOL_LIT, "BOOL_LIT"},
+    {DOUBLE_LIT, "DOUBLE_LIT"},
     {VARIABLE, "VARIABLE"},
     {ASSIGNMENT, "ASSIGNMENT"},
     {COMPOUND_ADD_ASSIGN, "COMPOUND_ADD_ASSIGN"},
@@ -217,6 +222,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {REF_FLOAT, "TYPE_FLOAT"},
     {REF_BOOL, "TYPE_BOOL"},
     {REF_VOID, "TYPE_VOID"},
+    {REF_DOUBLE, "TYPE_DOUBLE"},
     {REF_CUSTOM, "TYPE_CUSTOM"},
     {null_NODE, NULL} // Sentinel - must be last
 };
@@ -262,6 +268,7 @@ static const TypeDefMap TypeDefs[] = {
     {TK_STRING, STRING_VARIABLE_DEFINITION},
     {TK_FLOAT, FLOAT_VARIABLE_DEFINITION},
     {TK_BOOL, BOOL_VARIABLE_DEFINITION},
+    {TK_DOUBLE, DOUBLE_VARIABLE_DEFINITION},
     {TK_NULL, null_NODE}
 };
 
