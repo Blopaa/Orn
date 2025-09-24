@@ -101,7 +101,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     ASTNode left;
     ASTNode right;
     int invert = 0;
-    if (isLiteral(node->children) && !isLiteral(node->children->brothers) &&
+    if (isLeafNode(node->children) && !isLeafNode(node->children->brothers) &&
         node->nodeType == SUB_OP) {
       left = node->children->brothers;
       right = node->children;
@@ -110,7 +110,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
       left = node->children;
       right = node->children->brothers;
     }
-    int needSpill = !isLiteral(left) || !isLiteral(right);
+    int needSpill =  !isLeafNode(left) && !isLeafNode(right);
     if (operandType == TYPE_FLOAT) {
       leftReg = REG_XMM0;
       rightReg = REG_XMM1;

@@ -69,10 +69,11 @@ typedef struct StackContext {
  * following x86-64 conventions for efficient memory access.
  */
 typedef enum {
-  STACK_SIZE_INT = 8,
-  STACK_SIZE_FLOAT = 8,
-  STACK_SIZE_BOOL = 8,
-  STACK_SIZE_STRING = 8
+  STACK_SIZE_INT = 4,
+  STACK_SIZE_FLOAT = 4,
+  STACK_SIZE_BOOL = 1,
+  STACK_SIZE_STRING = 8,
+  ALIGNMENT = 16
 } StackSize;
 
 /**
@@ -158,5 +159,9 @@ void generateLabel(StackContext context, const char *prefix, char *buffer,
 
 // Utility functions
 DataType getOperandType(ASTNode node, StackContext context);
+int isLeafNode(ASTNode node);
 int isLiteral(ASTNode node);
+int alignTo(int val, int alignement);
+const char *getInstructionSuffix(DataType type);
+const char *getRegisterNameForSize(RegisterId regId, DataType type);
 #endif // CINTERPRETER_CODEGENERATION_H

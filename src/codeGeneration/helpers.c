@@ -32,8 +32,13 @@ int getStackSize(DataType type) {
         case TYPE_FLOAT: return STACK_SIZE_FLOAT;
         case TYPE_BOOL: return STACK_SIZE_BOOL;
         case TYPE_STRING: return STACK_SIZE_STRING;
+        case TYPE_STRUCT: return STACK_SIZE_STRING;
         default: return STACK_SIZE_INT;
     }
+}
+
+int alignSize(DataType type) {
+    return alignTo(getStackSize(type), 8);
 }
 
 /**
@@ -151,7 +156,11 @@ int allocateVariable(StackContext context, const char *start, size_t len, DataTy
     if (context == NULL || start == NULL) return 0;
 
     int size = getStackSize(type);
+    int oldOffset = context->currentOffset;
+    context->currentOffset = alignTo(context->currentOffset, size);
     context->currentOffset += size;
+
+    int bytesToAlloc = context->currentOffset - oldOffset;
 
     StackVariable variable = malloc(sizeof(struct StackVariable));
     if (variable == NULL) {
@@ -169,11 +178,38 @@ int allocateVariable(StackContext context, const char *start, size_t len, DataTy
     char * tempName = extractText(start, len);
     if (tempName) {
         ASM_EMIT_COMMENT(context->file, tempName);
-        ASM_EMIT_SUBQ_RSP(context->file, size, tempName);
+        fprintf(context->file, "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n",
+                bytesToAlloc, tempName, size);
         free(tempName);
     }
 
     return variable->stackOffset;
+}
+
+const char *getInstructionSuffix(DataType type) {
+    switch (type) {
+    case TYPE_INT: return "l";      // 32-bit (long)
+    case TYPE_FLOAT: return "ss";   // Single precision float
+    case TYPE_BOOL: return "b";     // Byte
+    case TYPE_STRING: return "q";   // Quad word (64-bit pointer)
+    default: return "l";
+    }
+}
+
+const char *getRegisterNameForSize(RegisterId regId, DataType type) {
+    static const char *registers64[] = {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"};
+    static const char *registers32[] = {"%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi", "%r8d", "%r9d", "%r10d", "%r11d"};
+    static const char *registers8[] = {"%al", "%bl", "%cl", "%dl", "%sil", "%dil", "%r8b", "%r9b", "%r10b", "%r11b"};
+
+    if (regId >= REG_R11 + 1) return registers64[0];
+
+    switch (type) {
+    case TYPE_INT:
+    case TYPE_FLOAT: return registers32[regId];
+    case TYPE_BOOL: return registers8[regId];
+    case TYPE_STRING:
+    default: return registers64[regId];
+    }
 }
 
 /**
@@ -266,22 +302,17 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     }
 }
 
-/**
- * @brief Checks if an AST node represents a compile-time literal value.
- *
- * Determines whether a node is a literal constant (INT_LIT, FLOAT_LIT,
- * BOOL_LIT, STRING_LIT) that can be loaded as immediate value. Used for
- * code generation optimizations in operand ordering.
- *
- * @param node AST node to test (can be NULL)
- * @return 1 if node is a literal, 0 otherwise
- */
 int isLiteral(ASTNode node) {
     if (node == NULL) return 0;
-    return (node->nodeType == INT_LIT ||
+    return node->nodeType == INT_LIT ||
             node->nodeType == FLOAT_LIT ||
             node->nodeType == BOOL_LIT ||
-            node->nodeType == STRING_LIT);
+            node->nodeType == STRING_LIT;
+}
+
+int isLeafNode(ASTNode node) {
+    if (node == NULL) return 0;
+    return  isLiteral(node) || node->nodeType == VARIABLE;
 }
 
 /**
@@ -397,20 +428,28 @@ StructType findGlobalStructType(StackContext context, const char * start, size_t
     return structSymbol->structType;
 }
 
-/**
- * @brief Calculates total memory size required for a struct type allocation.
- * Sums up the stack sizes of all fields in the struct to determine the total
- * bytes needed for stack allocation, with minimum 8-byte alignment.
- */
 int calcStructSize(StructType structType) {
     if (structType == NULL) return 8;
-    int totSize = 0;
+    int currentOffset = 0;
+    int maxAlignment = 1;
+
     StructField field = structType->fields;
     while (field != NULL) {
-        totSize += getStackSize(field->type);
+        int fieldSize = getStackSize(field->type);
+
+        if (fieldSize > maxAlignment) {
+            maxAlignment = fieldSize;
+        }
+
+        currentOffset = alignTo(currentOffset, fieldSize);
+        field->offset = currentOffset;
+        currentOffset += fieldSize;
+
         field = field->next;
     }
-    return totSize > 0 ? totSize : 8;
+
+    int structSize = alignTo(currentOffset, maxAlignment);
+    return alignTo(structSize, 8);
 }
 
 /**
@@ -461,4 +500,8 @@ int allocateStructVariable(StackContext context, const char * start, size_t len,
     }
 
     return variable->stackOffset;
+}
+
+int alignTo(int val, int alignement) {
+    return (val + alignement - 1) & ~(alignement - 1);
 }

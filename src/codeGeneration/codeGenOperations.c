@@ -2,6 +2,8 @@
 
 #include "asmTemplate.h"
 
+#include <string.h>
+
 /**
  * @brief Generates binary operations with type-aware instruction selection and
  * register management. Handles all data types including special cases for
@@ -21,176 +23,96 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
     return;
   }
 
-  // Integer/boolean operations
-  const char *left = getRegisterName(leftReg, operandType);
-  const char *right = getRegisterName(rightReg, operandType);
-  const char *result = getRegisterName(resultReg, operandType);
+  const char *left = getRegisterNameForSize(leftReg, operandType);
+  const char *right = getRegisterNameForSize(rightReg, operandType);
+  const char *result = getRegisterNameForSize(resultReg, operandType);
+  const char *suffix = getInstructionSuffix(operandType);
 
-  // Handle the case where we might overwrite an operand
-  if (rightReg == resultReg && leftReg != resultReg) {
-    // Right operand is in result register, will be overwritten if we move left
-    // to result
-    switch (opType) {
-    case ADD_OP:
-      // Addition is commutative: instead of result = left + right, do result =
-      // result + left
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, left, result);
-      break;
-    case MUL_OP:
-      // Multiplication is commutative
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, left, result);
-      break;
-    case SUB_OP:
-      // Subtraction is NOT commutative, need to save right first
-      fprintf(context->file, "    movq %s, %%r11    # Save right operand\n",
-              right);
-      fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, "%r11", result);
-      break;
-    case DIV_OP:
-    case MOD_OP:
-      // Division/modulo need special handling with RAX/RDX
-      fprintf(context->file, "    movq %s, %%r11    # Save right operand\n",
-              right);
-      fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, "%rax");
-      fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, "%rax", "%r11");
-      if (opType == DIV_OP && resultReg != REG_RAX) {
-        fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
-      } else if (opType == MOD_OP && resultReg != REG_RDX) {
-        fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
-      }
-      break;
-    case LOGIC_AND:
-      // AND is commutative
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, left, result);
-      break;
-    case LOGIC_OR:
-      // OR is commutative
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, left, result);
-      break;
-    case EQUAL_OP:
-    case NOT_EQUAL_OP:
-    case LESS_THAN_OP:
-    case GREATER_THAN_OP:
-    case LESS_EQUAL_OP:
-    case GREATER_EQUAL_OP: {
-      // Comparisons need both operands, save right first
-      fprintf(context->file, "    movq %s, %%r11    # Save right operand\n",
-              right);
-      fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
-      fprintf(context->file, ASM_TEMPLATE_CMP_REGS, "%r11", result);
+  if (leftReg != resultReg) {
+    fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+  }
 
-      const char *setInstruction;
-      switch (opType) {
-      case EQUAL_OP:
-        setInstruction = ASM_SETE;
-        break;
-      case NOT_EQUAL_OP:
-        setInstruction = ASM_SETNE;
-        break;
-      case LESS_THAN_OP:
-        setInstruction = ASM_SETL;
-        break;
-      case GREATER_THAN_OP:
-        setInstruction = ASM_SETG;
-        break;
-      case LESS_EQUAL_OP:
-        setInstruction = ASM_SETLE;
-        break;
-      case GREATER_EQUAL_OP:
-        setInstruction = ASM_SETGE;
-        break;
-      default:
-        setInstruction = ASM_SETE;
-        break;
-      }
-      fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
-      fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
-      break;
-    }
-    default:
-      emitComment(context, "Unknown binary operation");
-      break;
-    }
-  } else {
-    // Normal case: left and result are different, or left is already in result
-    if (leftReg != resultReg) {
-      fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, left, result);
-    }
-
-    switch (opType) {
-    case ADD_OP:
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDQ, right, result);
-      break;
-    case SUB_OP:
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBQ, right, result);
-      break;
-    case MUL_OP:
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_IMULQ, right, result);
-      break;
-    case DIV_OP:
-      fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
+  switch (opType) {
+  case ADD_OP:
+    fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+    break;
+  case SUB_OP:
+    fprintf(context->file, "    sub%s %s, %s\n", suffix, right, result);
+    break;
+  case MUL_OP:
+    fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
+    break;
+  case DIV_OP:
+    if (operandType == TYPE_INT) {
+      fprintf(context->file, "    movl %s, %%eax\n", result);
+      fprintf(context->file,
+              "    cltd              # Sign extend EAX to EDX:EAX\n");
+      fprintf(context->file, "    idivl %s\n", right);
       if (resultReg != REG_RAX) {
-        fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_QUOT, result);
+        fprintf(context->file, "    movl %%eax, %s\n", result);
       }
-      break;
-    case MOD_OP:
-      fprintf(context->file, ASM_TEMPLATE_DIV_SETUP, result, right);
-      if (resultReg != REG_RDX) {
-        fprintf(context->file, ASM_TEMPLATE_DIV_RESULT_REM, result);
-      }
-      break;
-    case EQUAL_OP:
-    case NOT_EQUAL_OP:
-    case LESS_THAN_OP:
-    case GREATER_THAN_OP:
-    case LESS_EQUAL_OP:
-    case GREATER_EQUAL_OP: {
-      const char *setInstruction;
-      switch (opType) {
-      case EQUAL_OP:
-        setInstruction = ASM_SETE;
-        break;
-      case NOT_EQUAL_OP:
-        setInstruction = ASM_SETNE;
-        break;
-      case LESS_THAN_OP:
-        setInstruction = ASM_SETL;
-        break;
-      case GREATER_THAN_OP:
-        setInstruction = ASM_SETG;
-        break;
-      case LESS_EQUAL_OP:
-        setInstruction = ASM_SETLE;
-        break;
-      case GREATER_EQUAL_OP:
-        setInstruction = ASM_SETGE;
-        break;
-      default:
-        setInstruction = ASM_SETE;
-        break;
-      }
-      fprintf(context->file, ASM_TEMPLATE_CMP_REGS, right, result);
-      fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
-      fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, result);
-      break;
     }
-    case LOGIC_AND:
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ANDQ, right, result);
+    break;
+  case MOD_OP:
+    if (operandType == TYPE_INT) {
+      fprintf(context->file, "    movl %s, %%eax\n", result);
+      fprintf(context->file,
+              "    cltd              # Sign extend EAX to EDX:EAX\n");
+      fprintf(context->file, "    idivl %s\n", right);
+      if (resultReg != REG_RDX) {
+        fprintf(context->file, "    movl %%edx, %s\n", result);
+      }
+    }
+    break;
+  case EQUAL_OP:
+  case NOT_EQUAL_OP:
+  case LESS_THAN_OP:
+  case GREATER_THAN_OP:
+  case LESS_EQUAL_OP:
+  case GREATER_EQUAL_OP: {
+    const char *setInstruction;
+    switch (opType) {
+    case EQUAL_OP:
+      setInstruction = ASM_SETE;
       break;
-    case LOGIC_OR:
-      fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ORQ, right, result);
+    case NOT_EQUAL_OP:
+      setInstruction = ASM_SETNE;
+      break;
+    case LESS_THAN_OP:
+      setInstruction = ASM_SETL;
+      break;
+    case GREATER_THAN_OP:
+      setInstruction = ASM_SETG;
+      break;
+    case LESS_EQUAL_OP:
+      setInstruction = ASM_SETLE;
+      break;
+    case GREATER_EQUAL_OP:
+      setInstruction = ASM_SETGE;
       break;
     default:
-      emitComment(context, "Unknown binary operation");
+      setInstruction = ASM_SETE;
       break;
     }
+    fprintf(context->file, "    cmp%s %s, %s\n", suffix, right, result);
+    fprintf(context->file, "    %s %%al\n", setInstruction);
+    fprintf(context->file, "    movzbl %%al, %s\n",
+            getRegisterNameForSize(resultReg, TYPE_INT));
+    break;
+  }
+  case LOGIC_AND:
+    fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+    break;
+  case LOGIC_OR:
+    fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+    break;
+  default:
+    emitComment(context, "Unknown binary operation");
+    break;
   }
 
   if (invert == 1) {
-    emitComment(context, "Invert result a - b = -(b - a)");
-    fprintf(context->file, "    #%s = -%s\n" ASM_TEMPLATE_UNARY_OP, result,
-            result, ASM_NEGQ, result);
+    fprintf(context->file, "    neg%s %s    # Invert result\n", suffix, result);
   }
 }
 
@@ -317,9 +239,9 @@ void generateFloatBinaryOp(StackContext context, NodeTypes opType,
 }
 
 /**
- * @brief Generates floating-point unary operations including negation using bit manipulation.
- * Implements IEEE 754 compliant operations by XORing with sign bit mask for negation
- * and handling positive operations as no-ops.
+ * @brief Generates floating-point unary operations including negation using bit
+ * manipulation. Implements IEEE 754 compliant operations by XORing with sign
+ * bit mask for negation and handling positive operations as no-ops.
  */
 void generateFloatUnaryOp(StackContext context, NodeTypes opType,
                           RegisterId operandReg, RegisterId resultReg) {
