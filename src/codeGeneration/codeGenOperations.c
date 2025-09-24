@@ -32,32 +32,32 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
   case ADD_OP:
     // Addition is commutative
     if (leftReg != resultReg && rightReg != resultReg) {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
-      fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_ADD_REG_REG, suffix, right, result);
     } else if (rightReg == resultReg) {
       // result already has right, just add left
-      fprintf(context->file, "    add%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_ADD_REG_REG, suffix, left, result);
     } else {
       // leftReg == resultReg, normal case
-      fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_ADD_REG_REG, suffix, right, result);
     }
     break;
 
   case SUB_OP:
     if (leftReg != resultReg) {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
     }
-    fprintf(context->file, "    sub%s %s, %s\n", suffix, right, result);
+    fprintf(context->file, ASM_TEMPLATE_SUB_REG_REG, suffix, right, result);
     break;
 
   case MUL_OP:
     if (leftReg == resultReg) {
-      fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_IMUL_REG_REG, suffix, right, result);
     } else if (rightReg == resultReg) {
-      fprintf(context->file, "    imul%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_IMUL_REG_REG, suffix, left, result);
     } else {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
-      fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_IMUL_REG_REG, suffix, right, result);
     }
     break;
 
@@ -68,23 +68,23 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
       const char *rightReg32 = getRegisterNameForSize(rightReg, TYPE_INT);
 
       if (leftReg != REG_RAX) {
-        fprintf(context->file, "    movl %s, %%eax\n", leftReg32);
+        fprintf(context->file, ASM_TEMPLATE_DIV_MOVE_TO_EAX, leftReg32);
       }
-      fprintf(context->file, "    cltd              # Sign extend EAX to EDX:EAX\n");
+      fprintf(context->file, ASM_TEMPLATE_DIV_EXTEND);
 
       if (rightReg == REG_RAX || rightReg == REG_RDX) {
-        fprintf(context->file, "    movl %s, %%ecx\n", rightReg32);
-        fprintf(context->file, "    idivl %%ecx\n");
+        fprintf(context->file, ASM_TEMPLATE_DIV_MOVE_TO_ECX, rightReg32);
+        fprintf(context->file, ASM_TEMPLATE_IDIV_ECX);
       } else {
-        fprintf(context->file, "    idivl %s\n", rightReg32);
+        fprintf(context->file, ASM_TEMPLATE_IDIV, rightReg32);
       }
 
       if (opType == DIV_OP && resultReg != REG_RAX) {
         const char *resultReg32 = getRegisterNameForSize(resultReg, TYPE_INT);
-        fprintf(context->file, "    movl %%eax, %s\n", resultReg32);
+        fprintf(context->file, ASM_TEMPLATE_MOVE_EAX_TO_REG, resultReg32);
       } else if (opType == MOD_OP && resultReg != REG_RDX) {
         const char *resultReg32 = getRegisterNameForSize(resultReg, TYPE_INT);
-        fprintf(context->file, "    movl %%edx, %s\n", resultReg32);
+        fprintf(context->file, ASM_TEMPLATE_MOVE_EDX_TO_REG, resultReg32);
       }
     }
     break;
@@ -96,9 +96,9 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
   case LESS_EQUAL_OP:
   case GREATER_EQUAL_OP: {
     if (leftReg != resultReg) {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
     }
-    fprintf(context->file, "    cmp%s %s, %s\n", suffix, result, right);
+    fprintf(context->file, ASM_TEMPLATE_CMP_SUFFIX, suffix, result, right);
 
     const char *setInstruction;
     switch (opType) {
@@ -111,31 +111,31 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
     default: setInstruction = ASM_SETE; break;
     }
 
-    fprintf(context->file, "    %s %%al\n", setInstruction);
-    fprintf(context->file, "    movzbl %%al, %s\n",
+    fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+    fprintf(context->file, ASM_TEMPLATE_MOVZBL_AL_REG,
             getRegisterNameForSize(resultReg, TYPE_INT));
     break;
   }
 
   case LOGIC_AND:
     if (leftReg != resultReg && rightReg != resultReg) {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
-      fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_AND_REG_REG, suffix, right, result);
     } else if (rightReg == resultReg) {
-      fprintf(context->file, "    and%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_AND_REG_REG, suffix, left, result);
     } else {
-      fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_AND_REG_REG, suffix, right, result);
     }
     break;
 
   case LOGIC_OR:
     if (leftReg != resultReg && rightReg != resultReg) {
-      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
-      fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_OR_REG_REG, suffix, right, result);
     } else if (rightReg == resultReg) {
-      fprintf(context->file, "    or%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, ASM_TEMPLATE_OR_REG_REG, suffix, left, result);
     } else {
-      fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+      fprintf(context->file, ASM_TEMPLATE_OR_REG_REG, suffix, right, result);
     }
     break;
 
@@ -145,7 +145,7 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
   }
 
   if (invert == 1) {
-    fprintf(context->file, "    neg%s %s    # Invert result\n", suffix, result);
+    fprintf(context->file, ASM_TEMPLATE_NEG_SUFFIX, suffix, result);
   }
 }
 

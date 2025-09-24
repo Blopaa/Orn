@@ -258,13 +258,13 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     if (field->type == TYPE_FLOAT) {
       preferredReg = REG_XMM0;
       fprintf(context->file,
-              "    movsd %d(%%rbp), %s    # Load struct member\n", memberOffset,
+              ASM_TEMPLATE_LOAD_STRUCT_MEMBER_FLOAT, memberOffset,
               getFloatRegisterName(preferredReg));
     } else {
       const char *regName = getRegisterNameForSize(preferredReg, field->type);
       const char *suffix = getInstructionSuffix(field->type);
       fprintf(context->file,
-              "    mov%s %d(%%rbp), %s     # Load struct member\n",
+              ASM_TEMPLATE_LOAD_STRUCT_MEMBER,
               suffix, memberOffset, regName);
     }
 
@@ -463,7 +463,7 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
       }
       fprintf(
           context->file,
-          "    call print_str_z     # Runtime calculates length & prints\n");
+          ASM_TEMPLATE_CALL_PRINT_STR);
     }
     break;
   }
@@ -480,7 +480,7 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
                 getRegisterName(intReg, TYPE_INT));
       }
       fprintf(context->file,
-              "    call print_int       # Runtime converts & prints\n");
+              ASM_TEMPLATE_CALL_PRINT_INT);
     }
     break;
   }
@@ -497,7 +497,7 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
                 getRegisterName(boolReg, TYPE_BOOL));
       }
       fprintf(context->file,
-              "    call print_bool      # Runtime prints 'true'/'false'\n");
+              ASM_TEMPLATE_CALL_PRINT_BOOL);
     }
     break;
   }
@@ -511,7 +511,7 @@ int generateBuiltinFunctionCall(ASTNode node, StackContext context) {
       if (floatReg != REG_RDI) {
         fprintf(
             context->file,
-            "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n",
+            ASM_TEMPLATE_FLOAT_TO_INT,
             getFloatRegisterName(floatReg));
       }
       fprintf(context->file,

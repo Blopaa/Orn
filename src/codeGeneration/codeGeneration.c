@@ -160,14 +160,14 @@ int generateNodeCode(ASTNode node, StackContext context) {
         if (field->type == TYPE_FLOAT) {
           rightReg = generateExpressionToRegister(rightNode, context, REG_XMM0);
           fprintf(context->file,
-                  "    movss %s, %d(%%rbp)    # Store to struct member\n",
+                  ASM_TEMPLATE_MOVSS_REG_MEM,
                   getFloatRegisterName(rightReg), memberOffset);
         }  else {
           rightReg = generateExpressionToRegister(rightNode, context, REG_RAX);
           const char *regName = getRegisterNameForSize(rightReg, field->type);
           const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    mov%s %s, %d(%%rbp)     # Store to struct member\n",
+                  ASM_TEMPLATE_STORE_STRUCT_MEMBER,
                   suffix, regName, memberOffset);
         }
       } else {
@@ -175,7 +175,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
         if (field->type == TYPE_FLOAT) {
           leftReg = REG_XMM0;
           fprintf(context->file,
-                  "    movsd %d(%%rbp), %s    # Load struct member\n",
+                  ASM_TEMPLATE_LOAD_STRUCT_MEMBER_FLOAT,
                   memberOffset, getFloatRegisterName(leftReg));
           rightReg = REG_XMM1;
         } else {
@@ -183,7 +183,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
           const char *regName = getRegisterNameForSize(leftReg, field->type);
           const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    mov%s %d(%%rbp), %s     # Load struct member\n",
+                  ASM_TEMPLATE_LOAD_STRUCT_MEMBER,
                   suffix, memberOffset, regName);
           rightReg = REG_RBX;
         }
@@ -213,13 +213,13 @@ int generateNodeCode(ASTNode node, StackContext context) {
 
         if (field->type == TYPE_FLOAT) {
           fprintf(context->file,
-                  "    movsd %s, %d(%%rbp)    # Store back to struct member\n",
+                  ASM_TEMPLATE_STORE_BACK_STRUCT_FLOAT,
                   getFloatRegisterName(leftReg), memberOffset);
         } else {
           const char *regName = getRegisterNameForSize(leftReg, field->type);
           const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    mov%s %s, %d(%%rbp)     # Store back to struct member\n",
+                  ASM_TEMPLATE_STORE_BACK_STRUCT,
                   suffix, regName, memberOffset);
         }
       }
@@ -336,7 +336,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
         const char *paramRegName = getRegisterNameForSize(paramRegs[paramIndex], paramType);
         const char *suffix = getInstructionSuffix(paramType);
 
-        fprintf(context->file, "    mov%s %s, %d(%%rbp)    # Store param %s\n",
+        fprintf(context->file, ASM_TEMPLATE_STORE_PARAM,
                 suffix, paramRegName, offset,
                 paramName ? paramName : "unknown");
         if (paramName) free(paramName);
@@ -517,7 +517,7 @@ void generateLoadVariable(StackContext context, const char *start, size_t len,
 
   if (var->dataType == TYPE_FLOAT) {
     const char *regName = getFloatRegisterName(reg);
-    fprintf(context->file, "    movss %d(%%rbp), %s    # Load float %s\n",
+    fprintf(context->file, ASM_TEMPLATE_MOVSS_MEM_REG,
             var->stackOffset, regName, tempName);
   } else {
     const char *regName = getRegisterNameForSize(reg, var->dataType);
@@ -525,14 +525,14 @@ void generateLoadVariable(StackContext context, const char *start, size_t len,
 
     if (var->dataType == TYPE_BOOL) {
       fprintf(context->file,
-              "    movzbl %d(%%rbp), %s    # Load bool %s (zero-extended)\n",
+              ASM_TEMPLATE_MOVZBL_MEM_REG,
               var->stackOffset, getRegisterNameForSize(reg, TYPE_INT),
               tempName);
     } else if (var->dataType == TYPE_INT) {
-      fprintf(context->file, "    mov%s %d(%%rbp), %s    # Load int %s\n",
+      fprintf(context->file, ASM_TEMPLATE_LOAD_INT,
               suffix, var->stackOffset, regName, tempName);
     } else {
-      fprintf(context->file, "    movq %d(%%rbp), %s    # Load %s\n",
+      fprintf(context->file, ASM_TEMPLATE_MOVQ_MEM_REG,
               var->stackOffset, regName, tempName);
     }
   }
@@ -565,7 +565,7 @@ void generateStoreVariable(StackContext context, const char *start, size_t len,
 
   if (var->dataType == TYPE_FLOAT) {
     const char *regName = getFloatRegisterName(reg);
-    fprintf(context->file, "    movss %s, %d(%%rbp)    # Store float %s\n",
+    fprintf(context->file, ASM_TEMPLATE_MOVSS_REG_MEM,
             regName, var->stackOffset, tempName);
   } else {
     const char *regName = getRegisterNameForSize(reg, var->dataType);
@@ -663,14 +663,14 @@ void generateLoadImmediate(StackContext context, const char *value,
     int boolVal =
         strcmp(value, "true") == 0 ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
     const char *regName = getRegisterNameForSize(reg, TYPE_INT);
-    fprintf(context->file, "    movl $%d, %s    # Load bool: %s\n", boolVal,
+    fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG, boolVal,
             regName, value);
     break;
   }
 
   case TYPE_INT: {
     const char *regName = getRegisterNameForSize(reg, TYPE_INT);
-    fprintf(context->file, "    movl $%s, %s    # Load int: %s\n", value,
+    fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG_INT, value,
             regName, value);
     break;
   }

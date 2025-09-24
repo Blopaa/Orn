@@ -60,8 +60,17 @@
 #define ASM_MOVZBQ              "movzbq"
 #define ASM_LEAQ                "leaq"
 
-// Float register move template
-#define ASM_TEMPLATE_MOVSD_REG_REG      "    movsd %s, %s\n"
+// Generic move/arithmetic with suffix
+#define ASM_TEMPLATE_MOV_REG_REG        "    mov%s %s, %s\n"
+#define ASM_TEMPLATE_ADD_REG_REG        "    add%s %s, %s\n"
+#define ASM_TEMPLATE_SUB_REG_REG        "    sub%s %s, %s\n"
+#define ASM_TEMPLATE_IMUL_REG_REG       "    imul%s %s, %s\n"
+#define ASM_TEMPLATE_AND_REG_REG        "    and%s %s, %s\n"
+#define ASM_TEMPLATE_OR_REG_REG         "    or%s %s, %s\n"
+#define ASM_TEMPLATE_CMP_SUFFIX         "    cmp%s %s, %s\n"
+#define ASM_TEMPLATE_NEG_SUFFIX         "    neg%s %s    # Invert result\n"
+#define ASM_TEMPLATE_LOAD_INT           "    mov%s %d(%%rbp), %s    # Load int %s\n"
+#define ASM_TEMPLATE_RET                "    ret\n"
 
 // ========== ARITHMETIC INSTRUCTIONS ==========
 #define ASM_ADDQ                "addq"
@@ -131,7 +140,6 @@
 #define ASM_TEMPLATE_MOVQ_IMM_REG       "    movq $%s, %s    # %s: %s\n"
 #define ASM_TEMPLATE_MOVQ_MEM_REG       "    movq %d(%%rbp), %s    # Load %s\n"
 #define ASM_TEMPLATE_MOVQ_REG_MEM       "    movq %s, %d(%%rbp)    # Store %s\n"
-#define ASM_TEMPLATE_MOVQ_REG_REG       "    movq %s, %s\n"
 
 // Float operations
 #define ASM_TEMPLATE_MOVSD_MEM_REG      "    movsd %d(%%rbp), %s    # Load float %s\n"
@@ -141,9 +149,6 @@
 
 // String operations
 #define ASM_TEMPLATE_LEAQ_LABEL_REG     "    leaq %s(%%rip), %s    # Load string: %s\n"
-
-// Stack operations
-#define ASM_TEMPLATE_SUBQ_RSP           "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n"
 
 // Binary operations
 #define ASM_TEMPLATE_BINARY_OP          "    %s %s, %s\n"
@@ -194,7 +199,117 @@
 #define ASM_TEMPLATE_COMMENT            "    # %s\n"
 #define ASM_TEMPLATE_HEADER_COMMENT     "# %s\n"
 
+// Add these to your existing asmTemplate.h file
+
+// ========== ADDITIONAL ASSEMBLY INSTRUCTIONS ==========
+#define ASM_CLTD                "cltd"
+#define ASM_CVTTSD2SI           "cvttsd2si"
+#define ASM_CALL                "call"
+#define ASM_RET                 "ret"
+
+// ========== ADDITIONAL INSTRUCTION TEMPLATES ==========
+// Division operations
+#define ASM_TEMPLATE_DIV_EXTEND         "    cltd              # Sign extend EAX to EDX:EAX\n"
+#define ASM_TEMPLATE_DIV_MOVE_TO_EAX    "    movl %s, %%eax\n"
+#define ASM_TEMPLATE_DIV_MOVE_TO_ECX    "    movl %s, %%ecx\n"
+#define ASM_TEMPLATE_IDIV               "    idivl %s\n"
+#define ASM_TEMPLATE_IDIV_ECX           "    idivl %%ecx\n"
+#define ASM_TEMPLATE_MOVE_EAX_TO_REG    "    movl %%eax, %s\n"
+#define ASM_TEMPLATE_MOVE_EDX_TO_REG    "    movl %%edx, %s\n"
+
+// Float conversion
+#define ASM_TEMPLATE_FLOAT_TO_INT       "    cvttsd2si %s, %%rdi  # Convert float to int (simplified)\n"
+
+// Function calls
+#define ASM_TEMPLATE_CALL_RUNTIME       "    call %s     # %s\n"
+
+// Register moves with comments
+#define ASM_TEMPLATE_MOVQ_REG_REG   "    movq %s, %s       # %s\n"
+#define ASM_TEMPLATE_MOVE_32_COMMENT    "    movl %s, %s       # %s\n"
+
+// Struct member access
+#define ASM_TEMPLATE_STORE_STRUCT_MEMBER        "    mov%s %s, %d(%%rbp)     # Store to struct member\n"
+#define ASM_TEMPLATE_LOAD_STRUCT_MEMBER_FLOAT   "    movsd %d(%%rbp), %s    # Load struct member\n"
+#define ASM_TEMPLATE_LOAD_STRUCT_MEMBER         "    mov%s %d(%%rbp), %s     # Load struct member\n"
+#define ASM_TEMPLATE_STORE_BACK_STRUCT_FLOAT    "    movsd %s, %d(%%rbp)    # Store back to struct member\n"
+#define ASM_TEMPLATE_STORE_BACK_STRUCT          "    mov%s %s, %d(%%rbp)     # Store back to struct member\n"
+
+// Float operations with specific registers
+#define ASM_TEMPLATE_MOVSS_REG_MEM      "    movss %s, %d(%%rbp)    # Store float %s\n"
+#define ASM_TEMPLATE_MOVSS_MEM_REG      "    movss %d(%%rbp), %s    # Load float %s\n"
+
+// Bool operations
+#define ASM_TEMPLATE_MOVZBL_MEM_REG     "    movzbl %d(%%rbp), %s    # Load bool %s (zero-extended)\n"
+#define ASM_TEMPLATE_MOVZBL_AL_REG      "    movzbl %%al, %s\n"
+#define ASM_TEMPLATE_MOVL_IMM_REG       "    movl $%d, %s    # Load bool: %s\n"
+#define ASM_TEMPLATE_MOVL_IMM_REG_INT   "    movl $%s, %s    # Load int: %s\n"
+
+// Stack operations with comments
+#define ASM_TEMPLATE_SUBQ_RSP   "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n"
+
+// Function parameter storage
+#define ASM_TEMPLATE_STORE_PARAM        "    mov%s %s, %d(%%rbp)    # Store param %s\n"
+
+// Spill/restore operations
+#define ASM_TEMPLATE_SPILL_FLOAT        "    movsd %s, -%d(%%rbp)        # Spill float to tempVar\n"
+#define ASM_TEMPLATE_SPILL_REG          "    mov%s %s, -%d(%%rbp)         # Spill to tempVar\n"
+#define ASM_TEMPLATE_RESTORE_REG        "    mov%s -%d(%%rbp), %s           # Restore from tempVar\n"
+#define ASM_TEMPLATE_RESTORE_FLOAT_MEM  "    movsd %d(%%rbp), %s    # Load %s\n"
+#define ASM_TEMPLATE_ADDQ_RSP           "    addq $8, %s     # Deallocate stack space\n"
+
+// Runtime function calls with specific formatting
+#define ASM_RUNTIME_PRINT_STR_Z         "print_str_z"
+#define ASM_RUNTIME_PRINT_INT           "print_int"
+#define ASM_RUNTIME_PRINT_BOOL          "print_bool"
+#define ASM_RUNTIME_EXIT_PROGRAM        "exit_program"
+
+#define ASM_TEMPLATE_CALL_PRINT_STR     "    call print_str_z     # Runtime calculates length & prints\n"
+#define ASM_TEMPLATE_CALL_PRINT_INT     "    call print_int       # Runtime converts & prints\n"
+#define ASM_TEMPLATE_CALL_PRINT_BOOL    "    call print_bool      # Runtime prints 'true'/'false'\n"
+#define ASM_TEMPLATE_CALL_EXIT          "    call exit_program    # Runtime exits cleanly\n"
+
+// Struct allocation comments
+#define ASM_TEMPLATE_STRUCT_ALLOC_COMMENT   "    # Allocate struct %s (size=%d)\n"
+
+// Additional register specifications
+#define ASM_REG_EAX             "%eax"
+#define ASM_REG_EBX             "%ebx"
+#define ASM_REG_ECX             "%ecx"
+#define ASM_REG_EDX             "%edx"
+#define ASM_REG_ESI             "%esi"
+#define ASM_REG_EDI             "%edi"
+#define ASM_REG_R8D             "%r8d"
+#define ASM_REG_R9D             "%r9d"
+#define ASM_REG_R10D            "%r10d"
+#define ASM_REG_R11D            "%r11d"
+
+// 8-bit registers
+#define ASM_REG_BL              "%bl"
+#define ASM_REG_CL              "%cl"
+#define ASM_REG_DL              "%dl"
+#define ASM_REG_SIL             "%sil"
+#define ASM_REG_DIL             "%dil"
+#define ASM_REG_R8B             "%r8b"
+#define ASM_REG_R9B             "%r9b"
+#define ASM_REG_R10B            "%r10b"
+#define ASM_REG_R11B            "%r11b"
+
 // ========== HELPER MACROS ==========
+#define ASM_EMIT_CALL(file, function) \
+    fprintf(file, ASM_TEMPLATE_CALL, function)
+
+#define ASM_EMIT_CALL_RUNTIME(file, function, comment) \
+    fprintf(file, ASM_TEMPLATE_CALL_RUNTIME, function, comment)
+
+#define ASM_EMIT_STRUCT_ALLOC(file, name, size) \
+    fprintf(file, ASM_TEMPLATE_STRUCT_ALLOC_COMMENT, name, size)
+
+#define ASM_EMIT_SPILL_REG(file, suffix, reg, offset) \
+    fprintf(file, ASM_TEMPLATE_SPILL_REG, suffix, reg, offset)
+
+#define ASM_EMIT_RESTORE_REG(file, suffix, offset, reg) \
+    fprintf(file, ASM_TEMPLATE_RESTORE_REG, suffix, offset, reg)
+
 #define ASM_EMIT_COMMENT(file, text) \
     fprintf(file, ASM_TEMPLATE_COMMENT, text)
 

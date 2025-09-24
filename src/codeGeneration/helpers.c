@@ -90,7 +90,7 @@ const char *getRegisterName(RegisterId regId, DataType type) {
         ASM_REG_RDI, ASM_REG_R8, ASM_REG_R9, ASM_REG_R10, ASM_REG_R11
     };
 
-    if (regId >= REG_R11 + 1) return "%rax";
+    if (regId >= REG_R11 + 1) return ASM_REG_RAX;
     return registers[regId];
 }
 
@@ -178,7 +178,7 @@ int allocateVariable(StackContext context, const char *start, size_t len, DataTy
     char * tempName = extractText(start, len);
     if (tempName) {
         ASM_EMIT_COMMENT(context->file, tempName);
-        fprintf(context->file, "    subq $%d, %%rsp    # Allocate %s (%d bytes)\n",
+        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP,
                 bytesToAlloc, tempName, size);
         free(tempName);
     }
@@ -328,12 +328,12 @@ int isLeafNode(ASTNode node) {
  */
 void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
     if (type == TYPE_FLOAT) {
-        fprintf(context->file, "    movsd %s, -%d(%%rbp)        # Spill float to tempVar\n",
+        fprintf(context->file, ASM_TEMPLATE_SPILL_FLOAT,
                 getFloatRegisterName(reg), tempVarOffset);
     } else {
         const char *regName = getRegisterNameForSize(reg, type);
         const char *suffix = getInstructionSuffix(type);
-        fprintf(context->file, "    mov%s %s, -%d(%%rbp)         # Spill to tempVar\n",
+        fprintf(context->file, ASM_TEMPLATE_SPILL_REG,
                suffix, regName, tempVarOffset);
     }
     ASM_EMIT_COMMENT(context->file, "Saved intermediate result to tempVar");
@@ -354,7 +354,7 @@ void restoreRegisterFromTempVar(StackContext context, RegisterId reg, DataType t
         // Integer/pointer registers
         const char *regName = getRegisterNameForSize(reg, type);
         const char *suffix = getInstructionSuffix(type);
-        fprintf(context->file, "    mov%s -%d(%%rbp), %s           # Restore from tempVar\n",
+        fprintf(context->file, ASM_TEMPLATE_RESTORE_REG,
                suffix, tempVarOffset, regName);
     }
     ASM_EMIT_COMMENT(context->file, "Restored intermediate result from tempVar");
@@ -508,7 +508,7 @@ int allocateStructVariable(StackContext context, const char * start, size_t len,
     char *tempName = extractText(start, len);
     if (tempName) {
         fprintf(context->file, "    # Allocate struct %s (size=%d)\n", tempName, size);
-        fprintf(context->file, "    subq $%d, %%rsp\n", bytesToAlloc);
+        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP, bytesToAlloc);
         free(tempName);
     }
 
