@@ -136,7 +136,7 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
 
     generateBinaryOp(context, node->nodeType, leftReg, rightReg, resultReg,
                      operandType, invert);
-    return preferredReg;
+    return resultReg;
   }
 
   case UNARY_MINUS_OP:
@@ -188,17 +188,15 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     generateStoreVariable(context, node->children->start,
                           node->children->length, tempReg, node);
 
-    return preferredReg; // Return original value
+    return preferredReg;
   }
   case FUNCTION_CALL: {
     if (isBuiltinFunction(node->start, node->length)) {
       generateBuiltinFunctionCall(node, context);
-      return preferredReg; // Most built-ins don't return values
+      return preferredReg;
     }
-    // User-defined function call
     emitComment(context, "Call user function");
 
-    // Generate arguments in calling convention registers
     ASTNode argList = node->children;
     if (argList && argList->nodeType == ARGUMENT_LIST) {
       ASTNode arg = argList->children;
@@ -213,12 +211,17 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
       }
     }
     char *tempVal = extractText(node->start, node->length);
-    // Call the function
     fprintf(context->file, "    call %s\n", tempVal);
-    if (tempVal)
-      free(tempVal);
+    if (tempVal) free(tempVal);
 
-    // Return value is in RAX
+    if (preferredReg != REG_RAX) {
+      const char *srcReg = getRegisterNameForSize(REG_RAX, TYPE_INT);
+      const char *dstReg = getRegisterNameForSize(preferredReg, TYPE_INT);
+      const char *suffix = getInstructionSuffix(TYPE_INT);
+      fprintf(context->file, "    mov%s %s, %s    # Move return value\n",
+              suffix, srcReg, dstReg);
+      return preferredReg;
+    }
     return REG_RAX;
   }
   case MEMBER_ACCESS: {
@@ -258,9 +261,11 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
               "    movsd %d(%%rbp), %s    # Load struct member\n", memberOffset,
               getFloatRegisterName(preferredReg));
     } else {
+      const char *regName = getRegisterNameForSize(preferredReg, field->type);
+      const char *suffix = getInstructionSuffix(field->type);
       fprintf(context->file,
-              "    movq %d(%%rbp), %s     # Load struct member\n", memberOffset,
-              getRegisterName(preferredReg, field->type));
+              "    mov%s %d(%%rbp), %s     # Load struct member\n",
+              suffix, memberOffset, regName);
     }
 
     return preferredReg;

@@ -160,13 +160,15 @@ int generateNodeCode(ASTNode node, StackContext context) {
         if (field->type == TYPE_FLOAT) {
           rightReg = generateExpressionToRegister(rightNode, context, REG_XMM0);
           fprintf(context->file,
-                  "    movsd %s, %d(%%rbp)    # Store to struct member\n",
+                  "    movss %s, %d(%%rbp)    # Store to struct member\n",
                   getFloatRegisterName(rightReg), memberOffset);
-        } else {
+        }  else {
           rightReg = generateExpressionToRegister(rightNode, context, REG_RAX);
+          const char *regName = getRegisterNameForSize(rightReg, field->type);
+          const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    movq %s, %d(%%rbp)     # Store to struct member\n",
-                  getRegisterName(rightReg, field->type), memberOffset);
+                  "    mov%s %s, %d(%%rbp)     # Store to struct member\n",
+                  suffix, regName, memberOffset);
         }
       } else {
         RegisterId leftReg, rightReg;
@@ -178,9 +180,11 @@ int generateNodeCode(ASTNode node, StackContext context) {
           rightReg = REG_XMM1;
         } else {
           leftReg = REG_RAX;
+          const char *regName = getRegisterNameForSize(leftReg, field->type);
+          const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    movq %d(%%rbp), %s     # Load struct member\n",
-                  memberOffset, getRegisterName(leftReg, field->type));
+                  "    mov%s %d(%%rbp), %s     # Load struct member\n",
+                  suffix, memberOffset, regName);
           rightReg = REG_RBX;
         }
         rightReg = generateExpressionToRegister(rightNode, context, rightReg);
@@ -212,9 +216,11 @@ int generateNodeCode(ASTNode node, StackContext context) {
                   "    movsd %s, %d(%%rbp)    # Store back to struct member\n",
                   getFloatRegisterName(leftReg), memberOffset);
         } else {
+          const char *regName = getRegisterNameForSize(leftReg, field->type);
+          const char *suffix = getInstructionSuffix(field->type);
           fprintf(context->file,
-                  "    movq %s, %d(%%rbp)     # Store back to struct member\n",
-                  getRegisterName(leftReg, field->type), memberOffset);
+                  "    mov%s %s, %d(%%rbp)     # Store back to struct member\n",
+                  suffix, regName, memberOffset);
         }
       }
     } else {
@@ -307,6 +313,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
       free(tempVal);
     fprintf(context->file, "    pushq %%rbp\n");
     fprintf(context->file, "    movq %%rsp, %%rbp\n");
+    fprintf(context->file, "    subq $16, %%rsp\n");
 
     // Get nodes
     ASTNode paramList = node->children;
@@ -322,15 +329,17 @@ int generateNodeCode(ASTNode node, StackContext context) {
 
       while (param != NULL && paramIndex < 6) {
         DataType paramType = TYPE_INT; // Simplified
-        int offset =
-            allocateVariable(context, param->start, param->length, paramType);
+        int offset = allocateVariable(context, param->start, param->length, paramType);
 
         char *paramName = extractText(param->start, param->length);
-        fprintf(context->file, "    movq %s, %d(%%rbp)    # Store param %s\n",
-                getRegisterName(paramRegs[paramIndex], TYPE_INT), offset,
+        // Use proper register size for the parameter type
+        const char *paramRegName = getRegisterNameForSize(paramRegs[paramIndex], paramType);
+        const char *suffix = getInstructionSuffix(paramType);
+
+        fprintf(context->file, "    mov%s %s, %d(%%rbp)    # Store param %s\n",
+                suffix, paramRegName, offset,
                 paramName ? paramName : "unknown");
-        if (paramName)
-          free(paramName);
+        if (paramName) free(paramName);
 
         param = param->brothers;
         paramIndex++;

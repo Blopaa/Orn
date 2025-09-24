@@ -20,7 +20,8 @@
 // ========== PROGRAM STRUCTURE ==========
 #define ASM_GLOBAL_START        ".globl _start"
 #define ASM_START_LABEL         "_start:"
-#define ASM_FUNCTION_PROLOGUE   "    pushq %rbp\n    movq %rsp, %rbp"
+//16 is for two temp vars of 8bytes
+#define ASM_FUNCTION_PROLOGUE   "    pushq %rbp\n    movq %rsp, %rbp\n    subq $16, %rsp"
 #define ASM_FUNCTION_EPILOGUE   "    movq %rbp, %rsp\n    popq %rbp"
 
 // ========== SYSTEM CALLS ==========

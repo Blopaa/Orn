@@ -28,84 +28,117 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
   const char *result = getRegisterNameForSize(resultReg, operandType);
   const char *suffix = getInstructionSuffix(operandType);
 
-  if (leftReg != resultReg) {
-    fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
-  }
-
   switch (opType) {
   case ADD_OP:
-    fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+    // Addition is commutative
+    if (leftReg != resultReg && rightReg != resultReg) {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+    } else if (rightReg == resultReg) {
+      // result already has right, just add left
+      fprintf(context->file, "    add%s %s, %s\n", suffix, left, result);
+    } else {
+      // leftReg == resultReg, normal case
+      fprintf(context->file, "    add%s %s, %s\n", suffix, right, result);
+    }
     break;
+
   case SUB_OP:
+    if (leftReg != resultReg) {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+    }
     fprintf(context->file, "    sub%s %s, %s\n", suffix, right, result);
     break;
+
   case MUL_OP:
-    fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
-    break;
-  case DIV_OP:
-    if (operandType == TYPE_INT) {
-      fprintf(context->file, "    movl %s, %%eax\n", result);
-      fprintf(context->file,
-              "    cltd              # Sign extend EAX to EDX:EAX\n");
-      fprintf(context->file, "    idivl %s\n", right);
-      if (resultReg != REG_RAX) {
-        fprintf(context->file, "    movl %%eax, %s\n", result);
-      }
+    if (leftReg == resultReg) {
+      fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
+    } else if (rightReg == resultReg) {
+      fprintf(context->file, "    imul%s %s, %s\n", suffix, left, result);
+    } else {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, "    imul%s %s, %s\n", suffix, right, result);
     }
     break;
+
+  case DIV_OP:
   case MOD_OP:
     if (operandType == TYPE_INT) {
-      fprintf(context->file, "    movl %s, %%eax\n", result);
-      fprintf(context->file,
-              "    cltd              # Sign extend EAX to EDX:EAX\n");
-      fprintf(context->file, "    idivl %s\n", right);
-      if (resultReg != REG_RDX) {
-        fprintf(context->file, "    movl %%edx, %s\n", result);
+      const char *leftReg32 = getRegisterNameForSize(leftReg, TYPE_INT);
+      const char *rightReg32 = getRegisterNameForSize(rightReg, TYPE_INT);
+
+      if (leftReg != REG_RAX) {
+        fprintf(context->file, "    movl %s, %%eax\n", leftReg32);
+      }
+      fprintf(context->file, "    cltd              # Sign extend EAX to EDX:EAX\n");
+
+      if (rightReg == REG_RAX || rightReg == REG_RDX) {
+        fprintf(context->file, "    movl %s, %%ecx\n", rightReg32);
+        fprintf(context->file, "    idivl %%ecx\n");
+      } else {
+        fprintf(context->file, "    idivl %s\n", rightReg32);
+      }
+
+      if (opType == DIV_OP && resultReg != REG_RAX) {
+        const char *resultReg32 = getRegisterNameForSize(resultReg, TYPE_INT);
+        fprintf(context->file, "    movl %%eax, %s\n", resultReg32);
+      } else if (opType == MOD_OP && resultReg != REG_RDX) {
+        const char *resultReg32 = getRegisterNameForSize(resultReg, TYPE_INT);
+        fprintf(context->file, "    movl %%edx, %s\n", resultReg32);
       }
     }
     break;
+
   case EQUAL_OP:
   case NOT_EQUAL_OP:
   case LESS_THAN_OP:
   case GREATER_THAN_OP:
   case LESS_EQUAL_OP:
   case GREATER_EQUAL_OP: {
-    const char *setInstruction;
-    switch (opType) {
-    case EQUAL_OP:
-      setInstruction = ASM_SETE;
-      break;
-    case NOT_EQUAL_OP:
-      setInstruction = ASM_SETNE;
-      break;
-    case LESS_THAN_OP:
-      setInstruction = ASM_SETL;
-      break;
-    case GREATER_THAN_OP:
-      setInstruction = ASM_SETG;
-      break;
-    case LESS_EQUAL_OP:
-      setInstruction = ASM_SETLE;
-      break;
-    case GREATER_EQUAL_OP:
-      setInstruction = ASM_SETGE;
-      break;
-    default:
-      setInstruction = ASM_SETE;
-      break;
+    if (leftReg != resultReg) {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
     }
     fprintf(context->file, "    cmp%s %s, %s\n", suffix, right, result);
+
+    const char *setInstruction;
+    switch (opType) {
+    case EQUAL_OP:     setInstruction = ASM_SETE;  break;
+    case NOT_EQUAL_OP: setInstruction = ASM_SETNE; break;
+    case LESS_THAN_OP: setInstruction = ASM_SETL;  break;
+    case GREATER_THAN_OP: setInstruction = ASM_SETG; break;
+    case LESS_EQUAL_OP: setInstruction = ASM_SETLE; break;
+    case GREATER_EQUAL_OP: setInstruction = ASM_SETGE; break;
+    default: setInstruction = ASM_SETE; break;
+    }
+
     fprintf(context->file, "    %s %%al\n", setInstruction);
     fprintf(context->file, "    movzbl %%al, %s\n",
             getRegisterNameForSize(resultReg, TYPE_INT));
     break;
   }
+
   case LOGIC_AND:
-    fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+    if (leftReg != resultReg && rightReg != resultReg) {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+    } else if (rightReg == resultReg) {
+      fprintf(context->file, "    and%s %s, %s\n", suffix, left, result);
+    } else {
+      fprintf(context->file, "    and%s %s, %s\n", suffix, right, result);
+    }
     break;
+
   case LOGIC_OR:
-    fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+    if (leftReg != resultReg && rightReg != resultReg) {
+      fprintf(context->file, "    mov%s %s, %s\n", suffix, left, result);
+      fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+    } else if (rightReg == resultReg) {
+      fprintf(context->file, "    or%s %s, %s\n", suffix, left, result);
+    } else {
+      fprintf(context->file, "    or%s %s, %s\n", suffix, right, result);
+    }
     break;
+
   default:
     emitComment(context, "Unknown binary operation");
     break;
