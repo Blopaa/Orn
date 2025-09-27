@@ -84,15 +84,19 @@ void freeTypeCheckContext(TypeCheckContext context) {
  * - int can be assigned to float (implicit conversion)
  * - All other type combinations are incompatible
  */
-int areCompatible(DataType target, DataType source) {
+CompatResult areCompatible(DataType target, DataType source) {
     if (target == source) return 1;
 
     switch (target) {
         case TYPE_STRING:
         case TYPE_BOOL:
-        case TYPE_INT: return 0;
-        case TYPE_FLOAT: return source == TYPE_INT;
-        default: return 0;
+        case TYPE_INT: return COMPAT_ERROR;
+        case TYPE_FLOAT: {
+            if(source == TYPE_DOUBLE) return COMPAT_WARNING;
+            return source == TYPE_INT ? COMPAT_OK : COMPAT_ERROR;
+        }
+        case TYPE_DOUBLE: return source == TYPE_INT || source == TYPE_FLOAT ? COMPAT_OK : COMPAT_ERROR;
+        default: return COMPAT_ERROR;
     }
 }
 
@@ -121,6 +125,7 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
         case MUL_OP:
         case DIV_OP:
         case MOD_OP:
+            if (left == TYPE_DOUBLE || right == TYPE_DOUBLE) return TYPE_DOUBLE;
             if (left == TYPE_FLOAT || right == TYPE_FLOAT) return TYPE_FLOAT;
             if (left == TYPE_INT && right == TYPE_INT) return TYPE_INT;
             return TYPE_UNKNOWN;
@@ -130,7 +135,7 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
         case GREATER_EQUAL_OP:
         case LESS_THAN_OP:
         case GREATER_THAN_OP:
-            if (areCompatible(left, right) || areCompatible(right, left)) return TYPE_BOOL;
+            if (areCompatible(left, right) != COMPAT_ERROR || areCompatible(right, left) != COMPAT_ERROR) return TYPE_BOOL;
             return TYPE_UNKNOWN;
         case LOGIC_AND:
         case LOGIC_OR:
@@ -207,6 +212,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case INT_LIT: return TYPE_INT;
         case FLOAT_LIT: return TYPE_FLOAT;
         case BOOL_LIT: return TYPE_BOOL;
+        case DOUBLE_LIT: return TYPE_DOUBLE;
         case STRING_LIT: return TYPE_STRING;
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
@@ -225,7 +231,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case UNARY_MINUS_OP:
         case UNARY_PLUS_OP: {
             DataType opType = getExpressionType(node->children, context);
-            if (opType == TYPE_INT || opType == TYPE_FLOAT) {
+            if (opType == TYPE_INT || opType == TYPE_FLOAT || opType == TYPE_DOUBLE) {
                 return opType;
             }
             reportError(ERROR_INVALID_UNARY_OPERAND, createErrorContextFromType(node, context),
@@ -406,10 +412,14 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
             return 0; // Error already reported
         }
 
-        if (!areCompatible(param->type, argType)) {
+        CompatResult compat = areCompatible(param->type, argType);
+        if (compat == COMPAT_ERROR) {
             reportError(variableErrorCompatibleHandling(param->type, argType),
-                        createErrorContextFromType(node, context), extractText(param->nameStart, param->nameLength));
+                createErrorContextFromType(node, context), extractText(param->nameStart, param->nameLength));
             return 0;
+        } else if (compat == COMPAT_WARNING) {
+            reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),
+                extractText(param->nameStart, param->nameLength));
         }
 
         param = param->next;
@@ -435,47 +445,52 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
  *       only be called after compatibility checking has failed.
  */
 ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
-    ErrorCode err;
     switch (varType) {
         case TYPE_INT: {
             switch (initType) {
-                case TYPE_STRING: err = ERROR_TYPE_MISMATCH_STRING_TO_INT;
-                    break;
-                case TYPE_BOOL: err = ERROR_TYPE_MISMATCH_BOOL_TO_INT;
-                    break;
-                default: err = ERROR_TYPE_MISMATCH_FLOAT_TO_INT;
+                case TYPE_STRING: return ERROR_TYPE_MISMATCH_STRING_TO_INT;
+                case TYPE_BOOL: return ERROR_TYPE_MISMATCH_BOOL_TO_INT;
+                case TYPE_FLOAT: return ERROR_TYPE_MISMATCH_FLOAT_TO_INT;
+                case TYPE_DOUBLE: return ERROR_TYPE_MISMATCH_DOUBLE_TO_INT;
+                default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS; // Generic error
             }
-            break;
         }
         case TYPE_FLOAT: {
             switch (initType) {
-                case TYPE_STRING: err = ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
-                    break;
-                default: err = ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT;
+                case TYPE_STRING: return ERROR_TYPE_MISMATCH_STRING_TO_FLOAT;
+                case TYPE_BOOL: return ERROR_TYPE_MISMATCH_BOOL_TO_FLOAT;
+                case TYPE_DOUBLE: return ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT;
+                default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS;
             }
-            break;
+        }
+        case TYPE_DOUBLE: {
+            switch (initType) {
+                case TYPE_STRING: return ERROR_TYPE_MISMATCH_STRING_TO_DOUBLE;
+                case TYPE_BOOL: return ERROR_TYPE_MISMATCH_BOOL_TO_DOUBLE;
+                default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS;
+            }
         }
         case TYPE_BOOL: {
             switch (initType) {
-                case TYPE_STRING: err = ERROR_TYPE_MISMATCH_STRING_TO_BOOL;
-                    break;
-                case TYPE_INT: err = ERROR_TYPE_MISMATCH_INT_TO_BOOL;
-                    break;
-                default: err = ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL;
-            }
-            break;
-        } // TYPE_STRING
-        default: {
-            switch (initType) {
-                case TYPE_INT: err = ERROR_TYPE_MISMATCH_INT_TO_STRING;
-                    break;
-                case TYPE_FLOAT: err = ERROR_TYPE_MISMATCH_FLOAT_TO_STRING;
-                    break;
-                default: err = ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
+                case TYPE_STRING: return ERROR_TYPE_MISMATCH_STRING_TO_BOOL;
+                case TYPE_INT: return ERROR_TYPE_MISMATCH_INT_TO_BOOL;
+                case TYPE_FLOAT: return ERROR_TYPE_MISMATCH_FLOAT_TO_BOOL;
+                case TYPE_DOUBLE: return ERROR_TYPE_MISMATCH_DOUBLE_TO_BOOL;
+                default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS;
             }
         }
+        case TYPE_STRING: {
+            switch (initType) {
+                case TYPE_INT: return ERROR_TYPE_MISMATCH_INT_TO_STRING;
+                case TYPE_FLOAT: return ERROR_TYPE_MISMATCH_FLOAT_TO_STRING;
+                case TYPE_DOUBLE: return ERROR_TYPE_MISMATCH_DOUBLE_TO_STRING;
+                case TYPE_BOOL: return ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
+                default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS;
+            }
+        }
+        default:
+            return ERROR_INVALID_OPERATION_FOR_TYPE; // Unsupported type
     }
-    return err;
 }
 
 /**
@@ -524,10 +539,13 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
     if (node->children != NULL) {
         DataType initType = getExpressionType(node->children, context);
         if (initType == TYPE_UNKNOWN) return 0;
-        if (!areCompatible(varType, initType)) {
+        CompatResult compat = areCompatible(varType, initType);
+        if (compat == COMPAT_ERROR) {
             reportError(variableErrorCompatibleHandling(varType, initType), createErrorContextFromType(node, context),
                         extractText(node->start, node->length));
             return 0;
+        }else if(compat == COMPAT_WARNING){
+            reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),extractText(node->start, node->length));
         }
         newSymbol->isInitialized = 1;
     }
@@ -555,10 +573,14 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
     DataType rightType = getExpressionType(right, context);
     if (rightType == TYPE_UNKNOWN) return 0;
 
-    if (!areCompatible(leftType, rightType)) {
+    CompatResult compat = areCompatible(leftType, rightType);
+    if (compat == COMPAT_ERROR) {
         reportError(variableErrorCompatibleHandling(leftType, rightType), createErrorContextFromType(node, context),
-                    "Type mismatch in assignment");
+                "Type mismatch in assignment");
         return 0;
+    } else if (compat == COMPAT_WARNING) {
+        reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),
+                "Type mismatch in assignment");
     }
 
     if (left->nodeType == VARIABLE) {
@@ -898,6 +920,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case FLOAT_VARIABLE_DEFINITION:
         case STRING_VARIABLE_DEFINITION:
         case BOOL_VARIABLE_DEFINITION:
+        case DOUBLE_VARIABLE_DEFINITION:
             success = validateVariableDeclaration(node, context);
             break;
 

@@ -269,6 +269,10 @@ DataType getDataTypeFromNode(NodeTypes nodeType) {
         case BOOL_LIT:
         case BOOL_VARIABLE_DEFINITION:
             return TYPE_BOOL;
+        case REF_DOUBLE:
+        case DOUBLE_LIT:
+        case DOUBLE_VARIABLE_DEFINITION:
+            return TYPE_DOUBLE;
         default:
             return TYPE_UNKNOWN;
     }

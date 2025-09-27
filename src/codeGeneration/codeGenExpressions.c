@@ -43,9 +43,10 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
   switch (node->nodeType) {
   case INT_LIT:
   case FLOAT_LIT:
+  case DOUBLE_LIT:
   case BOOL_LIT: {
     DataType type = getDataTypeFromNode(node->nodeType);
-    if (type == TYPE_FLOAT) {
+    if (type == TYPE_FLOAT || type == TYPE_DOUBLE) {
       preferredReg = REG_XMM0; // Use XMM register for floats
     }
     char *tempVal = extractText(node->start, node->length);
@@ -54,7 +55,6 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
       free(tempVal);
     return preferredReg;
   }
-
   case STRING_LIT: {
     char *tempVal = extractText(node->start, node->length);
     generateLoadImmediate(context, tempVal, TYPE_STRING, preferredReg);

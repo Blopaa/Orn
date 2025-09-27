@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
         free(input);
         return 1;
     }
-
+    printErrorSummary();
     if (verbose) {
         printf("OK → %s\n\n", outputFile);
         printf("✓ Compilation SUCCESSFUL\n");

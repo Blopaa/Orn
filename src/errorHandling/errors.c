@@ -3,6 +3,54 @@
 const ErrorInfo errorDatabase[] = {
     // Type mismatch errors (1000s)
     {
+        ERROR_TYPE_MISMATCH_DOUBLE_TO_INT,
+        ERROR,
+        "mismatched types",
+        "double literals cannot be assigned to int variables",
+        "expected `int`, found `double`",
+        "try truncating the decimal or change the variable to `double`"
+    },
+    {
+        ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT,
+        WARNING,
+        "mismatched types",
+        "double literals may lose data when assigned to float variables",
+        "expected `float`, found `double` - possible precision loss or infinite float",
+        "try casting to float or change the variable to `double`"
+    },
+    {
+        ERROR_TYPE_MISMATCH_STRING_TO_DOUBLE,
+        ERROR,
+        "mismatched types",
+        "string literals cannot be assigned to double variables",
+        "expected `double`, found `string`",
+        "try converting the string to a double or change the variable type"
+    },
+    {
+        ERROR_TYPE_MISMATCH_BOOL_TO_DOUBLE,
+        ERROR,
+        "mismatched types",
+        "boolean values cannot be assigned to double variables",
+        "expected `double`, found `bool`",
+        "try using conditional assignment or change the variable type"
+    },
+    {
+        ERROR_TYPE_MISMATCH_DOUBLE_TO_BOOL,
+        ERROR,
+        "mismatched types",
+        "double literals cannot be assigned to bool variables",
+        "expected `bool`, found `double`",
+        "try using a comparison like `value != 0.0` or `true`/`false`"
+    },
+    {
+        ERROR_TYPE_MISMATCH_DOUBLE_TO_STRING,
+        ERROR,
+        "mismatched types",
+        "double literals cannot be assigned to string variables",
+        "expected `string`, found `double`",
+        "try wrapping the number in quotes or change the variable type"
+    },
+    {
         ERROR_TYPE_MISMATCH_STRING_TO_INT,
         ERROR,
         "mismatched types",

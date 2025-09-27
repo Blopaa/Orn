@@ -157,7 +157,7 @@ void printErrorSummary(void) {
 }
 
 int hasErrors(void) {
-	return (errorCount > 0 || fatalCount > 0 || warningCount > 0);
+	return (errorCount > 0 || fatalCount > 0);
 }
 
 int hasFatalErrors(void) {

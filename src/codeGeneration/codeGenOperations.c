@@ -13,7 +13,7 @@
 void generateBinaryOp(StackContext context, NodeTypes opType,
                       RegisterId leftReg, RegisterId rightReg,
                       RegisterId resultReg, DataType operandType, int invert) {
-  if (operandType == TYPE_FLOAT) {
+  if (operandType == TYPE_FLOAT || operandType == TYPE_DOUBLE) {
     generateFloatBinaryOp(context, opType, leftReg, rightReg, resultReg);
     return;
   }
@@ -215,10 +215,10 @@ void generateFloatBinaryOp(StackContext context, NodeTypes opType,
 
   switch (opType) {
   case ADD_OP:
-    fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDSD, right, result);
+    fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDSS, right, result);
     break;
   case SUB_OP:
-    fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBSD, right, result);
+    fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBSS, right, result);
     break;
   case MUL_OP:
     fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_MULSD, right, result);
@@ -305,6 +305,71 @@ void generateFloatUnaryOp(StackContext context, NodeTypes opType,
     emitComment(context, "Unknown float unary operation");
     break;
   }
+}
+
+void generateDoubleBinaryOp(StackContext context, NodeTypes opType, RegisterId leftReg,
+                            RegisterId rightReg, RegisterId resultReg) {
+    const char *left = getFloatRegisterName(leftReg);
+    const char *right = getFloatRegisterName(rightReg);
+    const char *result = getFloatRegisterName(resultReg);
+    if (leftReg != resultReg) {
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_REG_REG, left, result);
+    }
+    switch (opType) {
+    case ADD_OP:
+        fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_ADDSD, right, result);
+        break;
+    case SUB_OP:
+        fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_SUBSD, right, result);
+        break;
+    case MUL_OP:
+        fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_MULSD, right, result);
+        break;
+    case DIV_OP:
+        fprintf(context->file, ASM_TEMPLATE_BINARY_OP, ASM_DIVSD, right, result);
+        break;
+    case EQUAL_OP:
+    case NOT_EQUAL_OP:
+    case LESS_THAN_OP:
+    case GREATER_THAN_OP:
+    case LESS_EQUAL_OP:
+    case GREATER_EQUAL_OP: {
+        const char *intResult = getRegisterName(resultReg, TYPE_INT);
+        fprintf(context->file, ASM_TEMPLATE_DOUBLE_CMP, right, result);
+
+        const char *setInstruction;
+        switch (opType) {
+        case EQUAL_OP:
+            setInstruction = ASM_SETE;
+            break;
+        case NOT_EQUAL_OP:
+            setInstruction = ASM_SETNE;
+            break;
+        case LESS_THAN_OP:
+            setInstruction = ASM_SETB;
+            break;
+        case GREATER_THAN_OP:
+            setInstruction = ASM_SETA;
+            break;
+        case LESS_EQUAL_OP:
+            setInstruction = ASM_SETBE;
+            break;
+        case GREATER_EQUAL_OP:
+            setInstruction = ASM_SETAE;
+            break;
+        default:
+            setInstruction = ASM_SETE;
+            break;
+        }
+
+        fprintf(context->file, ASM_TEMPLATE_CMP_SET, setInstruction);
+        fprintf(context->file, ASM_TEMPLATE_CMP_EXTEND, intResult);
+        break;
+    }
+    default:
+        ASM_EMIT_COMMENT(context->file, "Unknown double binary operation");
+        break;
+    }
 }
 
 /**

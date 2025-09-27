@@ -19,6 +19,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
@@ -68,13 +69,23 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 			if (has_dot) { all_digits = 0; break; }
 			has_dot = 1;
 		} else if (!isdigit(val[i])) {
+			if ((val[i] == 'f' || val[i] == 'F') && i == len - 1 && has_dot) {
+                continue; 
+            }
 			all_digits = 0;
 			break;
 		}
 	}
 
-	if (all_digits)
-		return has_dot ? FLOAT_LIT : INT_LIT;
+	if (all_digits) {
+		if (has_dot) {
+            if (len > 0 && (val[len-1] == 'f' || val[len-1] == 'F')) {
+                return FLOAT_LIT;
+            }
+            return DOUBLE_LIT;
+        }
+		return INT_LIT;
+	}
 
 	checkVariable:
 		if (isalpha(val[0]) || val[0] == '_') {
@@ -209,6 +220,7 @@ int isTypeToken(TokenType type) {
             type == TK_STRING ||
             type == TK_FLOAT ||
             type == TK_BOOL ||
+			type == TK_DOUBLE ||
             type == TK_VOID);
 }
 
@@ -224,6 +236,7 @@ NodeTypes getReturnTypeFromToken(TokenType type) {
     case TK_STRING: return STRING_VARIABLE_DEFINITION;
     case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
     case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
+    case TK_DOUBLE: return DOUBLE_VARIABLE_DEFINITION;
     default: return null_NODE;
     }
 }

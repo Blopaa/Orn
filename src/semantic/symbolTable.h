@@ -31,6 +31,7 @@ typedef struct TypeCheckContext *TypeCheckContext;
 typedef enum {
     TYPE_INT,
     TYPE_FLOAT,
+    TYPE_DOUBLE,
     TYPE_STRING,
     TYPE_BOOL,
     TYPE_VOID,

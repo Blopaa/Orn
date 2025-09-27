@@ -142,10 +142,28 @@
 #define ASM_TEMPLATE_MOVQ_REG_MEM       "    movq %s, %d(%%rbp)    # Store %s\n"
 
 // Float operations
+#define ASM_LABEL_PREFIX_DOUBLE     ".DOUBLE_"
 #define ASM_TEMPLATE_MOVSD_MEM_REG      "    movsd %d(%%rbp), %s    # Load float %s\n"
 #define ASM_TEMPLATE_MOVSD_REG_MEM      "    movsd %s, %d(%%rbp)    # Store float %s\n"
 #define ASM_TEMPLATE_MOVSD_REG_REG      "    movsd %s, %s\n"
 #define ASM_TEMPLATE_MOVSD_LABEL_REG    "    movsd %s(%%rip), %s    # Load float immediate: %s\n"
+
+// ========== DOUBLE PRECISION INSTRUCTIONS ==========
+#define ASM_ADDSS               "addss"   // 32-bit float add
+#define ASM_SUBSS               "subss"   // 32-bit float sub  
+#define ASM_MULSS               "mulss"   // 32-bit float mul
+#define ASM_DIVSS               "divss"   // 32-bit float div
+#define ASM_MOVSS               "movss"   // 32-bit float move
+#define ASM_UCOMISS             "ucomiss" // 32-bit float compare
+
+// ========== DOUBLE OPERATION TEMPLATES ==========
+#define ASM_TEMPLATE_MOVSD_MEM_REG_DOUBLE   "    movsd %d(%%rbp), %s    # Load double %s\n"
+#define ASM_TEMPLATE_MOVSD_REG_MEM_DOUBLE   "    movsd %s, %d(%%rbp)    # Store double %s\n"
+#define ASM_TEMPLATE_MOVSS_MEM_REG_FLOAT    "    movss %d(%%rbp), %s    # Load float %s\n"  
+#define ASM_TEMPLATE_MOVSS_REG_MEM_FLOAT    "    movss %s, %d(%%rbp)    # Store float %s\n"
+
+#define ASM_TEMPLATE_DOUBLE_CMP             "    ucomisd %s, %s\n"
+#define ASM_TEMPLATE_FLOAT_CMP_SS           "    ucomiss %s, %s\n"
 
 // String operations
 #define ASM_TEMPLATE_LEAQ_LABEL_REG     "    leaq %s(%%rip), %s    # Load string: %s\n"

@@ -42,6 +42,9 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 	case 'b':
 		if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
 		break;
+	case 'd':
+		if (len == 6 && memcmp(s, "double", 6) == 0) return TK_DOUBLE;
+		break;
 	case 'f':
 		if (len == 2 && s[1] == 'n') return TK_FN;
 		if (len == 5) {
@@ -133,6 +136,9 @@ static void lexNumber(Lexer *lx) {
 	if (*lx->cur == '.' && isdigit(lx->cur[1])) {
 		lx->cur++;
 		while (isdigit(*lx->cur)) lx->cur++;
+		if (*lx->cur == 'f' || *lx->cur == 'F') {
+            lx->cur++;
+        }
 	}
 	addToken(lx, TK_NUM, start, lx->cur - start);
 }
