@@ -19,6 +19,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
@@ -42,6 +43,10 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
+static int containsFChar(const char * val, int i, int hasDot, size_t len){
+	return (val[i] == 'f' || val[i] == 'F') && i == len - 1 && hasDot;
+}
+
 /**
  * @brief Unified literal type detection with optimized checks.
  * Single function replaces all validation functions.
@@ -62,19 +67,25 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 	size_t start = (val[0] == '-') ? 1 : 0;
 	if (start >= len) goto checkVariable;
 
-	int has_dot = 0, all_digits = 1;
+	int hasDot = 0, allDigits = 1;
 	for (size_t i = start; i<len; i++) {
 		if (val[i] == '.') {
-			if (has_dot) { all_digits = 0; break; }
-			has_dot = 1;
+			if (hasDot) { allDigits = 0; break; }
+			hasDot = 1;
 		} else if (!isdigit(val[i])) {
-			all_digits = 0;
+			if(containsFChar(val, i, hasDot, len)) continue;
+			allDigits = 0;
 			break;
 		}
 	}
 
-	if (all_digits)
-		return has_dot ? FLOAT_LIT : INT_LIT;
+	if (allDigits) {
+		if (hasDot) {
+            if(containsFChar(val, len-1, hasDot, len)) return FLOAT_LIT;
+            return DOUBLE_LIT;
+        }
+		return INT_LIT;
+	}
 
 	checkVariable:
 		if (isalpha(val[0]) || val[0] == '_') {
@@ -209,6 +220,7 @@ int isTypeToken(TokenType type) {
             type == TK_STRING ||
             type == TK_FLOAT ||
             type == TK_BOOL ||
+			type == TK_DOUBLE ||
             type == TK_VOID);
 }
 
@@ -224,6 +236,7 @@ NodeTypes getReturnTypeFromToken(TokenType type) {
     case TK_STRING: return STRING_VARIABLE_DEFINITION;
     case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
     case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
+    case TK_DOUBLE: return DOUBLE_VARIABLE_DEFINITION;
     default: return null_NODE;
     }
 }

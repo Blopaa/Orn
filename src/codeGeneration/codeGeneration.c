@@ -91,6 +91,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
     return 1;
   }
 
+  case DOUBLE_VARIABLE_DEFINITION:
   case INT_VARIABLE_DEFINITION:
   case FLOAT_VARIABLE_DEFINITION:
   case STRING_VARIABLE_DEFINITION:
@@ -105,7 +106,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
     if (node->children != NULL) {
       emitComment(context, "Initialize variable");
       RegisterId initReg;
-      if (varType == TYPE_FLOAT) {
+      if (varType == TYPE_FLOAT || varType == TYPE_DOUBLE) {
         initReg =
             generateExpressionToRegister(node->children, context, REG_XMM0);
       } else {
@@ -435,6 +436,8 @@ StackContext createCodeGenContext(const char *file, const char *sourceFile,
     repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, "Failed to open output file");
     return NULL;
   }
+  context->floatDoubleEntries = NULL;
+  context->floatDoubleCount = 0;
   context->sourceFile = sourceFile;
   context->filename = filename;
   context->symbolTable = symbolTable;
@@ -505,38 +508,37 @@ void freeCodegenContext(StackContext context) {
  * @note Reports ERROR_UNDEFINED_VARIABLE if variable not found.
  *       Uses movsd for float types and movq for all other types.
  */
-void generateLoadVariable(StackContext context, const char *start, size_t len,
-                          RegisterId reg, ASTNode node) {
-  StackVariable var = findStackVariable(context, start, len);
-  char *tempName = extractText(start, len);
-  if (var == NULL) {
-    reportError(ERROR_UNDEFINED_VARIABLE,
-                createErrorContextFromCodeGen(node, context), tempName);
-    return;
-  }
-
-  if (var->dataType == TYPE_FLOAT) {
-    const char *regName = getFloatRegisterName(reg);
-    fprintf(context->file, ASM_TEMPLATE_MOVSS_MEM_REG,
-            var->stackOffset, regName, tempName);
-  } else {
-    const char *regName = getRegisterNameForSize(reg, var->dataType);
-    const char *suffix = getInstructionSuffix(var->dataType);
-
-    if (var->dataType == TYPE_BOOL) {
-      fprintf(context->file,
-              ASM_TEMPLATE_MOVZBL_MEM_REG,
-              var->stackOffset, getRegisterNameForSize(reg, TYPE_INT),
-              tempName);
-    } else if (var->dataType == TYPE_INT) {
-      fprintf(context->file, ASM_TEMPLATE_LOAD_INT,
-              suffix, var->stackOffset, regName, tempName);
-    } else {
-      fprintf(context->file, ASM_TEMPLATE_MOVQ_MEM_REG,
-              var->stackOffset, regName, tempName);
+void generateLoadVariable(StackContext context, const char *start, size_t len, RegisterId reg,
+                          ASTNode node) {
+    StackVariable var = findStackVariable(context, start, len);
+    char *tempName = extractText(start, len);
+    if (var == NULL) {
+        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromCodeGen(node, context),
+                    tempName);
+        return;
     }
-  }
-  free(tempName);
+    if (var->dataType == TYPE_DOUBLE) {
+        const char *regName = getFloatRegisterName(reg);
+        fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG_DOUBLE, var->stackOffset, regName,
+                tempName);
+    } else if (var->dataType == TYPE_FLOAT) {
+        const char *regName = getFloatRegisterName(reg);
+        fprintf(context->file, ASM_TEMPLATE_MOVSS_MEM_REG, var->stackOffset, regName, tempName);
+    } else {
+        const char *regName = getRegisterNameForSize(reg, var->dataType);
+        const char *suffix = getInstructionSuffix(var->dataType);
+
+        if (var->dataType == TYPE_BOOL) {
+            fprintf(context->file, ASM_TEMPLATE_MOVZBL_MEM_REG, var->stackOffset,
+                    getRegisterNameForSize(reg, TYPE_INT), tempName);
+        } else if (var->dataType == TYPE_INT) {
+            fprintf(context->file, ASM_TEMPLATE_LOAD_INT, suffix, var->stackOffset, regName,
+                    tempName);
+        } else {
+            fprintf(context->file, ASM_TEMPLATE_MOVQ_MEM_REG, var->stackOffset, regName, tempName);
+        }
+    }
+    free(tempName);
 }
 
 /**
@@ -553,59 +555,30 @@ void generateLoadVariable(StackContext context, const char *start, size_t len,
  * @note Reports ERROR_UNDEFINED_VARIABLE if variable not found.
  *       Uses movsd for float types and movq for all other types.
  */
-void generateStoreVariable(StackContext context, const char *start, size_t len,
-                           RegisterId reg, ASTNode node) {
-  StackVariable var = findStackVariable(context, start, len);
-  char *tempName = extractText(start, len);
-  if (var == NULL) {
-    reportError(ERROR_UNDEFINED_VARIABLE,
-                createErrorContextFromCodeGen(node, context), tempName);
-    return;
-  }
+void generateStoreVariable(StackContext context, const char *start, size_t len, RegisterId reg,
+                           ASTNode node) {
+    StackVariable var = findStackVariable(context, start, len);
+    char *tempName = extractText(start, len);
+    if (var == NULL) {
+        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromCodeGen(node, context),
+                    tempName);
+        return;
+    }
+    if (var->dataType == TYPE_DOUBLE) {
+        const char *regName = getFloatRegisterName(reg);
+        fprintf(context->file, "    movsd %s, %d(%%rbp)    # Store double %s\n", regName,
+                var->stackOffset, tempName); // STORE: reg to memory
+    } else if (var->dataType == TYPE_FLOAT) {
+        const char *regName = getFloatRegisterName(reg);
+        fprintf(context->file, ASM_TEMPLATE_MOVSS_REG_MEM, regName, var->stackOffset, tempName);
+    } else {
+        const char *regName = getRegisterNameForSize(reg, var->dataType);
+        const char *suffix = getInstructionSuffix(var->dataType);
 
-  if (var->dataType == TYPE_FLOAT) {
-    const char *regName = getFloatRegisterName(reg);
-    fprintf(context->file, ASM_TEMPLATE_MOVSS_REG_MEM,
-            regName, var->stackOffset, tempName);
-  } else {
-    const char *regName = getRegisterNameForSize(reg, var->dataType);
-    const char *suffix = getInstructionSuffix(var->dataType);
-
-    fprintf(context->file, "    mov%s %s, %d(%%rbp)    # Store %s\n",
-            suffix, regName, var->stackOffset, tempName);
-  }
-  free(tempName);
-}
-
-/**
- * @brief Generates assembly code to load a floating-point immediate value.
- *
- * Creates a floating-point constant in the .rodata section and generates
- * code to load it into an XMM register. Handles proper section switching
- * and label generation for the constant data.
- *
- * @param context Code generation context
- * @param value String representation of the float value
- * @param reg Target XMM register for the loaded value
- *
- * @note Uses .double directive for 64-bit floating-point constants.
- *       Temporarily switches to .rodata section for constant definition.
- */
-void generateFloatLoadImmediate(StackContext context, const char *value,
-                                RegisterId reg) {
-  const char *regName = getFloatRegisterName(reg);
-
-  char tempLabel[64];
-  snprintf(tempLabel, sizeof(tempLabel), "%s%d", ASM_LABEL_PREFIX_FLOAT,
-           context->tempCount++);
-
-  ASM_EMIT_SECTION(context->file, ASM_SECTION_RODATA);
-  fprintf(context->file, ASM_TEMPLATE_FLOAT_LABEL, tempLabel);
-  fprintf(context->file, ASM_TEMPLATE_FLOAT_DATA, value);
-  ASM_EMIT_SECTION(context->file, ASM_SECTION_TEXT);
-
-  fprintf(context->file, ASM_TEMPLATE_MOVSD_LABEL_REG, tempLabel, regName,
-          value);
+        fprintf(context->file, "    mov%s %s, %d(%%rbp)    # Store %s\n", suffix, regName,
+                var->stackOffset, tempName);
+    }
+    free(tempName);
 }
 
 /**
@@ -648,36 +621,47 @@ void generateStringLoadImmediate(StackContext context, const char *value,
  * @note Boolean values are converted to 1 (true) or 0 (false).
  *       Delegates to specialized functions for complex types.
  */
-void generateLoadImmediate(StackContext context, const char *value,
-                           DataType type, RegisterId reg) {
-  switch (type) {
-  case TYPE_FLOAT:
-    generateFloatLoadImmediate(context, value, reg);
-    break;
+void generateLoadImmediate(StackContext context, const char *value, DataType type, RegisterId reg) {
+    switch (type) {
+    case TYPE_DOUBLE: {
+        FloatDoubleEntry entry = findFloatDoubleLiteral(context, value, type);
+        if (entry != NULL) {
+            const char *regName = getFloatRegisterName(reg);
+            fprintf(context->file, "    movsd %s(%%rip), %s    # Load double immediate: %s\n",
+                    entry->label, regName, value);
+        }
+        break;
+    }
+    case TYPE_FLOAT: {
+        FloatDoubleEntry entry = findFloatDoubleLiteral(context, value, type);
+        if (entry != NULL) {
+            const char *regName = getFloatRegisterName(reg);
+            fprintf(context->file, "    movss %s(%%rip), %s    # Load float immediate: %s\n",
+                    entry->label, regName, value);
+        }
+        break;
+    }
 
-  case TYPE_STRING:
-    generateStringLoadImmediate(context, value, reg);
-    break;
+    case TYPE_STRING:
+        generateStringLoadImmediate(context, value, reg);
+        break;
 
-  case TYPE_BOOL: {
-    int boolVal =
-        strcmp(value, "true") == 0 ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
-    const char *regName = getRegisterNameForSize(reg, TYPE_INT);
-    fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG, boolVal,
-            regName, value);
-    break;
-  }
+    case TYPE_BOOL: {
+        int boolVal = strcmp(value, "true") == 0 ? ASM_BOOL_TRUE_VALUE : ASM_BOOL_FALSE_VALUE;
+        const char *regName = getRegisterNameForSize(reg, TYPE_INT);
+        fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG, boolVal, regName, value);
+        break;
+    }
 
-  case TYPE_INT: {
-    const char *regName = getRegisterNameForSize(reg, TYPE_INT);
-    fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG_INT, value,
-            regName, value);
-    break;
-  }
+    case TYPE_INT: {
+        const char *regName = getRegisterNameForSize(reg, TYPE_INT);
+        fprintf(context->file, ASM_TEMPLATE_MOVL_IMM_REG_INT, value, regName, value);
+        break;
+    }
 
-  default:
-    break;
-  }
+    default:
+        break;
+    }
 }
 
 /**
@@ -725,6 +709,7 @@ int generateCode(ASTNode ast, const char *outputFile, const char *sourceCode,
   }
 
   collectStringLiterals(ast, context);
+  collectFloatLiterals(ast, context);
 
   // Generate assembly preamble (includes string table and program setup)
   emitPreamble(context);

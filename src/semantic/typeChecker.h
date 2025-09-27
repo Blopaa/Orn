@@ -20,9 +20,15 @@ typedef struct TypeCheckContext {
     const char *filename;
 } *TypeCheckContext;
 
+typedef enum {
+    COMPAT_ERROR = 0,
+    COMPAT_OK = 1,
+    COMPAT_WARNING = 2
+} CompatResult;
+
 TypeCheckContext createTypeCheckContext(const char *sourceCode, const char *filename);
 void freeTypeCheckContext(TypeCheckContext context);
-int areCompatible(DataType target, DataType source);
+CompatResult areCompatible(DataType target, DataType source);
 DataType getOperationResultType(DataType left, DataType right, NodeTypes op);
 DataType getExpressionType(ASTNode node, TypeCheckContext context);
 ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType);

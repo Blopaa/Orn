@@ -26,13 +26,14 @@
  *       - BOOL: 64-bit for alignment efficiency
  *       - STRING: 64-bit pointer
  */
-int getStackSize(DataType type) {
+StackSize getStackSize(DataType type) {
     switch (type) {
         case TYPE_INT: return STACK_SIZE_INT;
         case TYPE_FLOAT: return STACK_SIZE_FLOAT;
         case TYPE_BOOL: return STACK_SIZE_BOOL;
         case TYPE_STRING: return STACK_SIZE_STRING;
         case TYPE_STRUCT: return STACK_SIZE_STRING;
+        case TYPE_DOUBLE: return STACK_SIZE_DOUBLE;
         default: return STACK_SIZE_INT;
     }
 }
@@ -305,6 +306,76 @@ void collectStringLiterals(ASTNode node, StackContext context) {
     ASTNode child = node->children;
     while (child != NULL) {
         collectStringLiterals(child, context);
+        child = child->brothers;
+    }
+}
+
+FloatDoubleEntry addFloatDoubleLiterals(StackContext context, const char *value, DataType type) {
+    if (context == NULL || value == NULL) return NULL;
+
+    FloatDoubleEntry current = context->floatDoubleEntries;
+    while (current != NULL) {
+        if (strcmp(current->value, value) == 0 && current->type == type) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    FloatDoubleEntry entry = malloc(sizeof(struct FloatDoubleEntry));
+    if (entry == NULL) {
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate float entry");
+        return NULL;
+    }
+
+    entry->value = strdup(value);
+    entry->type = type;
+    entry->index = context->floatDoubleCount++;
+
+    entry->label = malloc(32);
+    if (type == TYPE_FLOAT) {
+        snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_FLOAT, entry->index);
+    } else {
+        snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_DOUBLE, entry->index);
+    }
+
+    entry->next = context->floatDoubleEntries;
+    context->floatDoubleEntries = entry;
+
+    return entry;
+}
+
+FloatDoubleEntry findFloatDoubleLiteral(StackContext context, const char *value, DataType type) {
+    if (context == NULL || value == NULL) return NULL;
+    
+    FloatDoubleEntry current = context->floatDoubleEntries;
+    while (current != NULL) {
+        if (strcmp(current->value, value) == 0 && current->type == type) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+void collectFloatLiterals(ASTNode node, StackContext context) {
+    if (node == NULL) return;
+
+    if (node->nodeType == FLOAT_LIT || node->nodeType == DOUBLE_LIT) {
+        char *tempVal = extractText(node->start, node->length);
+        if(tempVal){
+            size_t len = strlen(tempVal);
+             if (len > 0 && (tempVal[len-1] == 'f' || tempVal[len-1] == 'F')) {
+                tempVal[len-1] = '\0';
+            }
+        }
+        DataType dataType = getDataTypeFromNode(node->nodeType); 
+        addFloatDoubleLiterals(context, tempVal, dataType);    
+        if (tempVal) free(tempVal);
+    }
+
+    ASTNode child = node->children;
+    while (child != NULL) {
+        collectFloatLiterals(child, context);
         child = child->brothers;
     }
 }

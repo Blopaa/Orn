@@ -25,6 +25,14 @@ typedef struct StringEntry {
   struct StringEntry *next;
 } *StringEntry;
 
+typedef struct FloatDoubleEntry {
+  char * value;
+  char *label;
+  DataType type;
+  int index;
+  struct FloatDoubleEntry * next;
+} *FloatDoubleEntry;
+
 /**
  * @brief Stack variable representation for code generation.
  *
@@ -54,10 +62,12 @@ typedef struct StackContext {
   FILE *file;
   StackVariable variable;
   StringEntry string;
+  FloatDoubleEntry floatDoubleEntries;
   int currentOffset;
   int labelCount;
   int tempCount;
   int stringCount;
+  int floatDoubleCount;
   SymbolTable symbolTable; // global
 } *StackContext;
 
@@ -73,6 +83,7 @@ typedef enum {
   STACK_SIZE_FLOAT = 4,
   STACK_SIZE_BOOL = 1,
   STACK_SIZE_STRING = 8,
+  STACK_SIZE_DOUBLE = 8,
   ALIGNMENT = 16
 } StackSize;
 
@@ -110,7 +121,7 @@ int generateCode(ASTNode ast, const char *outputFile, const char *sourceCode,
 int generateNodeCode(ASTNode node, StackContext context);
 
 // Context management
-int getStackSize(DataType type);
+StackSize getStackSize(DataType type);
 StackContext createCodeGenContext(const char *file, const char *sourceFile,
                                   const char *filename,
                                   SymbolTable symbolTable);
@@ -164,4 +175,6 @@ int isLiteral(ASTNode node);
 int alignTo(int val, int alignement);
 const char *getInstructionSuffix(DataType type);
 const char *getRegisterNameForSize(RegisterId regId, DataType type);
+void collectFloatLiterals(ASTNode node, StackContext context);
+FloatDoubleEntry findFloatDoubleLiteral(StackContext context, const char *value, DataType type);
 #endif // CINTERPRETER_CODEGENERATION_H

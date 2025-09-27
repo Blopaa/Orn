@@ -23,6 +23,7 @@ typedef enum {
 	TK_STRING,
 	TK_FLOAT,
 	TK_BOOL,
+	TK_DOUBLE,
 
 	// Literals
 	TK_LIT,

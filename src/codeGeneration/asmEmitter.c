@@ -5,12 +5,26 @@
 #include "asmTemplate.h"
 #include "codeGeneration.h"
 
+void emitFloatTable(StackContext context) {
+    if (context->floatDoubleEntries != NULL) {
+        ASM_EMIT_SECTION(context->file, ASM_SECTION_RODATA);
+        
+        FloatDoubleEntry current = context->floatDoubleEntries;
+        while (current != NULL) {
+            fprintf(context->file, ASM_TEMPLATE_FLOAT_LABEL, current->label);
+            fprintf(context->file, ASM_TEMPLATE_FLOAT_DATA, current->value);
+            current = current->next;
+        }
+    }
+}
+
 void emitPreamble(StackContext context) {
     if (context == NULL || context->file == NULL) return;
 
     ASM_EMIT_HEADER_COMMENT(context->file, "Generated code - links with runtime.o");
 
     emitStringTable(context);
+    emitFloatTable(context);
 
     fprintf(context->file, "\n%s\n", ASM_SECTION_TEXT);
 }
