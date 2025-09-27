@@ -44,7 +44,7 @@ NodeTypes getDecType(TokenType type) {
 }
 
 static int containsFChar(const char * val, int i, int hasDot, size_t len){
-	return (val[i] == 'f' || val[i] == 'F') && i == len - 1 && hasDot
+	return (val[i] == 'f' || val[i] == 'F') && i == len - 1 && hasDot;
 }
 
 /**
