@@ -85,7 +85,7 @@ void freeTypeCheckContext(TypeCheckContext context) {
  * - All other type combinations are incompatible
  */
 CompatResult areCompatible(DataType target, DataType source) {
-    if (target == source) return 1;
+    if (target == source) return COMPAT_OK;
 
     switch (target) {
         case TYPE_STRING:
