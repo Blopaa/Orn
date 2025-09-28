@@ -555,7 +555,8 @@ StructField findStructField(StructType structType, const char * start, size_t le
  * Creates a stack variable entry for a struct instance, calculates required space,
  * and emits assembly code to reserve the memory on the stack frame.
  */
-int allocateStructVariable(StackContext context, const char * start, size_t len, StructType structType) {
+int allocateStructVariable(StackContext context, const char *start, size_t len,
+                           StructType structType) {
     if (!context || !start || !structType) return 0;
     int size = calcStructSize(structType);
     int oldOffset = context->currentOffset;
@@ -579,7 +580,8 @@ int allocateStructVariable(StackContext context, const char * start, size_t len,
     char *tempName = extractText(start, len);
     if (tempName) {
         fprintf(context->file, "    # Allocate struct %s (size=%d)\n", tempName, size);
-        fprintf(context->file, ASM_TEMPLATE_SUBQ_RSP, bytesToAlloc);
+        fprintf(context->file, "    subq $%d, %%rsp    # Allocate struct %s (size=%d)\n",
+                bytesToAlloc, tempName, size);
         free(tempName);
     }
 
