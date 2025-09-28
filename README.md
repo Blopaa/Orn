@@ -189,6 +189,7 @@ We welcome contributors and feedback!
 * Report issues on the [issue tracker](https://github.com/Blopaa/Orn/issues)
 * Explore the [roadmap](https://github.com/Blopaa/Orn/projects)
 * Join our [Discord](https://discord.gg/E8qqVC9jcf)
+* Check [Benchmark](https://github.com/Blopaa/Orn/tree/main/benchmarks) info
 
 ---
 
