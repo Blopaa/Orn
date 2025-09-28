@@ -1,5 +1,5 @@
 #!/bin/bash
-# benchmark.sh - Benchmark Orn vs TCC (FIXED)
+# benchmark.sh - Benchmark Orn vs TCC (FIXED for /benchmarks directory)
 
 set -e  # Exit on error
 
@@ -16,26 +16,26 @@ if ! command -v tcc &> /dev/null; then
     exit 1
 fi
 
-# Verificar que Orn está compilado
-if [ ! -f "./build/orn" ]; then
-    echo "Error: Orn compiler not found at ./build/orn"
+# Verificar que Orn está compilado (desde benchmarks directory)
+if [ ! -f "../build/orn" ]; then
+    echo "Error: Orn compiler not found at ../build/orn"
     echo "Build with:"
     echo "  mkdir -p build && cd build && cmake .. && cmake --build ."
     exit 1
 fi
 
-# Verificar que runtime existe
-if [ ! -f "./runtime/runtime.s" ]; then
-    echo "Error: Runtime not found at ./runtime/runtime.s"
-    echo "Make sure you're running from project root directory"
+# Verificar que runtime existe (desde benchmarks directory)
+if [ ! -f "../runtime/runtime.s" ]; then
+    echo "Error: Runtime not found at ../runtime/runtime.s"
+    echo "Make sure you're running from benchmarks directory"
     exit 1
 fi
 
 # Limpiar archivos anteriores
 rm -f test.c test.orn test_tcc test_orn *.o *.s
 
-echo "Found Orn compiler at: ./build/orn"
-echo "Found runtime at: ./runtime/runtime.s"
+echo "Found Orn compiler at: ../build/orn"
+echo "Found runtime at: ../runtime/runtime.s"
 echo
 
 # Crear programa de prueba en C para TCC
@@ -89,10 +89,10 @@ measure_time() {
 echo "--- COMPILATION ONLY ---"
 
 # TCC - solo compilación a object file
-measure_time "tcc -s test.c" "TCC compile to .s   "
+measure_time "tcc -c test.c" "TCC compile to .o   "
 
 # Orn - solo compilación a assembly  
-measure_time "./build/orn test.orn" "Orn compile to .s   "
+measure_time "../build/orn test.orn" "Orn compile to .s   "
 
 echo
 echo "--- COMPLETE PIPELINE ---"
@@ -104,10 +104,10 @@ measure_time "tcc -o test_tcc test.c" "TCC complete        "
 echo -n "Orn complete        : "
 start_time=$(date +%s%N)
 
-# Ejecutar pipeline paso a paso
-if ./build/orn test.orn > /dev/null 2>&1 && \
+# Ejecutar pipeline paso a paso (fixed paths)
+if ../build/orn test.orn > /dev/null 2>&1 && \
    as --64 -o test.o output.s > /dev/null 2>&1 && \
-   as --64 -o runtime.o runtime/runtime.s > /dev/null 2>&1 && \
+   as --64 -o runtime.o ../runtime/runtime.s > /dev/null 2>&1 && \
    ld -o test_orn test.o runtime.o > /dev/null 2>&1; then
     
     end_time=$(date +%s%N)
@@ -117,11 +117,11 @@ else
     echo "FAILED"
     echo "Debugging pipeline failure..."
     echo "Step 1: Orn compilation"
-    ./build/orn test.orn
+    ../build/orn test.orn
     echo "Step 2: Assembly"
     as --64 -o test.o output.s
     echo "Step 3: Runtime assembly"
-    as --64 -o runtime.o runtime/runtime.s
+    as --64 -o runtime.o ../runtime/runtime.s
     echo "Step 4: Linking"
     ld -o test_orn test.o runtime.o
     exit 1
@@ -164,7 +164,7 @@ echo "Orn compilation (5 runs):"
 total_orn=0
 for i in {1..5}; do
     start_time=$(date +%s%N)
-    ./build/orn test.orn > /dev/null 2>&1
+    ../build/orn test.orn > /dev/null 2>&1
     end_time=$(date +%s%N)
     duration=$(( (end_time - start_time) / 1000000 ))
     echo "  Run $i: ${duration}ms"
