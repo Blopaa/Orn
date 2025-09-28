@@ -101,11 +101,10 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     ASTNode left;
     ASTNode right;
     int invert = 0;
-    if (isLeafNode(node->children) && !isLeafNode(node->children->brothers) &&
-        node->nodeType == SUB_OP) {
+    if (isLeafNode(node->children) && !isLeafNode(node->children->brothers)) {
       left = node->children->brothers;
       right = node->children;
-      invert = 1;
+      if(node->nodeType == SUB_OP) invert = 1;
     } else {
       left = node->children;
       right = node->children->brothers;
