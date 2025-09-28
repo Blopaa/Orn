@@ -98,7 +98,7 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
     if (leftReg != resultReg) {
       fprintf(context->file, ASM_TEMPLATE_MOV_REG_REG, suffix, left, result);
     }
-    fprintf(context->file, ASM_TEMPLATE_CMP_SUFFIX, suffix, result, right);
+    fprintf(context->file, ASM_TEMPLATE_CMP_SUFFIX, suffix, right, result);
 
     const char *setInstruction;
     switch (opType) {

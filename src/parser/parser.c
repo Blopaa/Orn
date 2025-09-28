@@ -53,7 +53,7 @@ ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
     context.file = list->filename ? list->filename : "source";
     context.line = token->line;
     context.column = token->column;
-    context.source = lastSourceLine;  // Dynamically extracted!
+    context.source = lastSourceLine;
     context.startColumn = token->column;
     context.length = token->length;
 
@@ -66,7 +66,7 @@ const StatementHandler statementHandlers[] = {
 	{TK_WHILE, parseLoop},
 	{TK_LBRACE, parseBlock},
 	{TK_STRUCT, parseStruct},
-	{TK_NULL, NULL}  // Sentinel
+	{TK_NULL, NULL}
 };
 
 /**
@@ -179,6 +179,23 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 	return node;
 }
 
+ASTNode parseCastExpression(TokenList *list, size_t *pos, ASTNode node) {
+    if (*pos >= list->count || !node) return NULL;
+	Token *asTok = &list->tokens[*pos];
+    ADVANCE_TOKEN(list, pos);
+    Token *currentToken = &list->tokens[*pos];
+    if (isTypeToken(currentToken->type)) {
+        ASTNode refTypeNode, castNode;
+        CREATE_NODE_OR_FAIL(refTypeNode, currentToken, getTypeNodeFromToken(currentToken->type), list, pos);
+		ADVANCE_TOKEN(list, pos);
+		CREATE_NODE_OR_FAIL(castNode, asTok, CAST_EXPRESSION, list, pos);
+		castNode->children = node;
+		node->brothers = refTypeNode;		
+		return castNode;
+    }
+    return NULL;
+}
+
 /**
  * @brief Parses expressions using operator precedence climbing algorithm.
  *
@@ -202,6 +219,12 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
 		if (currentToken->type == TK_QUESTION && PREC_TERNARY >= minPrec) {
 			left = parseConditional(list, pos, left);
 			if (left == NULL) return NULL;
+			continue;
+		}
+
+		if(currentToken->type == TK_AS && PREC_CAST >= minPrec){
+			left = parseCastExpression(list, pos, left);
+			if(left == NULL) return NULL;
 			continue;
 		}
 
