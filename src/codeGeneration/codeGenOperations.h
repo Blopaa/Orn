@@ -20,5 +20,7 @@ void generateFloatUnaryOp(StackContext context, NodeTypes opType,
 void generateStringOperation(StackContext context, NodeTypes opType,
                              RegisterId leftReg, RegisterId rightReg,
                              RegisterId resultReg);
+void generateCastOp(StackContext context, DataType sourceType, DataType targetType,
+                           RegisterId sourceReg, RegisterId resultReg);
 
 #endif // CINTERPRETER_CODEGENOPERATIONS_H

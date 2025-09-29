@@ -149,6 +149,81 @@ void generateBinaryOp(StackContext context, NodeTypes opType,
   }
 }
 
+void generateCastOp(StackContext context, DataType sourceType, DataType targetType,
+                           RegisterId sourceReg, RegisterId resultReg) {
+    // No conversion needed
+    if (sourceType == targetType) {
+        if (sourceReg != resultReg) {
+            // Just move between registers of same type
+            if (sourceType == TYPE_FLOAT) {
+                fprintf(context->file, "    movss %s, %s\n",
+                       getFloatRegisterName(sourceReg), getFloatRegisterName(resultReg));
+            } else if (sourceType == TYPE_DOUBLE) {
+                fprintf(context->file, "    movsd %s, %s\n",
+                       getFloatRegisterName(sourceReg), getFloatRegisterName(resultReg));
+            } else {
+                fprintf(context->file, "    movl %s, %s\n",
+                       getRegisterNameForSize(sourceReg, TYPE_INT),
+                       getRegisterNameForSize(resultReg, TYPE_INT));
+            }
+        }
+        return;
+    }
+    
+    emitComment(context, "Cast conversion");
+    
+    // Integer to Float/Double
+    if (sourceType == TYPE_INT && targetType == TYPE_FLOAT) {
+        fprintf(context->file, "    cvtsi2ss %s, %s\n",
+               getRegisterNameForSize(sourceReg, TYPE_INT),
+               getFloatRegisterName(resultReg));
+    }
+    else if (sourceType == TYPE_INT && targetType == TYPE_DOUBLE) {
+        fprintf(context->file, "    cvtsi2sd %s, %s\n",
+               getRegisterNameForSize(sourceReg, TYPE_INT),
+               getFloatRegisterName(resultReg));
+    }
+    
+    // Float/Double to Integer (truncate)
+    else if (sourceType == TYPE_FLOAT && targetType == TYPE_INT) {
+        fprintf(context->file, "    cvttss2si %s, %s\n",
+               getFloatRegisterName(sourceReg),
+               getRegisterNameForSize(resultReg, TYPE_INT));
+    }
+    else if (sourceType == TYPE_DOUBLE && targetType == TYPE_INT) {
+        fprintf(context->file, "    cvttsd2si %s, %s\n",
+               getFloatRegisterName(sourceReg),
+               getRegisterNameForSize(resultReg, TYPE_INT));
+    }
+    
+    // Between float and double
+    else if (sourceType == TYPE_DOUBLE && targetType == TYPE_FLOAT) {
+        fprintf(context->file, "    cvtsd2ss %s, %s\n",
+               getFloatRegisterName(sourceReg),
+               getFloatRegisterName(resultReg));
+    }
+    else if (sourceType == TYPE_FLOAT && targetType == TYPE_DOUBLE) {
+        fprintf(context->file, "    cvtss2sd %s, %s\n",
+               getFloatRegisterName(sourceReg),
+               getFloatRegisterName(resultReg));
+    }
+    
+    // Bool conversions
+    else if (sourceType == TYPE_BOOL && targetType == TYPE_INT) {
+        fprintf(context->file, "    movzbl %s, %s\n",
+               getRegisterNameForSize(sourceReg, TYPE_BOOL),
+               getRegisterNameForSize(resultReg, TYPE_INT));
+    }
+    else if (sourceType == TYPE_INT && targetType == TYPE_BOOL) {
+        fprintf(context->file, "    testl %s, %s\n",
+               getRegisterNameForSize(sourceReg, TYPE_INT),
+               getRegisterNameForSize(sourceReg, TYPE_INT));
+        fprintf(context->file, "    setne %%al\n");
+        fprintf(context->file, "    movzbl %%al, %s\n",
+               getRegisterNameForSize(resultReg, TYPE_INT));
+    }
+}
+
 /**
  * @brief Generates unary operations including arithmetic negation, logical NOT,
  * and increment/decrement. Delegates to specialized float handlers when needed

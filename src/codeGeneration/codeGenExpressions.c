@@ -137,7 +137,35 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
                      operandType, invert);
     return preferredReg;
   }
+  case CAST_EXPRESSION:{
+    if(!node->children || !node->children->brothers){
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Cast expression missing operands");
+        return preferredReg;
+    }
+    ASTNode sourceExpr = node->children;
+    ASTNode target = node->children->brothers;
 
+    DataType sourceType = getOperandType(sourceExpr, context);
+    DataType targetType = getDataTypeFromNode(target->nodeType);
+
+    RegisterId sourceReg;
+    if (sourceType == TYPE_FLOAT || sourceType == TYPE_DOUBLE) {
+        sourceReg = generateExpressionToRegister(sourceExpr, context, REG_XMM0);
+    } else {
+        sourceReg = generateExpressionToRegister(sourceExpr, context, REG_RAX);
+    }
+
+    RegisterId resultReg = preferredReg;
+    if (targetType == TYPE_FLOAT || targetType == TYPE_DOUBLE) {
+        resultReg = (preferredReg >= REG_XMM0) ? preferredReg : REG_XMM0;
+    } else {
+        resultReg = (preferredReg < REG_XMM0) ? preferredReg : REG_RAX;
+    }
+
+    generateCastOp(context, sourceType, targetType, sourceReg, resultReg);
+
+    return resultReg;
+  }
   case UNARY_MINUS_OP:
   case UNARY_PLUS_OP:
   case LOGIC_NOT:
