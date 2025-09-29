@@ -108,6 +108,9 @@ typedef enum {
     DIV_OP,
     MOD_OP,
 
+    //casting
+    CAST_EXPRESSION,
+
     // Unary operators
     UNARY_MINUS_OP,
     UNARY_PLUS_OP,
@@ -224,6 +227,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {REF_VOID, "TYPE_VOID"},
     {REF_DOUBLE, "TYPE_DOUBLE"},
     {REF_CUSTOM, "TYPE_CUSTOM"},
+    {CAST_EXPRESSION, "CAST_EXPRESSION"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -298,6 +302,7 @@ typedef enum {
     PREC_COMPARISON,
     PREC_TERM,
     PREC_FACTOR,
+    PREC_CAST,
     PREC_UNARY
 } Precedence;
 
@@ -345,6 +350,7 @@ static const OperatorInfo operators[] = {
     {TK_STAR, MUL_OP, PREC_FACTOR, 0},
     {TK_SLASH, DIV_OP, PREC_FACTOR, 0},
     {TK_MOD, MOD_OP, PREC_FACTOR, 0},
+    {TK_AS, CAST_EXPRESSION, PREC_CAST, 0},
     {TK_NULL, null_NODE, PREC_NONE, 0}
 };
 
@@ -383,6 +389,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 ASTNode parseStruct(TokenList* list, size_t* pos);
 ASTNode parseStructField(TokenList* list, size_t* pos);
+NodeTypes getTypeNodeFromToken(TokenType type);
 
 // Public function prototypes
 ASTContext * ASTGenerator(TokenList* tokenList);

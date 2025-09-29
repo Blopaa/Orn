@@ -39,6 +39,8 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 	if (len < 2) return TK_LIT;
 
 	switch (s[0]) {
+	case 'a':
+		if(len == 2 && memcmp(s, "as", 2) == 0) return TK_AS;
 	case 'b':
 		if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
 		break;

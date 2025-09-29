@@ -17,6 +17,7 @@ typedef enum {
 	TK_WHILE,
 	TK_TRUE,
 	TK_FALSE,
+	TK_AS,
 
 	// Data types
 	TK_INT,

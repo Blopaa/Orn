@@ -100,6 +100,31 @@ CompatResult areCompatible(DataType target, DataType source) {
     }
 }
 
+int isPrecisionLossCast(DataType source, DataType target) {
+    if (source == TYPE_DOUBLE && target == TYPE_FLOAT) return 1;
+    if ((source == TYPE_FLOAT || source == TYPE_DOUBLE) && target == TYPE_INT) return 1;
+    if (source == TYPE_INT && target == TYPE_BOOL) return 1;
+    return 0;
+}
+
+int isNumType(DataType type) {
+    return type == TYPE_INT || type == TYPE_FLOAT || type == TYPE_DOUBLE;
+}
+
+CompatResult isCastAllowed(DataType target, DataType source) {
+    CompatResult baseComp = areCompatible(target, source);
+    if (baseComp != COMPAT_ERROR) {
+        return baseComp;
+    }
+    if (isNumType(source) && isNumType(target)) {
+        return isPrecisionLossCast(source, target) ? COMPAT_WARNING : COMPAT_OK;
+    }
+    if ((source == TYPE_BOOL && isNumType(target)) || (isNumType(source) && target == TYPE_BOOL)) {
+        return COMPAT_OK;
+    }
+    return COMPAT_ERROR;
+}
+
 /**
  * @brief Determines the result type of binary operations.
  *
@@ -285,6 +310,10 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             }
             return resultType;
         }
+        case CAST_EXPRESSION:
+            if(!node->children || !node->children->brothers) return TYPE_UNKNOWN;
+            ASTNode targetTypeNode = node->children->brothers;
+            return getDataTypeFromNode(targetTypeNode->nodeType);
         case FUNCTION_CALL: {
             if (isBuiltinFunction(node->start, node->length)) {
                 return TYPE_VOID;
@@ -852,6 +881,37 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
     return 1;
 }
 
+int validateCastExpression(ASTNode node, TypeCheckContext context) {
+    if (!node || !node->children || !node->children->brothers) {
+        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
+                    "Invalid cast expression structure");
+        return 0;
+    }
+    ASTNode sourceExpr = node->children;
+    ASTNode targetTypeNode = node->children->brothers;
+    DataType sourceType = getExpressionType(sourceExpr, context);
+    if (sourceType == TYPE_UNKNOWN) return 0;
+    DataType targetType = getDataTypeFromNode(targetTypeNode->nodeType);
+    if (targetType == TYPE_UNKNOWN) {
+        reportError(ERROR_INVALID_CAST_TARGET, createErrorContextFromType(targetTypeNode, context),
+                    "Invalid cast target type");
+        return 0;
+    }
+    CompatResult canItBeCasted = isCastAllowed(sourceType, targetType);
+    if(canItBeCasted == COMPAT_ERROR){
+        reportError(ERROR_FORBIDDEN_CAST, createErrorContextFromType(node, context),
+                   "Cannot cast between these types");
+        return 0;
+    }
+    // just a warning
+    if (isPrecisionLossCast(sourceType, targetType)) {
+        reportError(ERROR_CAST_PRECISION_LOSS, createErrorContextFromType(node, context),
+                   "Cast may lose precision");
+    }
+    return 1;
+
+}
+
 int validateStructVarDec(ASTNode node, TypeCheckContext context) {
     if (!node || node->nodeType != STRUCT_VARIABLE_DEFINITION) return 0;
 
@@ -1000,7 +1060,9 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             }
             break;
         }
-
+        case CAST_EXPRESSION:
+            success = validateCastExpression(node, context);
+            break;
         case UNARY_MINUS_OP:
         case UNARY_PLUS_OP:
         case LOGIC_NOT:

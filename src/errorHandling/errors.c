@@ -432,14 +432,38 @@ const ErrorInfo errorDatabase[] = {
         "missing 'return'",
         "write the statement as `return value;`"
     },
-{
-    ERROR_EXPECTED_FN,
-    ERROR,
-    "expected 'fn' keyword",
-    "a function declaration must begin with the 'fn' keyword",
-    "missing 'fn'",
-    "write the declaration as `fn name(params) -> return_type { ... }`"
-},
+    {
+        ERROR_EXPECTED_FN,
+        ERROR,
+        "expected 'fn' keyword",
+        "a function declaration must begin with the 'fn' keyword",
+        "missing 'fn'",
+        "write the declaration as `fn name(params) -> return_type { ... }`"
+    },
+    {
+        ERROR_INVALID_CAST_TARGET,
+        ERROR,
+        "invalid cast target",
+        "cast target must be a valid type",
+        "expected type after 'as'",
+        "use a valid type like 'int', 'float', 'bool', etc."
+    },
+    {
+        ERROR_FORBIDDEN_CAST,
+        ERROR,
+        "forbidden cast",
+        "this cast is not allowed between these types",
+        "incompatible types for casting",
+        "check if explicit conversion is supported for these types"
+    },
+    {
+        ERROR_CAST_PRECISION_LOSS,
+        WARNING,
+        "cast may lose precision",
+        "casting from larger to smaller type may lose data",
+        "potential data loss in cast",
+        "ensure the value fits in the target type"
+    },
 
     // Function-related errors (5000s)
     {
