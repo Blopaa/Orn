@@ -27,6 +27,7 @@
 #include "codeGenExpressions.h"
 #include "codeGenOperations.h"
 #include "errorHandling.h"
+#include "registerHandling.h"
 
 /**
  * @brief Generates assembly code for a single AST node and its subtree.
@@ -324,26 +325,35 @@ int generateNodeCode(ASTNode node, StackContext context) {
     // Save parameters to local variables
     if (paramList && paramList->nodeType == PARAMETER_LIST) {
       ASTNode param = paramList->children;
-      RegisterId paramRegs[] = {REG_RDI, REG_RSI, REG_RDX,
-                                REG_RCX, REG_R8,  REG_R9};
-      int paramIndex = 0;
+      int intRegIndex = 0;
+      int floatRegIndex = 0;
 
-      while (param != NULL && paramIndex < 6) {
-        DataType paramType = TYPE_INT; // Simplified
+      while (param != NULL) {
+        DataType paramType = getDataTypeFromNode(param->children->nodeType); 
         int offset = allocateVariable(context, param->start, param->length, paramType);
 
         char *paramName = extractText(param->start, param->length);
-        // Use proper register size for the parameter type
-        const char *paramRegName = getRegisterNameForSize(paramRegs[paramIndex], paramType);
-        const char *suffix = getInstructionSuffix(paramType);
+        
+        RegisterId paramReg;
+        if(paramType == TYPE_FLOAT || paramType == TYPE_DOUBLE) {
+          paramReg = getParameterReg(paramType, floatRegIndex++);
+        }else {
+          paramReg = getParameterReg(paramType, intRegIndex++);
+        }
 
-        fprintf(context->file, ASM_TEMPLATE_STORE_PARAM,
-                suffix, paramRegName, offset,
-                paramName ? paramName : "unknown");
+         if (paramType == TYPE_FLOAT || paramType == TYPE_DOUBLE) {
+            fprintf(context->file, "    movss %s, %d(%%rbp)    # Store float param %s\n",
+                    getFloatRegisterName(paramReg), offset, 
+                    paramName ? paramName : "unknown");
+        } else {
+            const char *regName = getRegisterNameForSize(paramReg, paramType);
+            const char *suffix = getInstructionSuffix(paramType);
+            fprintf(context->file, ASM_TEMPLATE_STORE_PARAM,
+                    suffix, regName, offset, paramName ? paramName : "unknown");
+        }
+        
         if (paramName) free(paramName);
-
         param = param->brothers;
-        paramIndex++;
       }
     }
 

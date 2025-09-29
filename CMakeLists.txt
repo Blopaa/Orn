@@ -29,6 +29,8 @@ set(LIB_SOURCES
         src/codeGeneration/codeGenOperations.c
         src/codeGeneration/codeGenExpressions.c
         src/codeGeneration/codeGenExpressions.h
+        src/codeGeneration/registerHandling.h
+        src/codeGeneration/registerHandling.c
 )
 
 # Create compiler library

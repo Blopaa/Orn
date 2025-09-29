@@ -143,8 +143,6 @@ void generateStoreVariable(StackContext context, const char *start, size_t len,
 StructType findGlobalStructType(StackContext context, const char * start, size_t len);
 
 // Register management
-const char *getRegisterName(RegisterId regId, DataType type);
-const char *getFloatRegisterName(RegisterId regId);
 void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset);
 void restoreRegisterFromTempVar(StackContext context, RegisterId reg,
                               DataType type, tempVarOffset tempVarOffset);
@@ -174,7 +172,6 @@ int isLeafNode(ASTNode node);
 int isLiteral(ASTNode node);
 int alignTo(int val, int alignement);
 const char *getInstructionSuffix(DataType type);
-const char *getRegisterNameForSize(RegisterId regId, DataType type);
 void collectFloatLiterals(ASTNode node, StackContext context);
 FloatDoubleEntry findFloatDoubleLiteral(StackContext context, const char *value, DataType type);
 #endif // CINTERPRETER_CODEGENERATION_H

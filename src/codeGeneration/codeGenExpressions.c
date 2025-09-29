@@ -7,6 +7,7 @@
 #include "asmTemplate.h"
 #include "builtIns.h"
 #include "codeGenOperations.h"
+#include "registerHandling.h"
 
 #include <stdlib.h>
 

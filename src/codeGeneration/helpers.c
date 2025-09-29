@@ -8,6 +8,7 @@
 #include "codeGeneration.h"
 #include "errorHandling.h"
 #include "asmTemplate.h"
+#include "registerHandling.h"
 
 /**
  * @brief Returns the stack allocation size for a given data type.
@@ -64,59 +65,6 @@ const char *getAsmTypeSuffix(DataType type) {
         case TYPE_FLOAT: return "sd"; // Scalar double-precision
         default: return "q";
     }
-}
-
-/**
- * @brief Maps register IDs to x86-64 assembly register names.
- *
- * Converts internal register enumeration values to their corresponding
- * x86-64 assembly register names. Handles both general-purpose registers
- * and floating-point registers with automatic delegation for float types.
- *
- * @param regId Internal register identifier
- * @param type Data type (used to select between GP and float registers)
- * @return Assembly register name string (e.g., "%rax", "%rbx")
- *
- * @note For floating-point types, automatically delegates to
- *       getFloatRegisterName(). Provides bounds checking and
- *       defaults to "%rax" for invalid register IDs.
- */
-const char *getRegisterName(RegisterId regId, DataType type) {
-    if (type == TYPE_FLOAT) {
-        return getFloatRegisterName(regId);
-    }
-
-    static const char *registers[] = {
-        ASM_REG_RAX, ASM_REG_RBX, ASM_REG_RCX, ASM_REG_RDX, ASM_REG_RSI,
-        ASM_REG_RDI, ASM_REG_R8, ASM_REG_R9, ASM_REG_R10, ASM_REG_R11
-    };
-
-    if (regId >= REG_R11 + 1) return ASM_REG_RAX;
-    return registers[regId];
-}
-
-/**
- * @brief Maps register IDs to SSE register names for floating-point operations.
- *
- * Converts internal register enumeration values to their corresponding
- * SSE register names used for floating-point operations. Provides proper
- * bounds checking and safe defaults for invalid register specifications.
- *
- * @param regId Internal register identifier (should be XMM register)
- * @return SSE register name string (e.g., "%xmm0", "%xmm1")
- *
- * @note Performs bounds checking to ensure valid XMM register range.
- *       Returns "%xmm0" as default for invalid or out-of-range IDs.
- *       Supports XMM0 through XMM5 for current implementation.
- */
-const char *getFloatRegisterName(RegisterId regId) {
-    static const char *xmmRegisters[] = {
-        ASM_REG_XMM0, ASM_REG_XMM1, ASM_REG_XMM2, ASM_REG_XMM3, ASM_REG_XMM4, ASM_REG_XMM5
-    };
-
-    int xmmIndex = regId - REG_XMM0;
-    if (xmmIndex < 0 || xmmIndex > 5) return ASM_REG_XMM0;
-    return xmmRegisters[xmmIndex];
 }
 
 /**
@@ -194,22 +142,6 @@ const char *getInstructionSuffix(DataType type) {
     case TYPE_BOOL: return "b";     // Byte
     case TYPE_STRING: return "q";   // Quad word (64-bit pointer)
     default: return "l";
-    }
-}
-
-const char *getRegisterNameForSize(RegisterId regId, DataType type) {
-    static const char *registers64[] = {"%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11"};
-    static const char *registers32[] = {"%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi", "%r8d", "%r9d", "%r10d", "%r11d"};
-    static const char *registers8[] = {"%al", "%bl", "%cl", "%dl", "%sil", "%dil", "%r8b", "%r9b", "%r10b", "%r11b"};
-
-    if (regId >= REG_R11 + 1) return registers64[0];
-
-    switch (type) {
-    case TYPE_INT:
-    case TYPE_FLOAT: return registers32[regId];
-    case TYPE_BOOL: return registers8[regId];
-    case TYPE_STRING:
-    default: return registers64[regId];
     }
 }
 

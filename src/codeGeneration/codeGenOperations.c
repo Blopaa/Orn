@@ -3,6 +3,7 @@
 #include "asmTemplate.h"
 
 #include <string.h>
+#include "registerHandling.h"
 
 /**
  * @brief Generates binary operations with type-aware instruction selection and
