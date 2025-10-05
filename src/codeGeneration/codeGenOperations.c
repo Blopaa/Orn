@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include "registerHandling.h"
+#include "constants.h"
 
 /**
  * @brief Generates binary operations with type-aware instruction selection and
@@ -243,7 +244,7 @@ void generateUnaryOp(StackContext context, NodeTypes opType,
   const char *result = getRegisterName(resultReg, operandType);
 
   if (operandReg != resultReg) {
-    fprintf(context->file, ASM_TEMPLATE_MOVQ_REG_REG, operand, result);
+    fprintf(context->file, "    movq %s, %s\n", operand, result);
   }
 
   switch (opType) {
@@ -363,7 +364,7 @@ void generateFloatUnaryOp(StackContext context, NodeTypes opType,
 
   switch (opType) {
   case UNARY_MINUS_OP: {
-    char negLabel[64];
+    char negLabel[TEMP_LABEL_BUFFER_SIZE];
     snprintf(negLabel, sizeof(negLabel), "%s%d", ASM_LABEL_PREFIX_FLOAT_NEG,
              context->tempCount++);
 

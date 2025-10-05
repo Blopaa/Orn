@@ -28,6 +28,7 @@
 #include "codeGenOperations.h"
 #include "errorHandling.h"
 #include "registerHandling.h"
+#include "constants.h"
 
 /**
  * @brief Generates assembly code for a single AST node and its subtree.
@@ -161,9 +162,11 @@ int generateNodeCode(ASTNode node, StackContext context) {
         RegisterId rightReg;
         if (field->type == TYPE_FLOAT) {
           rightReg = generateExpressionToRegister(rightNode, context, REG_XMM0);
+          char * tempText = extractText(fieldNode->start, fieldNode->length);
           fprintf(context->file,
                   ASM_TEMPLATE_MOVSS_REG_MEM,
-                  getFloatRegisterName(rightReg), memberOffset);
+                  getFloatRegisterName(rightReg), memberOffset, tempText);
+          free(tempText);
         }  else {
           rightReg = generateExpressionToRegister(rightNode, context, REG_RAX);
           const char *regName = getRegisterNameForSize(rightReg, field->type);
@@ -315,7 +318,7 @@ int generateNodeCode(ASTNode node, StackContext context) {
       free(tempVal);
     fprintf(context->file, "    pushq %%rbp\n");
     fprintf(context->file, "    movq %%rsp, %%rbp\n");
-    fprintf(context->file, "    subq $16, %%rsp\n");
+    fprintf(context->file, "    subq $%d, %%rsp\n", INITIAL_STACK_FRAME_SIZE);
 
     // Get nodes
     ASTNode paramList = node->children;

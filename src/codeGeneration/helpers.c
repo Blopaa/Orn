@@ -9,6 +9,7 @@
 #include "errorHandling.h"
 #include "asmTemplate.h"
 #include "registerHandling.h"
+#include "constants.h"
 
 /**
  * @brief Returns the stack allocation size for a given data type.
@@ -84,6 +85,11 @@ const char *getAsmTypeSuffix(DataType type) {
  *       automatically incremented to ensure uniqueness.
  */
 void generateLabel(StackContext context, const char *prefix, char *buffer, int bufferSize) {
+    if (bufferSize < LABEL_BUFFER_SIZE) {
+        repError(ERROR_INTERNAL_CODE_GENERATOR_ERROR, 
+                "Label buffer too small");
+        return;
+    }
     snprintf(buffer, bufferSize, "%s%s_%d", ASM_LABEL_PREFIX_LOCAL, prefix, context->labelCount++);
 }
 
@@ -231,8 +237,10 @@ void collectStringLiterals(ASTNode node, StackContext context) {
 
     if (node->nodeType == STRING_LIT) {
         char * tempVal = extractText(node->start, node->length);
-        addStringLiteral(context, tempVal);
-        if (tempVal) free(tempVal);
+        if (tempVal){
+            addStringLiteral(context, tempVal);
+            free(tempVal);
+        };
     }
 
     ASTNode child = node->children;
@@ -260,10 +268,21 @@ FloatDoubleEntry addFloatDoubleLiterals(StackContext context, const char *value,
     }
 
     entry->value = strdup(value);
+    if(!entry->value){
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to duplicate float value");
+        free(entry);
+        return NULL;
+    }
     entry->type = type;
     entry->index = context->floatDoubleCount++;
 
-    entry->label = malloc(32);
+    entry->label = malloc(FLOAT_LABEL_BUFFER_SIZE);
+    if (entry->label == NULL) {
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate float label");
+        free(entry->value);
+        free(entry);      
+        return NULL;
+    }
     if (type == TYPE_FLOAT) {
         snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_FLOAT, entry->index);
     } else {
@@ -294,15 +313,15 @@ void collectFloatLiterals(ASTNode node, StackContext context) {
 
     if (node->nodeType == FLOAT_LIT || node->nodeType == DOUBLE_LIT) {
         char *tempVal = extractText(node->start, node->length);
-        if(tempVal){
+        if (tempVal) {
             size_t len = strlen(tempVal);
-             if (len > 0 && (tempVal[len-1] == 'f' || tempVal[len-1] == 'F')) {
-                tempVal[len-1] = '\0';
+            if (len > 0 && (tempVal[len - 1] == 'f' || tempVal[len - 1] == 'F')) {
+                tempVal[len - 1] = '\0';
             }
+            DataType dataType = getDataTypeFromNode(node->nodeType);
+            addFloatDoubleLiterals(context, tempVal, dataType);
+            free(tempVal);
         }
-        DataType dataType = getDataTypeFromNode(node->nodeType); 
-        addFloatDoubleLiterals(context, tempVal, dataType);    
-        if (tempVal) free(tempVal);
     }
 
     ASTNode child = node->children;
@@ -329,7 +348,7 @@ int isLeafNode(ASTNode node) {
  * @brief Spills a register value to a temporary variable on the stack.
  * Handles both integer and floating-point registers with appropriate instructions.
  */
-void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
+void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, int tempVarOffset) {
     if (type == TYPE_FLOAT) {
         fprintf(context->file, ASM_TEMPLATE_SPILL_FLOAT,
                 getFloatRegisterName(reg), tempVarOffset);
@@ -346,7 +365,7 @@ void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type,
  * @brief Restores a register value from a temporary variable on the stack.
  * Loads previously spilled value back into the specified register.
  */
-void restoreRegisterFromTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset) {
+void restoreRegisterFromTempVar(StackContext context, RegisterId reg, DataType type, int tempVarOffset) {
     if (type == TYPE_FLOAT) {
         // Float registers need special handling
         fprintf(context->file, ASM_TEMPLATE_MOVSD_MEM_REG,

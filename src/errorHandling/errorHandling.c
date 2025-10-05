@@ -24,12 +24,6 @@ void repError(ErrorCode code, const char *extraContext) {
 	reportError(code, NULL, extraContext);
 }
 
-char * formatErrorCode(ErrorCode err) {
-	static char buffer[8];
-	snprintf(buffer, sizeof(buffer), "E%04d", err);
-	return buffer;
-}
-
 const ErrorInfo * getErrorInfo(ErrorCode err) {
 	for (int i = 0; errorDatabase[i].code != ERROR_OK || i == 0; i++) {
 		if (errorDatabase[i].code == err) {
@@ -59,7 +53,9 @@ void printSourceSnippet (ErrorContext * context) {
 
 void reportError(ErrorCode code, ErrorContext *context, const char *extraContext) {
     const ErrorInfo *info = getErrorInfo(code);
-    const char *levelColor, *levelText;
+    // def vals
+    const char *levelColor = RED;
+    const char *levelText = "error";
 
     // Determine colors and text based on error level
     switch (info->level) {
@@ -83,10 +79,10 @@ void reportError(ErrorCode code, ErrorContext *context, const char *extraContext
     const char *RESET_COLOR = RESET ;
     const char *BLUE_COLOR = BLUE;
 
-    // Print main error line: error[E1002]: mismatched types
-    printf("%s%s %s[%s]:%s %s%s",
+    // Print main error line example: error[E1002]: mismatched types
+    printf("%s%s %s[E%04d]:%s %s%s",
            levelColor, levelText, RED,
-           formatErrorCode(code),
+           code,
            RESET_COLOR,
            YELLOW, info->message);
 

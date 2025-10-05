@@ -24,6 +24,7 @@
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
+#include "../codeGeneration/constants.h"
 
 #include <string.h>
 
@@ -149,7 +150,7 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 		ADVANCE_TOKEN(list, pos);
 
 		ASTNode operand, opNode;
-		PARSE_OR_CLEANUP(operand,parseUnary(list, pos));
+		PARSE_OR_FAIL(operand,parseUnary(list, pos));
 
 		NodeTypes opType = getUnaryOpType(opToken->type);
 		if (opType == null_NODE) return NULL;
@@ -354,9 +355,9 @@ ASTNode parseLoop(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode condition, loopBody, loopNode;
-	PARSE_OR_CLEANUP(condition, parseExpression(list, pos, PREC_NONE));
+	PARSE_OR_FAIL(condition, parseExpression(list, pos, PREC_NONE));
 	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' after loop condition");
-	PARSE_OR_CLEANUP(loopBody, parseBlock(list, pos));
+	PARSE_OR_FAIL(loopBody, parseBlock(list, pos));
 	CREATE_NODE_OR_FAIL(loopNode, loopToken, LOOP_STATEMENT, list, pos);
 
 	loopNode->children = condition;
@@ -658,7 +659,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
  */
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos) {
 	ASTNode expressionNode;
-	PARSE_OR_CLEANUP(expressionNode, parseExpression(list, pos, PREC_NONE));
+	PARSE_OR_FAIL(expressionNode, parseExpression(list, pos, PREC_NONE));
 	EXPECT_AND_ADVANCE(list, pos, TK_SEMI,ERROR_EXPECTED_SEMICOLON, "Expected ';'");
 	return expressionNode;
 }
@@ -800,7 +801,7 @@ void printASTTree(ASTNode node, char* prefix, int isLast) {
 	}
 	printf("\n");
 
-	char newPrefix[256];
+	char newPrefix[AST_TEXT_BUFFER_SIZE];
 	sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "|   ");
 
 	ASTNode child = node->children;
