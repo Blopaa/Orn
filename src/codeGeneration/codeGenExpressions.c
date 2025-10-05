@@ -8,6 +8,7 @@
 #include "builtIns.h"
 #include "codeGenOperations.h"
 #include "registerHandling.h"
+#include "constants.h"
 
 #include <stdlib.h>
 
@@ -120,10 +121,10 @@ RegisterId generateExpressionToRegister(ASTNode node, StackContext context,
     }
     leftReg = generateExpressionToRegister(left, context, leftReg);
     if (needSpill) {
-      spillRegisterToTempVar(context, leftReg, operandType, TEMP_VAR_A);
+      spillRegisterToTempVar(context, leftReg, operandType, TEMP_VAR_A_OFFSET);
       rightReg = generateExpressionToRegister(right, context, REG_RAX);
       leftReg = getOppositeBranchRegister(rightReg);
-      restoreRegisterFromTempVar(context, leftReg, operandType, TEMP_VAR_A);
+      restoreRegisterFromTempVar(context, leftReg, operandType, TEMP_VAR_A_OFFSET);
     } else {
       rightReg = generateExpressionToRegister(right, context, rightReg);
     }
@@ -332,7 +333,7 @@ int generateConditional(ASTNode node, StackContext context) {
   if (node->children == NULL)
     return 0;
 
-  char elseLabel[64], endLabel[64];
+  char elseLabel[LABEL_BUFFER_SIZE], endLabel[LABEL_BUFFER_SIZE];
   generateLabel(context, ASM_LABEL_PREFIX_ELSE, elseLabel, sizeof(elseLabel));
   generateLabel(context, ASM_LABEL_PREFIX_END_IF, endLabel, sizeof(endLabel));
 
@@ -404,7 +405,7 @@ int generateLoop(ASTNode node, StackContext context) {
   if (node->children == NULL || node->children->brothers == NULL)
     return 0;
 
-  char loopLabel[64], endLabel[64];
+  char loopLabel[LABEL_BUFFER_SIZE], endLabel[LABEL_BUFFER_SIZE];
   generateLabel(context, ASM_LABEL_PREFIX_LOOP, loopLabel, sizeof(loopLabel));
   generateLabel(context, ASM_LABEL_PREFIX_END_LOOP, endLabel, sizeof(endLabel));
 

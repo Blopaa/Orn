@@ -6,6 +6,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O3")
 
 # Source files (excluding main.c for library)
 set(LIB_SOURCES
+        src/codeGeneration/constants.h
         src/lexer/lexer.c
         src/parser/parser.c
         src/errorHandling/errorHandling.c

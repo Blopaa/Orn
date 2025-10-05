@@ -236,7 +236,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
             if (symbol == NULL) {
-                const char * tempText = extractText(node->start, node->length);
+                char * tempText = extractText(node->start, node->length);
                 REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
                 free(tempText);
                 return TYPE_UNKNOWN;

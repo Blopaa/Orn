@@ -150,7 +150,7 @@ typedef struct ErrorContext {
 	const char* file;
 	size_t line;
 	size_t column;
-	const char* source;
+	char* source;
 	size_t length;
 	size_t startColumn;
 } ErrorContext;
@@ -168,7 +168,6 @@ extern const ErrorInfo errorDatabase[];
 extern const size_t errorDatabaseCount;
 
 const ErrorInfo *getErrorInfo(ErrorCode code);
-char *formatErrorCode(ErrorCode code);
 void reportError(ErrorCode code, ErrorContext *context, const char *extraContext);
 void printErrorSummary(void);
 void printSourceSnippet(ErrorContext *context);

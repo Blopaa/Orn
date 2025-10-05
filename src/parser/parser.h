@@ -45,9 +45,18 @@ const char *getCurrentTokenName(TokenList *list, size_t pos);
         var = (parseExpr); \
         if (!var) { \
             ASTNode _cleanup_nodes[] = {__VA_ARGS__}; \
-            for (size_t _i = 0; _i < sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); _i++) { \
+            size_t _count = sizeof(_cleanup_nodes)/sizeof(_cleanup_nodes[0]); \
+            for (size_t _i = 0; _i < _count; _i++) { \
                 if (_cleanup_nodes[_i]) freeAST(_cleanup_nodes[_i]); \
             } \
+            return NULL; \
+        } \
+    } while(0)
+
+    #define PARSE_OR_FAIL(var, parseExpr) \
+    do { \
+        var = (parseExpr); \
+        if (!var) { \
             return NULL; \
         } \
     } while(0)

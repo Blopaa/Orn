@@ -6,11 +6,6 @@
 #include "symbolTable.h"
 #include <stdio.h>
 
-typedef enum {
-  TEMP_VAR_A = 8,
-  TEMP_VAR_B = 16,
-} tempVarOffset;
-
 /**
  * @brief String literal entry in the global string table.
  *
@@ -143,9 +138,9 @@ void generateStoreVariable(StackContext context, const char *start, size_t len,
 StructType findGlobalStructType(StackContext context, const char * start, size_t len);
 
 // Register management
-void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, tempVarOffset tempVarOffset);
+void spillRegisterToTempVar(StackContext context, RegisterId reg, DataType type, int tempVarOffset);
 void restoreRegisterFromTempVar(StackContext context, RegisterId reg,
-                              DataType type, tempVarOffset tempVarOffset);
+                              DataType type, int tempVarOffset);
 RegisterId getOppositeBranchRegister(RegisterId reg);
 
 // Immediate value loading

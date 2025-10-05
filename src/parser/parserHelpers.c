@@ -43,7 +43,7 @@ NodeTypes getDecType(TokenType type) {
     return null_NODE;
 }
 
-static int containsFChar(const char * val, int i, int hasDot, size_t len){
+static int containsFChar(const char * val, size_t i, int hasDot, size_t len){
 	return (val[i] == 'f' || val[i] == 'F') && i == len - 1 && hasDot;
 }
 

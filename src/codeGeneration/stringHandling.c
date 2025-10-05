@@ -8,6 +8,7 @@
 #include "asmTemplate.h"
 #include "codeGeneration.h"
 #include "errorHandling.h"
+#include "constants.h"
 
 /**
  * @brief Adds a string literal to the string table with automatic deduplication.
@@ -53,11 +54,22 @@ StringEntry addStringLiteral(StackContext context, const char *value) {
     }
 
     entry->value = strdup(value);
+    if(!entry->value){
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to duplicate string");
+        free(entry);
+        return NULL;
+    }
     entry->index = context->stringCount++;
 
     // Create label
-    entry->label = malloc(32);
-    snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_STR, entry->index);
+    entry->label = malloc(STRING_LABEL_BUFFER_SIZE);
+    if(!entry->label){
+        repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate string label");
+        free(entry->value);  
+        free(entry);      
+        return NULL;
+    }
+    snprintf(entry->label, STRING_LABEL_BUFFER_SIZE, "%s%d", ASM_LABEL_PREFIX_STR, entry->index);
 
     entry->next = context->string;
     context->string = entry;
