@@ -284,9 +284,9 @@ FloatDoubleEntry addFloatDoubleLiterals(StackContext context, const char *value,
         return NULL;
     }
     if (type == TYPE_FLOAT) {
-        snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_FLOAT, entry->index);
+        snprintf(entry->label, FLOAT_LABEL_BUFFER_SIZE, "%s%d", ASM_LABEL_PREFIX_FLOAT, entry->index);
     } else {
-        snprintf(entry->label, 32, "%s%d", ASM_LABEL_PREFIX_DOUBLE, entry->index);
+        snprintf(entry->label, LABEL_BUFFER_SIZE, "%s%d", ASM_LABEL_PREFIX_DOUBLE, entry->index);
     }
 
     entry->next = context->floatDoubleEntries;
