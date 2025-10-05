@@ -189,7 +189,8 @@ static void lexOperator(Lexer *lx) {
             addToken(lx, TK_GREATER, start, 1); return;
         case '&':
             if (next == '&') { lx->cur++; addToken(lx, TK_AND, start, 2); return; }
-            addToken(lx, TK_INVALID, start, 1); return;
+            addToken(lx, TK_AMPERSAND, start, 1); return;
+		//FUTURE
         case '|':
             if (next == '|') { lx->cur++; addToken(lx, TK_OR, start, 2); return; }
             addToken(lx, TK_INVALID, start, 1); return;

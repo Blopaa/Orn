@@ -42,28 +42,25 @@ static char *extractSourceLine(const char *source, int lineNum) {
 }
 
 ErrorContext *createErrorContextFromType(ASTNode node, TypeCheckContext context) {
-    static ErrorContext errorContext;
-    static char *lastSourceLine = NULL;
-
-    if (!node || !context) return NULL;
-
-    // Free previous source line
-    if (lastSourceLine) {
-        free(lastSourceLine);
-        lastSourceLine = NULL;
+    if(!node || !context) return NULL;
+    ErrorContext * errCtx = malloc(sizeof(ErrorContext));
+    if(!errCtx) return NULL;
+    char * sourceLine = NULL;
+    if(context->sourceFile){
+        sourceLine = extractSourceLine(context->sourceFile, node->line);
     }
+    errCtx->file = context->filename ? context->filename : "source";
+    errCtx->line = node->line;
+    errCtx->column = node->column;
+    errCtx->source = sourceLine;
+    errCtx->length = node->length;
+    errCtx->startColumn = node->column;
+    return errCtx;
+}
 
-    // Extract the actual source line
-    if (context->sourceFile) {
-        lastSourceLine = extractSourceLine(context->sourceFile, node->line);
+void freeErrorContext(ErrorContext * errCtx){
+    if(errCtx){
+        free(errCtx->source);
+        free(errCtx);
     }
-
-    errorContext.file = context->filename ? context->filename : "source";
-    errorContext.line = node->line;
-    errorContext.column = node->column;
-    errorContext.source = lastSourceLine;
-    errorContext.length = node->length;
-    errorContext.startColumn = node->column;
-
-    return &errorContext;
 }

@@ -177,27 +177,23 @@ DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
     ASTNode fieldNode = objectNode ? objectNode->brothers : NULL;
 
     if (!objectNode || !fieldNode) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                   "Invalid member access structure");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid member access structure");
         return TYPE_UNKNOWN;
     }
 
     if (objectNode->nodeType != VARIABLE) {
-        reportError(ERROR_INVALID_OPERATION_FOR_TYPE, createErrorContextFromType(node, context),
-                   "Member access requires a variable");
+        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,"Member access requires a variable");
         return TYPE_UNKNOWN;
     }
 
     Symbol objectSymbol = lookupSymbol(context->current, objectNode->start, objectNode->length);
     if (!objectSymbol) {
-        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(objectNode, context),
-                   "Undefined variable in member access");
+        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context,"Undefined variable in member access");
         return TYPE_UNKNOWN;
     }
 
     if (objectSymbol->type != TYPE_STRUCT) {
-        reportError(ERROR_INVALID_OPERATION_FOR_TYPE, createErrorContextFromType(node, context),
-                   "Member access on non-struct type");
+        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context, "Member access on non-struct type");
         return TYPE_UNKNOWN;
     }
 
@@ -209,9 +205,7 @@ DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
             }
         field = field->next;
     }
-
-    reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(fieldNode, context),
-               "Struct has no such field");
+    REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, "Struct has no such field");
     return TYPE_UNKNOWN;
 }
 
@@ -242,13 +236,15 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
             if (symbol == NULL) {
-                reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromType(node, context),
-                            extractText(node->start, node->length));
+                const char * tempText = extractText(node->start, node->length);
+                REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
+                free(tempText);
                 return TYPE_UNKNOWN;
             }
             if (!symbol->isInitialized) {
-                reportError(ERROR_VARIABLE_NOT_INITIALIZED, createErrorContextFromType(node, context),
-                            extractText(node->start, node->length));
+                char * tempText = extractText(node->start, node->length);
+                REPORT_ERROR(ERROR_VARIABLE_NOT_INITIALIZED, node, context, tempText);
+                free(tempText);
                 return TYPE_UNKNOWN;
             }
             return symbol->type;
@@ -259,15 +255,13 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             if (opType == TYPE_INT || opType == TYPE_FLOAT || opType == TYPE_DOUBLE) {
                 return opType;
             }
-            reportError(ERROR_INVALID_UNARY_OPERAND, createErrorContextFromType(node, context),
-                        "Arithmetic unary operators require numeric operands");
+            REPORT_ERROR(ERROR_INVALID_UNARY_OPERAND, node, context, "Arithmetic unary operators require numeric operands");
             return TYPE_UNKNOWN;
         }
         case LOGIC_NOT: {
             DataType opType = getExpressionType(node->children, context);
             if (opType == TYPE_BOOL) return TYPE_BOOL;
-            reportError(ERROR_INVALID_UNARY_OPERAND, createErrorContextFromType(node, context),
-                        "Logical NOT requires boolean operand");
+            REPORT_ERROR(ERROR_INVALID_UNARY_OPERAND, node, context, "Logical NOT requires boolean operand");
             return TYPE_UNKNOWN;
         }
         case PRE_INCREMENT:
@@ -278,8 +272,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             if (operandType == TYPE_INT || operandType == TYPE_FLOAT) {
                 return operandType;
             }
-            reportError(ERROR_INVALID_UNARY_OPERAND, createErrorContextFromType(node, context),
-                        "Increment/decrement operators require numeric operands");
+            REPORT_ERROR(ERROR_INVALID_UNARY_OPERAND, node, context, "Increment/decrement operators require numeric operands");
             return TYPE_UNKNOWN;
         }
         case ADD_OP:
@@ -296,8 +289,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         case LOGIC_AND:
         case LOGIC_OR: {
             if (node->children == NULL || node->children->brothers == NULL) {
-                reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                            "Binary operation missing operands");
+                repError(ERROR_INTERNAL_PARSER_ERROR, "Binary operation missing operands");
                 return TYPE_UNKNOWN;
             }
 
@@ -305,8 +297,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             DataType rightType = getExpressionType(node->children->brothers, context);
             DataType resultType = getOperationResultType(leftType, rightType, node->nodeType);
             if (resultType == TYPE_UNKNOWN) {
-                reportError(ERROR_INCOMPATIBLE_BINARY_OPERANDS, createErrorContextFromType(node, context),
-                            "Incompatible types in binary operation");
+                REPORT_ERROR(ERROR_INCOMPATIBLE_BINARY_OPERANDS, node, context, "Incompatible types in binary operation");
             }
             return resultType;
         }
@@ -335,15 +326,13 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
 
 int validateFunctionCall(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->nodeType != FUNCTION_CALL || node->start == NULL) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Invalid function call node");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid function call node");
         return 0;
     }
 
     ASTNode argListNode = node->children;
     if (argListNode == NULL || argListNode->nodeType != ARGUMENT_LIST) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Function call missing argument list");
+        repError(ERROR_INTERNAL_PARSER_ERROR,"Function call missing argument list");
         return 0;
     }
 
@@ -367,9 +356,8 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
     DataType *argTypes = NULL;
     if (argCount > 0) {
         argTypes = malloc(argCount * sizeof(DataType));
-        if (argTypes == NULL) {
-            reportError(ERROR_MEMORY_ALLOCATION_FAILED, createErrorContextFromType(node, context),
-                        "Failed to allocate argument types array");
+        if (!argTypes) {
+            repError(ERROR_MEMORY_ALLOCATION_FAILED, "Failed to allocate argument types array");
             return 0;
         }
 
@@ -389,8 +377,7 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
     int result = (builtinId != BUILTIN_UNKNOWN);
 
     if (!result) {
-        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromType(node, context),
-                    "No matching overload for built-in function");
+        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, "No matching overload for built-in function");
     }
 
     if (argTypes != NULL) {
@@ -403,14 +390,14 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
     Symbol funcSymbol = lookupSymbol(context->current, node->start, node->length);
     if (funcSymbol == NULL) {
-        reportError(ERROR_UNDEFINED_FUNCTION, createErrorContextFromType(node, context),
-                    extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_UNDEFINED_FUNCTION, node, context, tempText);
+        free(tempText);
         return 0;
     }
 
     if (funcSymbol->symbolType != SYMBOL_FUNCTION) {
-        reportError(ERROR_CALLING_NON_FUNCTION, createErrorContextFromType(node, context),
-                    "Attempting to call non-function");
+        REPORT_ERROR(ERROR_CALLING_NON_FUNCTION, node, context, "Attempting to call non-function");
         return 0;
     }
 
@@ -426,8 +413,7 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
 
     // Check argument count
     if (argCount != funcSymbol->paramCount) {
-        reportError(ERROR_FUNCTION_ARG_COUNT_MISMATCH, createErrorContextFromType(node, context),
-                    "Function call argument count mismatch");
+        REPORT_ERROR(ERROR_FUNCTION_ARG_COUNT_MISMATCH, node, context, "Function call argument count mismatch" );
         return 0;
     }
 
@@ -443,12 +429,14 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
 
         CompatResult compat = areCompatible(param->type, argType);
         if (compat == COMPAT_ERROR) {
-            reportError(variableErrorCompatibleHandling(param->type, argType),
-                createErrorContextFromType(node, context), extractText(param->nameStart, param->nameLength));
+            char * tempText = extractText(param->nameStart, param->nameLength);
+            REPORT_ERROR(variableErrorCompatibleHandling(param->type, argType), node, context, tempText);
+            free(tempText);
             return 0;
         } else if (compat == COMPAT_WARNING) {
-            reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),
-                extractText(param->nameStart, param->nameLength));
+            char * tempText = extractText(param->nameStart, param->nameLength);
+            REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, tempText);
+            free(tempText);
         }
 
         param = param->next;
@@ -542,27 +530,25 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
  */
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->start == NULL) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Variable declaration node is null or has no name");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null or has no name");
         return 0;
     };
     DataType varType = getDataTypeFromNode(node->nodeType);
     if (varType == TYPE_UNKNOWN) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Unknown variable type in declaration");
+        repError(ERROR_INTERNAL_PARSER_ERROR,"Unknown variable type in declaration");
         return 0;
     }
 
     Symbol existing = lookupSymbolCurrentOnly(context->current, node->start, node->length);
     if (existing != NULL) {
-        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context),
-                    extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);        
+        free(tempText);
         return 0;
     }
     Symbol newSymbol = addSymbolFromNode(context->current, node, varType);
-    if (newSymbol == NULL) {
-        reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED, createErrorContextFromType(node, context),
-                    "Failed to add symbol to symbol table");
+    if (!newSymbol) {
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED,"Failed to add symbol to symbol table");
         return 0;
     }
     if (node->children != NULL) {
@@ -570,11 +556,14 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
         if (initType == TYPE_UNKNOWN) return 0;
         CompatResult compat = areCompatible(varType, initType);
         if (compat == COMPAT_ERROR) {
-            reportError(variableErrorCompatibleHandling(varType, initType), createErrorContextFromType(node, context),
-                        extractText(node->start, node->length));
+            char * tempText = extractText(node->start, node->length);
+            REPORT_ERROR(variableErrorCompatibleHandling(varType, initType), node, context, tempText);
+            free(tempText);
             return 0;
         }else if(compat == COMPAT_WARNING){
-            reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),extractText(node->start, node->length));
+            char * tempText = extractText(node->start, node->length);
+            REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, tempText);
+            free(tempText);
         }
         newSymbol->isInitialized = 1;
     }
@@ -583,16 +572,14 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
 
 int validateAssignment(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->children == NULL || node->children->brothers == NULL) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Assignment node missing operands");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Assignment node missing operands");
         return 0;
     }
     ASTNode left = node->children;
     ASTNode right = node->children->brothers;
 
     if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS) {
-        reportError(ERROR_INVALID_ASSIGNMENT_TARGET, createErrorContextFromType(node, context),
-                    "Left side of assignment must be a variable or member access");
+        REPORT_ERROR(ERROR_INVALID_ASSIGNMENT_TARGET, node, context, "Left side of assignment must be a variable or member access");
         return 0;
     }
 
@@ -604,12 +591,10 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
 
     CompatResult compat = areCompatible(leftType, rightType);
     if (compat == COMPAT_ERROR) {
-        reportError(variableErrorCompatibleHandling(leftType, rightType), createErrorContextFromType(node, context),
-                "Type mismatch in assignment");
+        REPORT_ERROR(variableErrorCompatibleHandling(leftType, rightType), node, context, "Type mismatch in assignment");
         return 0;
     } else if (compat == COMPAT_WARNING) {
-        reportError(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, createErrorContextFromType(node, context),
-                "Type mismatch in assignment");
+        REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, "Type mismatch in assignment");
     }
 
     if (left->nodeType == VARIABLE) {
@@ -640,21 +625,22 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
  */
 int validateVariableUsage(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->start == NULL) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Variable usage node is null or has no name");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable usage node is null or has no name");
         return 0;
     };
 
     Symbol symbol = lookupSymbol(context->current, node->start, node->length);
     if (symbol == NULL) {
-        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(node, context),
-                    extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, tempText);
+        free(tempText);
         return 0;
     }
 
     if (!symbol->isInitialized) {
-        reportError(ERROR_VARIABLE_NOT_INITIALIZED, createErrorContextFromType(node, context),
-                    extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_VARIABLE_NOT_INITIALIZED, node, context, tempText);
+        free(tempText); 
         return 0;
     }
 
@@ -702,8 +688,7 @@ DataType getReturnTypeFromNode(ASTNode returnTypeNode) {
 
 int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     if (node == NULL || node->nodeType != FUNCTION_DEFINITION || node->start == NULL || node->children == NULL) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Invalid function definition node");
+        repError(ERROR_INTERNAL_PARSER_ERROR,"Invalid function definition node");
         return 0;
     }
 
@@ -712,8 +697,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     ASTNode bodyNode = returnTypeNode ? returnTypeNode->brothers : NULL;
 
     if (paramListNode == NULL || paramListNode->nodeType != PARAMETER_LIST) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Function missing parameter list");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Function missing parameter list");
         return 0;
     }
 
@@ -727,11 +711,12 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         param = param->next;
     }
 
-    Symbol funcSymbol = addFunctionSymbolFromNode(context->current, node, returnType,
-                                                  parameters, paramCount);
+    Symbol funcSymbol =
+        addFunctionSymbolFromNode(context->current, node, returnType, parameters, paramCount);
     if (funcSymbol == NULL) {
-        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context),
-                    extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);
+        free(tempText);
         freeParamList(parameters);
         return 0;
     }
@@ -743,8 +728,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     context->currentFunction = funcSymbol;
 
     if (context->current == NULL) {
-        reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED, createErrorContextFromType(node, context),
-                    "Failed to create function scope");
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create function scope");
         context->current = oldScope;
         context->currentFunction = oldFunction;
         return 0;
@@ -838,7 +822,7 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                 StructField check = structType->fields;
                 while (check) {
                     if (check->nameLength == structField->nameLength && memcmp(check->nameStart, structField->nameStart, check->nameLength) == 0) {
-                        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(field, context), "duplicate field on struct");
+                        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, "duplicate field on struct");
                         free(structField);
                         return NULL;
                     }
@@ -865,7 +849,9 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
 
     Symbol exists = lookupSymbolCurrentOnly(context->current, node->start, node->length);
     if (exists) {
-        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context), extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);
+        free(tempText);
         return 0;
     }
     StructType structType = createStructType(node, context);
@@ -883,8 +869,7 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
 
 int validateCastExpression(ASTNode node, TypeCheckContext context) {
     if (!node || !node->children || !node->children->brothers) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                    "Invalid cast expression structure");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid cast expression structure");
         return 0;
     }
     ASTNode sourceExpr = node->children;
@@ -893,20 +878,17 @@ int validateCastExpression(ASTNode node, TypeCheckContext context) {
     if (sourceType == TYPE_UNKNOWN) return 0;
     DataType targetType = getDataTypeFromNode(targetTypeNode->nodeType);
     if (targetType == TYPE_UNKNOWN) {
-        reportError(ERROR_INVALID_CAST_TARGET, createErrorContextFromType(targetTypeNode, context),
-                    "Invalid cast target type");
+        REPORT_ERROR(ERROR_INVALID_CAST_TARGET, node, context, "Invalid cast target type");
         return 0;
     }
     CompatResult canItBeCasted = isCastAllowed(sourceType, targetType);
     if(canItBeCasted == COMPAT_ERROR){
-        reportError(ERROR_FORBIDDEN_CAST, createErrorContextFromType(node, context),
-                   "Cannot cast between these types");
+        REPORT_ERROR(ERROR_FORBIDDEN_CAST, node, context, "Cannot cast between these types");
         return 0;
     }
     // just a warning
     if (isPrecisionLossCast(sourceType, targetType)) {
-        reportError(ERROR_CAST_PRECISION_LOSS, createErrorContextFromType(node, context),
-                   "Cast may lose precision");
+        REPORT_ERROR(ERROR_CAST_PRECISION_LOSS, node, context, "Cast may lose precision");
     }
     return 1;
 
@@ -917,22 +899,21 @@ int validateStructVarDec(ASTNode node, TypeCheckContext context) {
 
     ASTNode typeRef = node->children;
     if (!typeRef || typeRef->nodeType != REF_CUSTOM) {
-        reportError(ERROR_INTERNAL_PARSER_ERROR, createErrorContextFromType(node, context),
-                   "Invalid struct variable declaration");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid struct variable declaration");
         return 0;
     }
 
     Symbol structSymbol = lookupSymbol(context->current, typeRef->start, typeRef->length);
     if (!structSymbol) {
-        reportError(ERROR_UNDEFINED_VARIABLE, createErrorContextFromType(typeRef, context),
-                   "Undefined struct type");
+        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, "Undefined struct type");
         return 0;
     }
 
     Symbol exists = lookupSymbolCurrentOnly(context->current, node->start, node->length);
     if (exists) {
-        reportError(ERROR_VARIABLE_REDECLARED, createErrorContextFromType(node, context),
-                  extractText(node->start, node->length));
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);
+        free(tempText);
         return 0;
     }
 
@@ -1014,8 +995,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             context->current = createSymbolTable(oldScope);
 
             if (context->current == NULL) {
-                reportError(ERROR_SYMBOL_TABLE_CREATION_FAILED, createErrorContextFromType(node, context),
-                            "Failed to create new scope for block");
+                repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create new scope for block");
                 success = 0;
                 break;
             }

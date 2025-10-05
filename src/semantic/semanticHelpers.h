@@ -10,5 +10,6 @@
 #include "typeChecker.h"
 
 ErrorContext *createErrorContextFromType(ASTNode node, TypeCheckContext context);
+void freeErrorContext(ErrorContext * ctx);
 
 #endif //CINTERPRETER_SEMANTICHELPERS_H

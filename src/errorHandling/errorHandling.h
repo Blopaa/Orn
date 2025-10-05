@@ -21,6 +21,14 @@
 #define GRAY    "\033[90m"
 #include <stddef.h>
 
+// this is only for /semantic
+#define REPORT_ERROR(code, node, ctx, msg) \
+    do { \
+        ErrorContext *_ectx = createErrorContextFromType((node), (ctx)); \
+        reportError((code), _ectx, (msg)); \
+        freeErrorContext(_ectx); \
+    } while(0)
+
 /**
  * @brief Error code enumeration categorized by type.
  *

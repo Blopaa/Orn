@@ -72,6 +72,7 @@ typedef enum {
 	TK_QUESTION,
 	TK_COLON,
 	TK_DOT,
+	TK_AMPERSAND,
 
 	// Special tokens
 	TK_NULL,
