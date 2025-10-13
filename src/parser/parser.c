@@ -104,6 +104,11 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 		return NULL;
 	}
 
+	while (list->tokens[*pos].type == TK_LBRACKET) {
+    	node = parseArrayAccess(list, pos, node);
+    	if (!node) return NULL;
+	}
+
 	while (list->tokens[*pos].type == TK_DOT) {
 		ADVANCE_TOKEN(list, pos); // consume '.'
 
@@ -633,6 +638,10 @@ ASTNode parseStruct(TokenList *list, size_t *pos) {
  * @return Declaration AST node or NULL on error
  */
 ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
+	if (*pos < list->count && list->tokens[*pos].type == TK_LBRACKET) {
+        Token* typeToken = &list->tokens[*pos - 1];
+        return parseArrayDec(list, pos, typeToken);
+    }
 	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
 		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected identifier after type");
 		return NULL;
@@ -686,6 +695,82 @@ ASTNode parseStructVarDec(TokenList* list, size_t* pos) {
 	return structVarNode;
 }
 
+ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType){
+	EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected [");
+	Token *tokSize = &list->tokens[*pos];
+	if(tokSize->type != TK_NUM){
+		 reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Array size must be an integer");
+        return NULL;
+	}
+	ADVANCE_TOKEN(list, pos);
+	EXPECT_AND_ADVANCE(list, pos, TK_RBRACKET, ERROR_INVALID_EXPRESSION, "Expected ']'");
+
+	Token *tokName = &list->tokens[*pos];
+    if (detectLitType(tokName, list, pos) != VARIABLE) {
+        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected variable name");
+        return NULL;
+    }
+    ADVANCE_TOKEN(list, pos);
+	
+	ASTNode arrDec, typeNode, sizeNode;
+	CREATE_NODE_OR_FAIL(arrDec, tokName, ARRAY_VARIABLE_DEFINITION, list, pos);
+    CREATE_NODE_OR_FAIL(typeNode, tokType, getDecType(tokType->type), list, pos);
+    CREATE_NODE_OR_FAIL(sizeNode, tokSize, INT_LIT, list, pos);
+
+	arrDec->children = typeNode;
+	typeNode->brothers = sizeNode;
+
+	if(*pos < list->count && list->tokens[*pos].type == TK_ASSIGN){
+		ADVANCE_TOKEN(list, pos);
+		ASTNode init = parseArrLit(list, pos);
+		if(init){
+			sizeNode->brothers = init;
+		}
+	}
+
+	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ;");
+	return arrDec;
+}
+
+ASTNode parseArrLit(TokenList *list, size_t *pos){
+	EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected '['");
+	ASTNode arrLit;
+	CREATE_NODE_OR_FAIL(arrLit, NULL, ARRAY_LIT, list, pos);
+	ASTNode last = NULL;
+	while(*pos < list->count && list->tokens[*pos].type != TK_RBRACKET){
+		ASTNode elem = parseExpression(list, pos, PREC_NONE);
+        if (!elem) return NULL;
+        
+        if (!arrLit->children) {
+            arrLit->children = elem;
+        } else {
+            last->brothers = elem;
+        }
+        last = elem;
+        
+        if (list->tokens[*pos].type == TK_COMMA) {
+            ADVANCE_TOKEN(list, pos);
+        }
+	}
+	 EXPECT_AND_ADVANCE(list, pos, TK_RBRACKET, ERROR_INVALID_EXPRESSION, "Expected ']'");
+    return arrLit;
+}
+
+ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode) {
+    EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected '['");
+    
+    ASTNode index = parseExpression(list, pos, PREC_NONE);
+    if (!index) return NULL;
+    
+    EXPECT_AND_ADVANCE(list, pos, TK_RBRACKET, ERROR_INVALID_EXPRESSION, "Expected ']'");
+    
+    ASTNode access;
+    CREATE_NODE_OR_FAIL(access, NULL, ARRAY_ACCESS, list, pos);
+    access->children = arrNode;
+    arrNode->brothers = index;
+    
+    return access;
+}
 
 /**
  * @brief Parses individual statements.

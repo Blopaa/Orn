@@ -78,6 +78,10 @@ typedef enum {
     null_NODE,
     PROGRAM,
 
+    //array types
+    ARRAY_ACCESS,
+    ARRAY_TYPE_SPECIFIER,
+
     // Type references
     REF_INT,
     REF_STRING,
@@ -94,6 +98,7 @@ typedef enum {
     BOOL_VARIABLE_DEFINITION,
     DOUBLE_VARIABLE_DEFINITION,
     STRUCT_VARIABLE_DEFINITION,
+    ARRAY_VARIABLE_DEFINITION,
 
     // Literals
     STRING_LIT,
@@ -101,6 +106,7 @@ typedef enum {
     FLOAT_LIT,
     DOUBLE_LIT,
     BOOL_LIT,
+    ARRAY_LIT,
 
     // Variables and assignment
     VARIABLE,
@@ -237,6 +243,10 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {REF_DOUBLE, "TYPE_DOUBLE"},
     {REF_CUSTOM, "TYPE_CUSTOM"},
     {CAST_EXPRESSION, "CAST_EXPRESSION"},
+    {ARRAY_VARIABLE_DEFINITION, "ARRAY_VAR_DEF"},
+    {ARRAY_LIT, "ARRAY_LIT"},
+    {ARRAY_ACCESS, "ARRAY_ACCESS"},
+    {ARRAY_TYPE_SPECIFIER, "ARRAY_TYPE_SPEC"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -399,6 +409,9 @@ ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 ASTNode parseStruct(TokenList* list, size_t* pos);
 ASTNode parseStructField(TokenList* list, size_t* pos);
 NodeTypes getTypeNodeFromToken(TokenType type);
+ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType);
+ASTNode parseArrLit(TokenList *list, size_t *pos);
+ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode);
 
 // Public function prototypes
 ASTContext * ASTGenerator(TokenList* tokenList);

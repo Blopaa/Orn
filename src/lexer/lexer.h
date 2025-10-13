@@ -73,6 +73,8 @@ typedef enum {
 	TK_COLON,
 	TK_DOT,
 	TK_AMPERSAND,
+	TK_LBRACKET,
+	TK_RBRACKET,
 
 	// Special tokens
 	TK_NULL,
