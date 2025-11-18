@@ -15,9 +15,11 @@ typedef enum {
 	TK_VOID,
 	TK_RETURN,
 	TK_WHILE,
+	TK_IF,
+	TK_ELSE,
 	TK_TRUE,
 	TK_FALSE,
-	TK_AS,
+	TK_AS,	
 
 	// Data types
 	TK_INT,

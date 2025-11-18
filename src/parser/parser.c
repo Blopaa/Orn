@@ -29,7 +29,6 @@
 #include <string.h>
 
 ASTNode parseStatement(TokenList* list, size_t* pos);
-ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
 
 /**
  * @brief Create error context by extracting source line on-demand
@@ -67,6 +66,7 @@ const StatementHandler statementHandlers[] = {
 	{TK_WHILE, parseLoop},
 	{TK_LBRACE, parseBlock},
 	{TK_STRUCT, parseStruct},
+	{TK_IF, parseIf},
 	{TK_NULL, NULL}
 };
 
@@ -223,7 +223,10 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
 		Token* currentToken = &list->tokens[*pos];
 
 		if (currentToken->type == TK_QUESTION && PREC_TERNARY >= minPrec) {
-			left = parseConditional(list, pos, left);
+			ASTNode conditionalNode = parseTernary(list, pos);
+			left->brothers = conditionalNode->children; // condition->brothers = trueBranchWrap
+			conditionalNode->children = left;
+			left = conditionalNode;
 			if (left == NULL) return NULL;
 			continue;
 		}
@@ -304,41 +307,65 @@ ASTNode parseBlockExpression(TokenList* list, size_t* pos) {
  * @param condition Already parsed condition expression
  * @return IF_CONDITIONAL AST node or NULL on error
  */
-ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition) {
+ASTNode parseTernary(TokenList* list, size_t* pos) {
 	EXPECT_TOKEN(list, pos, TK_QUESTION, ERROR_EXPECTED_QUESTION_MARK, "Expected '?'");
 	Token* questionToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
-	ASTNode trueBranch = (*pos < list->count && list->tokens[*pos].type == TK_LBRACE)
-		? parseBlockExpression(list, pos)
-		: parseExpression(list, pos, PREC_NONE);
+	ASTNode trueBranch = parseExpression(list, pos, PREC_NONE);
 
 	if (!trueBranch) {
 		reportError(ERROR_TERNARY_INVALID_CONDITION, createErrorContextFromParser(list, pos), NULL);
-		freeAST(condition);
 		return NULL;
 	}
 
 	ASTNode falseBranch = NULL;
 	if (*pos < list->count && list->tokens[*pos].type == TK_COLON) {
 		ADVANCE_TOKEN(list, pos);
-		PARSE_OR_CLEANUP(falseBranch,
-			(*pos < list->count && list->tokens[*pos].type == TK_LBRACE)
-				? parseBlockExpression(list, pos)
-				: parseExpression(list, pos, PREC_NONE),
-			condition, trueBranch);
+		PARSE_OR_CLEANUP(falseBranch, parseExpression(list, pos, PREC_NONE), trueBranch);
 	}
 
 	ASTNode conditionalNode, trueBranchWrap;
-	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, IF_CONDITIONAL, list, pos);
+	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, TERNARY_CONDITIONAL, list, pos);
+	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, TERNARY_IF_EXPR, list, pos);
+
+	trueBranchWrap->children = trueBranch;
+	conditionalNode->children = trueBranchWrap; //temporary children to send trueBranch outside along with conditional Node, this should be Condition children
+
+	if (falseBranch) {
+		ASTNode falseBranchWrap;
+		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, TERNARY_ELSE_EXPR, list, pos);
+		falseBranchWrap->children = falseBranch;
+		trueBranchWrap->brothers = falseBranchWrap;
+	}
+
+	return conditionalNode;
+}
+
+ASTNode parseIf(TokenList *list, size_t* pos){
+	Token *ifToken = &list->tokens[*pos];
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode falseBranch = NULL;
+	ASTNode conditionalNode, condition, trueBranchWrap, trueBranch, falseBranchWrap;
+	condition = parseExpression(list, pos, PREC_NONE);
+	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' after if condition");
+	trueBranch = parseBlock(list, pos);
+
+	if(list->tokens[*pos].type == TK_ELSE){
+		ADVANCE_TOKEN(list, pos);
+		PARSE_OR_CLEANUP(falseBranch, parseBlock(list, pos), condition, trueBranch);
+	}
+
+	CREATE_NODE_OR_FAIL(conditionalNode, ifToken, IF_CONDITIONAL, list, pos);
 	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, IF_TRUE_BRANCH, list, pos);
 
 	conditionalNode->children = condition;
 	trueBranchWrap->children = trueBranch;
 	condition->brothers = trueBranchWrap;
 
-	if (falseBranch) {
-		ASTNode falseBranchWrap;
+	
+	if(falseBranch){
 		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, ELSE_BRANCH, list, pos);
 		falseBranchWrap->children = falseBranch;
 		trueBranchWrap->brothers = falseBranchWrap;

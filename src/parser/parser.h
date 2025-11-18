@@ -149,6 +149,9 @@ typedef enum {
     GREATER_EQUAL_OP,
 
     // Control flow statements
+    TERNARY_CONDITIONAL,
+    TERNARY_IF_EXPR,
+    TERNARY_ELSE_EXPR,
     BLOCK_STATEMENT,
     IF_CONDITIONAL,
     IF_TRUE_BRANCH,
@@ -245,6 +248,9 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {ARRAY_VARIABLE_DEFINITION, "ARRAY_VAR_DEF"},
     {ARRAY_LIT, "ARRAY_LIT"},
     {ARRAY_ACCESS, "ARRAY_ACCESS"},
+    {TERNARY_CONDITIONAL, "TERNARY_CONDITIONAL"},
+    {TERNARY_IF_EXPR, "TERNARY_IF_EXPR"},
+    {TERNARY_ELSE_EXPR, "TERNARY_ELSE_EXPR"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -395,12 +401,14 @@ ASTNode parseFunctionCall(TokenList* list, size_t* pos, Token * tok);
 ASTNode parseReturnStatement(TokenList* list, size_t* pos);
 ASTNode parseLoop(TokenList* list, size_t* pos);
 ASTNode parseBlock(TokenList* list, size_t* pos);
+ASTNode parseIf(TokenList *list, size_t* pos);
 ASTNode parseBlockExpression(TokenList* list, size_t* pos);
-ASTNode parseConditional(TokenList* list, size_t* pos, ASTNode condition);
+ASTNode parseConditional(TokenList* list, size_t* pos);
 ASTNode parseParameter(TokenList* list, size_t* pos);
 ASTNode parseArg(TokenList* list, size_t* pos);
 ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
                                   ASTNode (*parseElement)(TokenList*, size_t*));
+ASTNode parseTernary(TokenList* list, size_t* pos);
 ASTNode parseReturnType(TokenList* list, size_t* pos);
 ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
