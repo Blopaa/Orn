@@ -4,7 +4,6 @@
 
 #include "errorHandling.h"
 #include "typeChecker.h"
-#include "codeGeneration/codeGeneration.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 
@@ -128,16 +127,6 @@ int main(int argc, char* argv[]) {
     }
     if (verbose) printf("OK\n");
 
-    if (verbose) printf("4. CODE GENERATION: ");
-    int codeGenSuccess = generateCode(astContext->root, outputFile, input, inputFile, globalSymbolTable->global);
-    if (!codeGenSuccess) {
-        if (verbose) printf("FAILED\n");
-        printErrorSummary();
-        freeTokens(tokens);
-        freeASTContext(astContext);
-        free(input);
-        return 1;
-    }
     printErrorSummary();
     if (verbose) {
         printf("OK → %s\n\n", outputFile);

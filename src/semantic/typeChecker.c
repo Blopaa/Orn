@@ -9,9 +9,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../codeGeneration/codeGeneration.h"
 #include "errorHandling.h"
 #include "semanticHelpers.h"
+
+typedef enum {
+  STACK_SIZE_INT = 4,      
+  STACK_SIZE_FLOAT = 4,    
+  STACK_SIZE_BOOL = 1,     
+  STACK_SIZE_STRING = 8,   
+  STACK_SIZE_DOUBLE = 8, 
+  ALIGNMENT = 16
+} StackSize;
+
+StackSize getStackSize(DataType type) {
+    switch (type) {
+        case TYPE_INT: return STACK_SIZE_INT;
+        case TYPE_FLOAT: return STACK_SIZE_FLOAT;
+        case TYPE_BOOL: return STACK_SIZE_BOOL;
+        case TYPE_STRING: return STACK_SIZE_STRING;
+        case TYPE_STRUCT: return STACK_SIZE_STRING;
+        case TYPE_DOUBLE: return STACK_SIZE_DOUBLE;
+        default: return STACK_SIZE_INT;
+    }
+}
 
 /**
  * @brief Creates and initializes a new type checking context.

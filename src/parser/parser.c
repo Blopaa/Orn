@@ -24,7 +24,6 @@
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
-#include "../codeGeneration/constants.h"
 
 #include <string.h>
 
@@ -908,7 +907,7 @@ void printASTTree(ASTNode node, char* prefix, int isLast) {
 	}
 	printf("\n");
 
-	char newPrefix[AST_TEXT_BUFFER_SIZE];
+	char newPrefix[256];
 	sprintf(newPrefix, "%s%s", prefix, isLast ? "    " : "|   ");
 
 	ASTNode child = node->children;

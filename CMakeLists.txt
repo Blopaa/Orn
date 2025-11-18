@@ -6,7 +6,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O3")
 
 # Source files (excluding main.c for library)
 set(LIB_SOURCES
-        src/codeGeneration/constants.h
         src/lexer/lexer.c
         src/parser/parser.c
         src/errorHandling/errorHandling.c
@@ -15,23 +14,11 @@ set(LIB_SOURCES
         src/semantic/typeChecker.h
         src/semantic/symbolTable.c
         src/semantic/symbolTable.h
-        src/codeGeneration/codeGeneration.c
-        src/codeGeneration/codeGeneration.h
-        src/codeGeneration/asmEmitter.c
-        src/codeGeneration/stringHandling.c
-        src/codeGeneration/helpers.c
-        src/codeGeneration/asmTemplate.h
         src/semantic/builtIns.c
         src/semantic/builtIns.h
         src/semantic/semanticHelpers.c
         src/semantic/semanticHelpers.h
         src/errorHandling/errors.c
-        src/codeGeneration/codeGenOperations.h
-        src/codeGeneration/codeGenOperations.c
-        src/codeGeneration/codeGenExpressions.c
-        src/codeGeneration/codeGenExpressions.h
-        src/codeGeneration/registerHandling.h
-        src/codeGeneration/registerHandling.c
 )
 
 # Create compiler library
