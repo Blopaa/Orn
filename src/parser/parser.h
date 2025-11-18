@@ -245,7 +245,6 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {ARRAY_VARIABLE_DEFINITION, "ARRAY_VAR_DEF"},
     {ARRAY_LIT, "ARRAY_LIT"},
     {ARRAY_ACCESS, "ARRAY_ACCESS"},
-    {ARRAY_TYPE_SPECIFIER, "ARRAY_TYPE_SPEC"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
