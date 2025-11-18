@@ -322,7 +322,7 @@ ASTNode parseTernary(TokenList* list, size_t* pos) {
 		reportError(ERROR_EXPECTED_COLON, createErrorContextFromParser(list, pos), NULL);
 	}
 	ADVANCE_TOKEN(list, pos);
-	falseBranch, parseExpression(list, pos, PREC_NONE);
+	falseBranch = parseExpression(list, pos, PREC_NONE);
 
 	ASTNode conditionalNode, trueBranchWrap, falseBranchWrap;
 	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, TERNARY_CONDITIONAL, list, pos);

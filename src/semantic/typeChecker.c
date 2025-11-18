@@ -318,7 +318,30 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
         }
         case MEMBER_ACCESS:
             return validateMemberAccess(node, context);
+        case TERNARY_CONDITIONAL: {
+            if (!node->children || !node->children->brothers) return TYPE_UNKNOWN;
 
+            ASTNode trueBranchWrap = node->children->brothers;
+            ASTNode falseBranchWrap = trueBranchWrap ? trueBranchWrap->brothers : NULL;
+
+            if (!trueBranchWrap || !falseBranchWrap) return TYPE_UNKNOWN;
+
+            ASTNode trueExpr = trueBranchWrap->children;
+            ASTNode falseExpr = falseBranchWrap->children;
+
+            if (!trueExpr || !falseExpr) return TYPE_UNKNOWN;
+
+            DataType trueType = getExpressionType(trueExpr, context);
+            DataType falseType = getExpressionType(falseExpr, context);
+
+            if (trueType == falseType) return trueType;
+
+            // Type promotion for numbers
+            if ((trueType == TYPE_DOUBLE || falseType == TYPE_DOUBLE)) return TYPE_DOUBLE;
+            if ((trueType == TYPE_FLOAT || falseType == TYPE_FLOAT)) return TYPE_FLOAT;
+
+            return TYPE_UNKNOWN;
+        }
         default:
             return TYPE_UNKNOWN;
     }
@@ -1006,7 +1029,9 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             context->current = oldScope;
             break;
         }
-
+        case TERNARY_CONDITIONAL:
+        case TERNARY_IF_EXPR:
+        case TERNARY_ELSE_EXPR:
         case IF_CONDITIONAL:
         case LOOP_STATEMENT:
         case IF_TRUE_BRANCH:
