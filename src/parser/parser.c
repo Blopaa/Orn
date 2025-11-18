@@ -311,33 +311,28 @@ ASTNode parseTernary(TokenList* list, size_t* pos) {
 	EXPECT_TOKEN(list, pos, TK_QUESTION, ERROR_EXPECTED_QUESTION_MARK, "Expected '?'");
 	Token* questionToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
-
-	ASTNode trueBranch = parseExpression(list, pos, PREC_NONE);
+	ASTNode trueBranch, falseBranch;
+	trueBranch = parseExpression(list, pos, PREC_NONE);
 
 	if (!trueBranch) {
 		reportError(ERROR_TERNARY_INVALID_CONDITION, createErrorContextFromParser(list, pos), NULL);
 		return NULL;
 	}
-
-	ASTNode falseBranch = NULL;
-	if (*pos < list->count && list->tokens[*pos].type == TK_COLON) {
-		ADVANCE_TOKEN(list, pos);
-		PARSE_OR_CLEANUP(falseBranch, parseExpression(list, pos, PREC_NONE), trueBranch);
+	if(list->tokens[*pos].type != TK_COLON){
+		reportError(ERROR_EXPECTED_COLON, createErrorContextFromParser(list, pos), NULL);
 	}
+	ADVANCE_TOKEN(list, pos);
+	falseBranch, parseExpression(list, pos, PREC_NONE);
 
-	ASTNode conditionalNode, trueBranchWrap;
+	ASTNode conditionalNode, trueBranchWrap, falseBranchWrap;
 	CREATE_NODE_OR_FAIL(conditionalNode, questionToken, TERNARY_CONDITIONAL, list, pos);
 	CREATE_NODE_OR_FAIL(trueBranchWrap, NULL, TERNARY_IF_EXPR, list, pos);
+	CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, TERNARY_ELSE_EXPR, list, pos);
 
 	trueBranchWrap->children = trueBranch;
 	conditionalNode->children = trueBranchWrap; //temporary children to send trueBranch outside along with conditional Node, this should be Condition children
-
-	if (falseBranch) {
-		ASTNode falseBranchWrap;
-		CREATE_NODE_OR_FAIL(falseBranchWrap, NULL, TERNARY_ELSE_EXPR, list, pos);
-		falseBranchWrap->children = falseBranch;
-		trueBranchWrap->brothers = falseBranchWrap;
-	}
+	falseBranchWrap->children = falseBranch;
+	trueBranchWrap->brothers = falseBranchWrap;
 
 	return conditionalNode;
 }
