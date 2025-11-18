@@ -80,7 +80,6 @@ typedef enum {
 
     //array types
     ARRAY_ACCESS,
-    ARRAY_TYPE_SPECIFIER,
 
     // Type references
     REF_INT,
