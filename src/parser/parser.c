@@ -223,7 +223,7 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
 
 		if (currentToken->type == TK_QUESTION && PREC_TERNARY >= minPrec) {
 			ASTNode conditionalNode = parseTernary(list, pos);
-			left->brothers = conditionalNode->children; // condition->brothers = trueBranchWrap
+			left->brothers = conditionalNode->children; // condition->brothers = trueBranchWrap, check ParseTernary comment if forgot why this
 			conditionalNode->children = left;
 			left = conditionalNode;
 			if (left == NULL) return NULL;

@@ -19,6 +19,10 @@ set(LIB_SOURCES
         src/semantic/semanticHelpers.c
         src/semantic/semanticHelpers.h
         src/errorHandling/errors.c
+        src/IR/ir.c
+        src/IR/ir.h
+        src/IR/irHelpers.c
+        src/IR/irHelpers.h
 )
 
 # Create compiler library

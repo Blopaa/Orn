@@ -1,0 +1,557 @@
+#include "./ir.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "../semantic/symbolTable.h"
+#include "../semantic/typeChecker.h"
+#include "./irHelpers.h"
+
+IrContext *createIrContext(){
+    IrContext *ctx = malloc(sizeof(IrContext));
+    if(!ctx) return NULL;
+
+    ctx->instructions = NULL;
+    ctx->lastInstruction = NULL;
+    ctx->instructionCount = 0;
+    ctx->nextTempNum = 1;
+    ctx->nextLabelNum = 1;
+    ctx->pendingJumps = NULL;
+    return ctx;
+}
+
+void freeIrContext(IrContext *ctx) {
+    if (!ctx) return;
+    
+    IrInstruction *inst = ctx->instructions;
+    while (inst) {
+        IrInstruction *next = inst->next;
+        free(inst);
+        inst = next;
+    }
+    
+    free(ctx);
+}
+
+IrOperand createTemp(IrContext *ctx, IrDataType type){
+    return (IrOperand){
+        .type =   OPERAND_TEMP,
+        .dataType = type,
+        .value.temp.tempNum = ctx->nextTempNum++
+    };
+}
+
+IrOperand createVar(const char *name, size_t len, IrDataType type){
+    return (IrOperand){
+        .type = OPERAND_VAR,
+        .dataType = type,
+        .value.var.name = name,
+        .value.var.nameLen = len
+    };
+}
+
+IrOperand createConst(IrDataType type) {
+    IrOperand op = {0};
+    op.type = OPERAND_CONSTANT;
+    op.dataType = type;
+    return op;
+}
+
+IrOperand createIntConst(int val){
+    IrOperand op = createConst(IR_TYPE_INT);
+    op.value.constant.intVal = val;
+    return op;
+}
+
+IrOperand createFloatConst(float val){
+    IrOperand op = createConst(IR_TYPE_FLOAT);
+    op.value.constant.floatVal = val;
+    return op;
+}
+
+IrOperand createDoubleConst(double val){
+    IrOperand op = createConst(IR_TYPE_DOUBLE);
+    op.value.constant.doubleVal = val;
+    return op;
+}
+
+IrOperand createBoolConst(int val){
+    IrOperand op = createConst(IR_TYPE_BOOL);
+    op.value.constant.intVal = val ? 1 : 0;
+    return op;
+}
+
+IrOperand createStringConst(const char* val, size_t len){
+    IrOperand op = createConst(IR_TYPE_STRING);
+    op.value.constant.str.stringVal = val;
+    op.value.constant.str.len = len;
+    return op;
+}
+
+IrOperand createLabel(int label){
+    return (IrOperand){
+        .type = OPERAND_LABEL,
+        .dataType = IR_TYPE_VOID,
+        .value.label.labelNum = label
+    };
+}
+
+IrOperand createNone(){
+    return (IrOperand){
+        .type = OPERAND_NONE,
+        .dataType = IR_TYPE_VOID
+    };
+}
+
+void appendInstruction(IrContext *ctx, IrInstruction *inst){
+    if(!ctx->instructions){
+        ctx->instructions = inst;
+        ctx->lastInstruction = inst;
+    } else {
+        ctx->lastInstruction->next = inst;
+        inst->prev = ctx->lastInstruction;
+        ctx->lastInstruction = inst;
+    }
+    ctx->instructionCount++;
+}
+
+IrInstruction *emitBinary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand ar1, IrOperand ar2){
+    IrInstruction *inst = malloc(sizeof(IrInstruction));
+    if(!inst) return NULL;
+
+    inst->op = op;
+    inst->result = res;
+    inst->ar1 = ar1;
+    inst->ar2 = ar2;
+    inst->next = NULL;
+    inst->prev = NULL;
+
+    appendInstruction(ctx, inst);
+    return inst;
+}
+
+IrInstruction *emitUnary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand ar1){
+    IrOperand none = createNone();
+    return emitBinary(ctx, op, res, ar1, none);
+}
+
+IrInstruction *emitCopy(IrContext *ctx, IrOperand res, IrOperand ar1){
+    return emitUnary(ctx, IR_COPY, res, ar1);
+}
+
+IrInstruction *emitLabel(IrContext *ctx, int lab){
+    IrOperand label = createLabel(lab);
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_LABEL, label, none, none);
+}
+
+IrInstruction *emitGoto(IrContext *ctx, int lab){
+    IrOperand label = createLabel(lab);
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_GOTO, none, label, none);
+}
+
+IrInstruction *emitIfTrue(IrContext *ctx, IrOperand cond, int lab) {
+    IrOperand label = createLabel(lab);
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_IF_TRUE, none, cond, label);
+}
+
+IrInstruction *emitIfFalse(IrContext *ctx, IrOperand cond, int lab) {
+    IrOperand label = createLabel(lab);
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_IF_FALSE, none, cond, label);
+}
+
+IrInstruction *emitReturn(IrContext *ctx, IrOperand ret) {
+    IrOpCode op = (ret.type == OPERAND_NONE) ? IR_RETURN_VOID : IR_RETURN;
+    IrOperand none = createNone();
+    return emitBinary(ctx, op, none, ret, none);
+}
+
+IrInstruction *emitCall(IrContext *ctx, IrOperand res, const char *fnName, 
+                        size_t nameLen, int params) {
+    IrOperand func = (IrOperand) {
+        .type = OPERAND_FUNCTION,
+        .value.fn.name = fnName,
+        .value.fn.nameLen = nameLen
+    };
+    
+    IrOperand paramCount = createIntConst(params);
+    
+    return emitBinary(ctx, IR_CALL, res, func, paramCount);
+}
+
+IrDataType symbolTypeToIrType(DataType type) {
+    switch (type) {
+        case TYPE_INT: return IR_TYPE_INT;
+        case TYPE_FLOAT: return IR_TYPE_FLOAT;
+        case TYPE_DOUBLE: return IR_TYPE_DOUBLE;
+        case TYPE_BOOL: return IR_TYPE_BOOL;
+        case TYPE_STRING: return IR_TYPE_STRING;
+        case TYPE_VOID: return IR_TYPE_VOID;
+        default: return IR_TYPE_INT;
+    }
+}
+
+IrDataType nodeTypeToIrType(NodeTypes nodeType) {
+    switch (nodeType) {
+        case INT_LIT:
+        case REF_INT:
+        case INT_VARIABLE_DEFINITION:
+            return IR_TYPE_INT;
+
+        case FLOAT_LIT:
+        case REF_FLOAT:
+        case FLOAT_VARIABLE_DEFINITION:
+            return IR_TYPE_FLOAT;
+
+        case DOUBLE_LIT:
+        case REF_DOUBLE:
+        case DOUBLE_VARIABLE_DEFINITION:
+            return IR_TYPE_DOUBLE;
+
+        case BOOL_LIT:
+        case REF_BOOL:
+        case BOOL_VARIABLE_DEFINITION:
+            return IR_TYPE_BOOL;
+
+        case STRING_LIT:
+        case REF_STRING:
+        case STRING_VARIABLE_DEFINITION:
+            return IR_TYPE_STRING;
+
+        case REF_VOID:
+            return IR_TYPE_VOID;
+
+        case REF_CUSTOM:
+        case STRUCT_VARIABLE_DEFINITION:
+            return IR_TYPE_POINTER;
+
+        default:
+            return IR_TYPE_INT;
+    }
+}
+
+IrOpCode astOpToIrOp(NodeTypes nodeType) {
+    switch (nodeType) {
+        case ADD_OP: return IR_ADD;
+        case SUB_OP: return IR_SUB;
+        case MUL_OP: return IR_MUL;
+        case DIV_OP: return IR_DIV;
+        case MOD_OP: return IR_MOD;
+        case EQUAL_OP: return IR_EQ;
+        case NOT_EQUAL_OP: return IR_NE;
+        case LESS_THAN_OP: return IR_LT;
+        case LESS_EQUAL_OP: return IR_LE;
+        case GREATER_THAN_OP: return IR_GT;
+        case GREATER_EQUAL_OP: return IR_GE;
+        case LOGIC_AND: return IR_AND;
+        case LOGIC_OR: return IR_OR;
+        case LOGIC_NOT: return IR_NOT;
+        case UNARY_MINUS_OP: return IR_NEG;
+        default: return IR_NOP;
+    }
+}
+
+IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
+    if(!node) return createNone();
+    switch (node->nodeType)
+    {
+    case INT_LIT: return createIntConst(parseInt(node->start, node->length));
+    
+    case FLOAT_LIT: return createFloatConst(parseFloat(node->start, node->length));
+    
+    case DOUBLE_LIT: return createDoubleConst(parseFloat(node->start, node->length));
+    
+    case BOOL_LIT: return createBoolConst(matchLit(node->start, node->length, "true") ? 1 : 0);
+
+    case STRING_LIT: return createStringConst(node->start, node->length);
+
+    case VARIABLE: {
+        Symbol sym = lookupSymbol(typeCtx->current, node->start, node->length);
+        if(!sym) return createNone();
+
+        IrDataType type = symbolTypeToIrType(sym->type);
+        return createVar(node->start, node->length, type);
+    }
+
+    case ADD_OP:
+    case SUB_OP:
+    case MUL_OP:
+    case DIV_OP:
+    case MOD_OP:
+    case EQUAL_OP:
+    case NOT_EQUAL_OP:
+    case LESS_THAN_OP:
+    case LESS_EQUAL_OP:
+    case GREATER_THAN_OP:
+    case GREATER_EQUAL_OP:
+    case LOGIC_AND:
+    case LOGIC_OR: {
+        ASTNode left = node->children;
+        ASTNode right = left ? left->brothers : NULL;
+        if (!left || !right) return createNone();
+
+        IrOperand leftOp = generateExpressionIr(ctx, left, typeCtx);
+        IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
+
+        IrDataType resultType = symbolTypeToIrType(getOperationResultType(
+            getDataTypeFromNode(left->nodeType), getDataTypeFromNode(right->nodeType), node->nodeType));
+
+        IrOperand res = createTemp(ctx, resultType);
+        IrOpCode op = astOpToIrOp(node->nodeType);
+        emitBinary(ctx, op, res, leftOp, rightOp);
+        return res;
+    }
+
+    case UNARY_MINUS_OP:
+    case LOGIC_NOT:
+    case PRE_INCREMENT:
+    case PRE_DECREMENT: {
+        ASTNode op = node->children;
+        if(!op) return createNone();
+
+        IrOperand operandOp = generateExpressionIr(ctx, op, typeCtx);
+        IrOperand res = createTemp(ctx, operandOp.dataType);
+
+        IrOpCode irOp = astOpToIrOp(node->nodeType);
+        emitUnary(ctx, irOp, res, operandOp);
+        return res;
+    }
+
+    case ASSIGNMENT:
+case COMPOUND_ADD_ASSIGN:
+case COMPOUND_SUB_ASSIGN:
+case COMPOUND_MUL_ASSIGN:
+case COMPOUND_DIV_ASSIGN: {
+    ASTNode left = node->children;
+    ASTNode right = left ? left->brothers : NULL;
+    if(!left || !right) return createNone();
+    
+    IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
+    IrOperand leftOp = generateExpressionIr(ctx, left, typeCtx);
+    
+    if (node->nodeType != ASSIGNMENT) {
+        IrDataType resultType = leftOp.dataType;
+        IrOperand temp = createTemp(ctx, resultType);
+        
+        IrOpCode op;
+        switch (node->nodeType) {
+            case COMPOUND_ADD_ASSIGN: op = IR_ADD; break;
+            case COMPOUND_SUB_ASSIGN: op = IR_SUB; break;
+            case COMPOUND_MUL_ASSIGN: op = IR_MUL; break;
+            case COMPOUND_DIV_ASSIGN: op = IR_DIV; break;
+            default: op = IR_NOP; break;
+        }
+        
+        emitBinary(ctx, op, temp, leftOp, rightOp);
+        
+        emitCopy(ctx, leftOp, temp);
+        
+        return leftOp;
+    }
+    
+    emitCopy(ctx, leftOp, rightOp);
+    return leftOp;
+}
+
+    // TODO: future functions, some foundation has been already made
+
+    default: return createNone();
+    }
+}
+
+
+void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
+    switch(node->nodeType){
+        case PROGRAM:
+        case BLOCK_STATEMENT:
+        case BLOCK_EXPRESSION: {
+            ASTNode child = node->children;
+            while(child){
+                generateStatementIr(ctx, child, typeCtx);
+                child = child->brothers;
+            }
+            break;
+        }
+
+        case INT_VARIABLE_DEFINITION:
+        case FLOAT_VARIABLE_DEFINITION:
+        case DOUBLE_VARIABLE_DEFINITION:
+        case BOOL_VARIABLE_DEFINITION:
+        case STRING_VARIABLE_DEFINITION: {
+            if(node->children){
+                IrOperand val = generateExpressionIr(ctx, node->children, typeCtx);
+                IrDataType type  = nodeTypeToIrType(node->nodeType);
+
+                IrOperand var = createVar(node->start, node->length, type);
+                emitCopy(ctx, var, val);
+            }
+            break;
+        }
+
+        case ASSIGNMENT:
+        case COMPOUND_ADD_ASSIGN:
+        case COMPOUND_SUB_ASSIGN:
+        case COMPOUND_MUL_ASSIGN:
+        case COMPOUND_DIV_ASSIGN: {
+            generateExpressionIr(ctx, node, typeCtx);
+        }
+
+        // TODO: missing loop, if, else, return, functions, ternary, struct
+
+        default: break;
+    }
+}
+
+IrContext *generateIr(ASTNode ast, TypeCheckContext typeCtx){
+    IrContext *ctx = createIrContext();
+    if(!ctx)  return NULL;
+
+    generateStatementIr(ctx, ast, typeCtx);
+
+    return ctx;
+}
+
+// printing stuff
+
+static const char *opCodeToString(IrOpCode op) {
+    switch (op) {
+        case IR_ADD: return "ADD";
+        case IR_SUB: return "SUB";
+        case IR_MUL: return "MUL";
+        case IR_DIV: return "DIV";
+        case IR_MOD: return "MOD";
+        case IR_NEG: return "NEG";
+        case IR_AND: return "AND";
+        case IR_OR: return "OR";
+        case IR_NOT: return "NOT";
+        case IR_EQ: return "EQ";
+        case IR_NE: return "NE";
+        case IR_LT: return "LT";
+        case IR_LE: return "LE";
+        case IR_GT: return "GT";
+        case IR_GE: return "GE";
+        case IR_COPY: return "COPY";
+        case IR_LOAD: return "LOAD";
+        case IR_STORE: return "STORE";
+        case IR_ADDR: return "ADDR";
+        case IR_LABEL: return "LABEL";
+        case IR_GOTO: return "GOTO";
+        case IR_IF_TRUE: return "IF_TRUE";
+        case IR_IF_FALSE: return "IF_FALSE";
+        case IR_PARAM: return "PARAM";
+        case IR_CALL: return "CALL";
+        case IR_RETURN: return "RETURN";
+        case IR_RETURN_VOID: return "RETURN_VOID";
+        case IR_NOP: return "NOP";
+        default: return "UNKNOWN";
+    }
+}
+
+static void printOperand(IrOperand op) {
+    switch (op.type) {
+        case OPERAND_TEMP:
+            printf("t%d", op.value.temp.tempNum);
+            break;
+        case OPERAND_VAR:
+            printf("%.*s", (int)op.value.var.nameLen, op.value.var.name);
+            break;
+        case OPERAND_CONSTANT:
+            if (op.dataType == IR_TYPE_INT || op.dataType == IR_TYPE_BOOL) {
+                printf("%d", op.value.constant.intVal);
+            } else if (op.dataType == IR_TYPE_STRING) {
+                printf("%.*s", (int)op.value.constant.str.len, op.value.constant.str.stringVal);
+            } else if(op.dataType == IR_TYPE_FLOAT){
+                printf("%g", op.value.constant.floatVal);
+            }else {
+                printf("%f", op.value.constant.doubleVal);
+            }
+            break;
+        case OPERAND_LABEL:
+            printf("L%d", op.value.label.labelNum);
+            break;
+        case OPERAND_FUNCTION:
+            printf("%.*s", (int)op.value.fn.nameLen, op.value.fn.name);
+            break;
+        case OPERAND_NONE:
+            printf("-");
+            break;
+    }
+}
+
+void printInstruction(IrInstruction *inst) {
+    if (!inst) return;
+
+    printf("%-12s ", opCodeToString(inst->op));
+    switch (inst->op) {
+        case IR_LABEL:
+            printf("L%d:", inst->result.value.label.labelNum);
+            break;
+
+        case IR_GOTO:
+            printf("goto L%d", inst->ar1.value.label.labelNum);
+            break;
+
+        case IR_IF_TRUE:
+            printf("if ");
+            printOperand(inst->ar1);
+            printf(" goto L%d", inst->ar2.value.label.labelNum);
+            break;
+
+        case IR_IF_FALSE:
+            printf("if !");
+            printOperand(inst->ar1);
+            printf(" goto L%d", inst->ar2.value.label.labelNum);
+            break;
+
+        case IR_COPY:
+            printOperand(inst->result);
+            printf(" = ");
+            printOperand(inst->ar1);
+            break;
+
+        case IR_RETURN:
+            printf("return ");
+            printOperand(inst->ar1);
+            break;
+
+        case IR_RETURN_VOID:
+            printf("return");
+            break;
+
+        default:
+            if (inst->result.type != OPERAND_NONE) {
+                printOperand(inst->result);
+                printf(" = ");
+            }
+            
+            if (inst->ar1.type != OPERAND_NONE) {
+                printOperand(inst->ar1);
+            }
+            
+            if (inst->ar2.type != OPERAND_NONE) {
+                printf(", ");
+                printOperand(inst->ar2);
+            }
+            break;
+    }
+}
+
+void printIR(IrContext *ctx) {
+    if (!ctx) return;
+
+    printf("\nTHREE-ADDRESS CODE (IR)\n\n");
+    printf("Total instructions: %d\n", ctx->instructionCount);
+    printf("Temporaries used: t1 - t%d\n", ctx->nextTempNum - 1);
+    printf("Labels used: L1 - L%d\n\n", ctx->nextLabelNum - 1);
+
+    IrInstruction *inst = ctx->instructions;
+    int count = 0;
+
+    while (inst) {
+        printf("%4d: ", count++);
+        printInstruction(inst);
+        printf("\n");
+        inst = inst->next;
+    }
+}

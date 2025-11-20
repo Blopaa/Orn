@@ -1,0 +1,161 @@
+#include <stddef.h>
+#include <stdint.h>
+#include "../semantic/typeChecker.h"
+
+
+typedef enum {
+    IR_ADD,
+    IR_SUB,
+    IR_DIV,
+    IR_MOD,
+    IR_NEG,
+    IR_MUL,
+    
+    IR_AND,
+    IR_OR,
+    IR_NOT,
+
+    IR_EQ,
+    IR_NE,
+    IR_LT,
+    IR_LE,
+    IR_GT,
+    IR_GE,
+
+    IR_COPY,
+    IR_LOAD,
+    IR_STORE,
+    IR_ADDR,
+
+    IR_ARRAY_LOAD,
+    IR_ARRAY_STORE,
+
+    IR_MEMBER_LOAD,
+    IR_MEMBER_STORE,
+
+    IR_LABEL,
+    IR_GOTO,
+    IR_IF_TRUE,
+    IR_IF_FALSE,
+
+    IR_PARAM,
+    IR_CALL,
+    IR_RETURN,
+    IR_RETURN_VOID,
+
+    IR_NOP,
+    IR_FUNC_BEGIN,
+    IR_FUNC_END
+} IrOpCode;
+
+typedef enum {
+    OPERAND_NONE,
+    OPERAND_TEMP,
+    OPERAND_VAR,        
+    OPERAND_CONSTANT,    
+    OPERAND_LABEL,       
+    OPERAND_FUNCTION     
+} OperandType;
+
+typedef enum {
+    IR_TYPE_INT,
+    IR_TYPE_FLOAT,
+    IR_TYPE_DOUBLE,
+    IR_TYPE_BOOL,
+    IR_TYPE_STRING,
+    IR_TYPE_VOID,
+    IR_TYPE_POINTER
+} IrDataType;
+
+typedef struct IrOperand {
+    OperandType type;
+    IrDataType dataType;
+    union {
+        struct{
+            int tempNum;
+        } temp;
+        struct {
+            const char *name;
+            size_t nameLen;
+        } var;
+        struct {
+            union {
+                int intVal;
+                float floatVal;
+                double doubleVal;
+                struct {
+                    const char *stringVal;
+                    size_t len;
+                } str;
+            };
+        } constant;
+        struct {
+            int labelNum;
+        } label;
+        struct {
+            const char *name;
+            size_t nameLen;
+        } fn;
+    } value;
+} IrOperand;
+
+typedef struct IrInstruction{
+    IrOpCode op;
+    IrOperand result;
+    IrOperand ar1;
+    IrOperand ar2;
+    struct IrInstruction *next;
+    struct IrInstruction *prev;
+} IrInstruction;
+
+typedef struct IrContext {
+    IrInstruction *instructions;
+    IrInstruction *lastInstruction;         
+    int instructionCount;
+    
+    int nextTempNum;                        
+    int nextLabelNum;                      
+    
+    struct JumpPatch {
+        IrInstruction *instruction;         
+        int targetLabel;                    
+        struct JumpPatch *next;
+    } *pendingJumps;
+    
+} IrContext;
+
+IrContext *createIrContext();
+void freeIrContext(IrContext *ctx);
+
+IrOperand createTemp(IrContext *ctx, IrDataType type);
+IrOperand createVar(const char *name, size_t len, IrDataType type);
+IrOperand createConst(IrDataType type);
+IrOperand createIntConst(int val);
+IrOperand createFloatConst(float val);
+IrOperand createDoubleConst(double val);
+IrOperand createBoolConst(int val);
+IrOperand createStringConst(const char* val, size_t len);
+IrOperand createLabel(int label);
+IrOperand createNone();
+
+void appendInstruction(IrContext *ctx, IrInstruction *inst);
+IrInstruction *emitBinary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand ar1, IrOperand ar2);
+IrInstruction *emitUnary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand ar1);
+IrInstruction *emitCopy(IrContext *ctx, IrOperand res, IrOperand ar1);
+IrInstruction *emitLabel(IrContext *ctx, int lab);
+IrInstruction *emitGoto(IrContext *ctx, int lab);
+IrInstruction *emitIfTrue(IrContext *ctx, IrOperand cond, int lab);
+IrInstruction *emitIfFalse(IrContext *ctx, IrOperand cond, int lab);
+IrInstruction *emitReturn(IrContext *ctx, IrOperand ret);
+IrInstruction *emitCall(IrContext *ctx, IrOperand res, const char *fnName, size_t nameLen, int params);
+
+IrDataType symbolTypeToIrType(DataType type);
+IrDataType nodeTypeToIrType(NodeTypes nodeType);
+IrOpCode astOpToIrOp(NodeTypes nodeType);
+
+IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx);
+void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx);
+IrContext *generateIr(ASTNode ast, TypeCheckContext typeCtx);
+
+void printInstruction(IrInstruction *inst);
+void printIR(IrContext *ctx);
