@@ -319,42 +319,50 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     }
 
     case ASSIGNMENT:
-case COMPOUND_ADD_ASSIGN:
-case COMPOUND_SUB_ASSIGN:
-case COMPOUND_MUL_ASSIGN:
-case COMPOUND_DIV_ASSIGN: {
-    ASTNode left = node->children;
-    ASTNode right = left ? left->brothers : NULL;
-    if(!left || !right) return createNone();
-    
-    IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
-    IrOperand leftOp = generateExpressionIr(ctx, left, typeCtx);
-    
-    if (node->nodeType != ASSIGNMENT) {
-        IrDataType resultType = leftOp.dataType;
-        IrOperand temp = createTemp(ctx, resultType);
-        
-        IrOpCode op;
-        switch (node->nodeType) {
-            case COMPOUND_ADD_ASSIGN: op = IR_ADD; break;
-            case COMPOUND_SUB_ASSIGN: op = IR_SUB; break;
-            case COMPOUND_MUL_ASSIGN: op = IR_MUL; break;
-            case COMPOUND_DIV_ASSIGN: op = IR_DIV; break;
-            default: op = IR_NOP; break;
+    case COMPOUND_ADD_ASSIGN:
+    case COMPOUND_SUB_ASSIGN:
+    case COMPOUND_MUL_ASSIGN:
+    case COMPOUND_DIV_ASSIGN: {
+        ASTNode left = node->children;
+        ASTNode right = left ? left->brothers : NULL;
+        if (!left || !right) return createNone();
+
+        IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
+        IrOperand leftOp = generateExpressionIr(ctx, left, typeCtx);
+
+        if (node->nodeType != ASSIGNMENT) {
+            IrDataType resultType = leftOp.dataType;
+            IrOperand temp = createTemp(ctx, resultType);
+
+            IrOpCode op;
+            switch (node->nodeType) {
+            case COMPOUND_ADD_ASSIGN:
+                op = IR_ADD;
+                break;
+            case COMPOUND_SUB_ASSIGN:
+                op = IR_SUB;
+                break;
+            case COMPOUND_MUL_ASSIGN:
+                op = IR_MUL;
+                break;
+            case COMPOUND_DIV_ASSIGN:
+                op = IR_DIV;
+                break;
+            default:
+                op = IR_NOP;
+                break;
+            }
+
+            emitBinary(ctx, op, temp, leftOp, rightOp);
+
+            emitCopy(ctx, leftOp, temp);
+
+            return leftOp;
         }
-        
-        emitBinary(ctx, op, temp, leftOp, rightOp);
-        
-        emitCopy(ctx, leftOp, temp);
-        
+
+        emitCopy(ctx, leftOp, rightOp);
         return leftOp;
     }
-    
-    emitCopy(ctx, leftOp, rightOp);
-    return leftOp;
-}
-
-    // TODO: future functions, some foundation has been already made
 
     default: return createNone();
     }
@@ -395,9 +403,35 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         case COMPOUND_MUL_ASSIGN:
         case COMPOUND_DIV_ASSIGN: {
             generateExpressionIr(ctx, node, typeCtx);
+            break;
         }
-
         // TODO: missing loop, if, else, return, functions, ternary, struct
+
+        case IF_CONDITIONAL: {
+            ASTNode cond = node->children;
+            ASTNode trueBranchWrap = cond->brothers;
+            ASTNode elseBranchWrap = trueBranchWrap->brothers;
+
+            int elseLab = ctx->nextLabelNum++;
+            int endLab = ctx->nextLabelNum++;
+
+            IrOperand condOp = generateExpressionIr(ctx, cond, typeCtx);
+
+            if(elseBranchWrap){
+                emitIfFalse(ctx, condOp, elseLab);
+            }else {
+                emitIfFalse(ctx, condOp, endLab);
+            }
+
+            generateStatementIr(ctx, trueBranchWrap->children, typeCtx);
+            if(elseBranchWrap){
+                emitGoto(ctx, endLab);
+                emitLabel(ctx, elseLab);
+                generateStatementIr(ctx, elseBranchWrap->children, typeCtx);
+            }
+            emitLabel(ctx, endLab);
+            break;
+        }
 
         default: break;
     }
