@@ -149,12 +149,6 @@ IrInstruction *emitGoto(IrContext *ctx, int lab){
     return emitBinary(ctx, IR_GOTO, none, label, none);
 }
 
-IrInstruction *emitIfTrue(IrContext *ctx, IrOperand cond, int lab) {
-    IrOperand label = createLabel(lab);
-    IrOperand none = createNone();
-    return emitBinary(ctx, IR_IF_TRUE, none, cond, label);
-}
-
 IrInstruction *emitIfFalse(IrContext *ctx, IrOperand cond, int lab) {
     IrOperand label = createLabel(lab);
     IrOperand none = createNone();
@@ -304,18 +298,64 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     }
 
     case UNARY_MINUS_OP:
-    case LOGIC_NOT:
-    case PRE_INCREMENT:
-    case PRE_DECREMENT: {
-        ASTNode op = node->children;
-        if(!op) return createNone();
-
-        IrOperand operandOp = generateExpressionIr(ctx, op, typeCtx);
+    case LOGIC_NOT: {
+        ASTNode operand = node->children;
+        IrOperand operandOp = generateExpressionIr(ctx, operand, typeCtx);
         IrOperand res = createTemp(ctx, operandOp.dataType);
 
         IrOpCode irOp = astOpToIrOp(node->nodeType);
         emitUnary(ctx, irOp, res, operandOp);
         return res;
+    }
+
+    case PRE_INCREMENT:
+    case PRE_DECREMENT: {
+        printf("inside");
+        ASTNode operand = node->children;
+        IrOperand var = generateExpressionIr(ctx, operand, typeCtx);
+        
+        IrOperand one;
+        if (var.dataType == IR_TYPE_FLOAT) {
+            one = createFloatConst(1.0f);
+        } else if (var.dataType == IR_TYPE_DOUBLE) {
+            one = createDoubleConst(1.0);
+        } else {
+            one = createIntConst(1);
+        }
+        
+        IrOperand temp = createTemp(ctx, var.dataType);
+        
+        IrOpCode op = (node->nodeType == PRE_INCREMENT) ? IR_ADD : IR_SUB;
+        emitBinary(ctx, op, temp, var, one);
+        
+        emitCopy(ctx, var, temp);
+        return var;
+    }
+
+    case POST_INCREMENT:
+    case POST_DECREMENT: {
+        ASTNode operand = node->children;
+        IrOperand var = generateExpressionIr(ctx, operand, typeCtx);
+        IrOperand oldValue = createTemp(ctx, var.dataType);
+        emitCopy(ctx, oldValue, var);
+        
+        IrOperand one;
+        if (var.dataType == IR_TYPE_FLOAT) {
+            one = createFloatConst(1.0f);
+        } else if (var.dataType == IR_TYPE_DOUBLE) {
+            one = createDoubleConst(1.0);
+        } else {
+            one = createIntConst(1);
+        }
+        
+        IrOperand newValue = createTemp(ctx, var.dataType);
+        
+        IrOpCode op = (node->nodeType == POST_INCREMENT) ? IR_ADD : IR_SUB;
+        emitBinary(ctx, op, newValue, var, one);
+        
+        emitCopy(ctx, var, newValue);
+        
+        return oldValue;
     }
 
     case ASSIGNMENT:
@@ -397,16 +437,6 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         }
 
-        case ASSIGNMENT:
-        case COMPOUND_ADD_ASSIGN:
-        case COMPOUND_SUB_ASSIGN:
-        case COMPOUND_MUL_ASSIGN:
-        case COMPOUND_DIV_ASSIGN: {
-            generateExpressionIr(ctx, node, typeCtx);
-            break;
-        }
-        // TODO: missing loop, if, else, return, functions, ternary, struct
-
         case IF_CONDITIONAL: {
             ASTNode cond = node->children;
             ASTNode trueBranchWrap = cond->brothers;
@@ -433,7 +463,27 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         }
 
-        default: break;
+        case LOOP_STATEMENT: {
+            ASTNode cond = node->children;
+            ASTNode body = cond->brothers;
+
+            int startLab = ctx->nextLabelNum++;
+            int endLab = ctx->nextLabelNum++;
+
+            emitLabel(ctx, startLab);
+
+            IrOperand condOp = generateExpressionIr(ctx, cond, typeCtx);
+            emitIfFalse(ctx, condOp, endLab);
+            generateStatementIr(ctx, body, typeCtx);
+            emitGoto(ctx, startLab);
+            emitLabel(ctx, endLab);
+
+            break;
+        }
+
+        // TODO: return, functions, ternary, struct, array
+
+        default: generateExpressionIr(ctx, node, typeCtx);
     }
 }
 
@@ -533,7 +583,7 @@ void printInstruction(IrInstruction *inst) {
             break;
 
         case IR_IF_FALSE:
-            printf("if !");
+            printf("!");
             printOperand(inst->ar1);
             printf(" goto L%d", inst->ar2.value.label.labelNum);
             break;

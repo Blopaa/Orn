@@ -144,7 +144,6 @@ IrInstruction *emitUnary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand a
 IrInstruction *emitCopy(IrContext *ctx, IrOperand res, IrOperand ar1);
 IrInstruction *emitLabel(IrContext *ctx, int lab);
 IrInstruction *emitGoto(IrContext *ctx, int lab);
-IrInstruction *emitIfTrue(IrContext *ctx, IrOperand cond, int lab);
 IrInstruction *emitIfFalse(IrContext *ctx, IrOperand cond, int lab);
 IrInstruction *emitReturn(IrContext *ctx, IrOperand ret);
 IrInstruction *emitCall(IrContext *ctx, IrOperand res, const char *fnName, size_t nameLen, int params);
