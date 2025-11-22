@@ -94,6 +94,14 @@ IrOperand createLabel(int label){
     };
 }
 
+IrOperand createFn(const char *start, size_t len){
+    return (IrOperand) {
+        .type = OPERAND_FUNCTION,
+        .value.fn.name = start,
+        .value.fn.nameLen = len
+    };
+}
+
 IrOperand createNone(){
     return (IrOperand){
         .type = OPERAND_NONE,
@@ -262,6 +270,16 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
     case VARIABLE: {
         Symbol sym = lookupSymbol(typeCtx->current, node->start, node->length);
+        if(!sym && typeCtx->currentFunction){
+            FunctionParameter param = typeCtx->currentFunction->parameters;
+            while (param) {
+                if(bufferEqual(node->start, node->length, param->nameStart, param->nameLength)){
+                    IrDataType type = symbolTypeToIrType(param->type);
+                    return createVar(node->start, node->length, type);
+                }
+                param = param->next;
+            }
+        }
         if(!sym) return createNone();
 
         IrDataType type = symbolTypeToIrType(sym->type);
@@ -356,6 +374,29 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         emitCopy(ctx, var, newValue);
         
         return oldValue;
+    }
+
+    case FUNCTION_CALL: {
+        int paramCount = 0;
+        ASTNode argList = node->children;
+        if (argList && argList->nodeType == ARGUMENT_LIST) {
+            ASTNode arg = argList->children;
+            while (arg) {
+                IrOperand argOp = generateExpressionIr(ctx, arg, typeCtx);
+                IrOperand none = createNone();
+                emitBinary(ctx, IR_PARAM, none, argOp, none);
+                paramCount++;
+                arg = arg->brothers;
+            }
+        }
+        
+        Symbol funcSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+        IrDataType retType = funcSymbol ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
+        
+        IrOperand result = (retType == IR_TYPE_VOID) ? createNone() : createTemp(ctx, retType);
+        emitCall(ctx, result, node->start, node->length, paramCount);
+        
+        return result;
     }
 
     case ASSIGNMENT:
@@ -481,7 +522,36 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         }
 
-        // TODO: return, functions, ternary, struct, array
+         case RETURN_STATEMENT: {
+            if (node->children) {
+                IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
+                emitReturn(ctx, retVal);
+            } else {
+                IrOperand none = createNone();
+                emitReturn(ctx, none);
+            }
+            break;
+        }
+
+        case FUNCTION_DEFINITION: {
+            ASTNode paramList = node->children;
+            ASTNode returnType = paramList->brothers;
+            ASTNode body = returnType->brothers;
+            
+            Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+            Symbol oldFunction = typeCtx->currentFunction;
+            typeCtx->currentFunction = fnSymbol;
+            
+            IrOperand funcName = createFn(node->start, node->length);
+            IrOperand none = createNone();
+            emitBinary(ctx, IR_FUNC_BEGIN, funcName, none, none);
+            
+            generateStatementIr(ctx, body, typeCtx);
+            
+            emitBinary(ctx, IR_FUNC_END, funcName, none, none);
+            typeCtx->currentFunction = oldFunction;
+            break;
+        }
 
         default: generateExpressionIr(ctx, node, typeCtx);
     }
@@ -528,6 +598,8 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_RETURN: return "RETURN";
         case IR_RETURN_VOID: return "RETURN_VOID";
         case IR_NOP: return "NOP";
+        case IR_FUNC_BEGIN: return "FUNC_BEGIN";
+        case IR_FUNC_END: return "FUNC_END";
         default: return "UNKNOWN";
     }
 }
@@ -601,6 +673,32 @@ void printInstruction(IrInstruction *inst) {
 
         case IR_RETURN_VOID:
             printf("return");
+            break;
+
+        case IR_FUNC_BEGIN:
+            printOperand(inst->result);
+            printf(":");
+            break;
+
+        case IR_FUNC_END:
+            printf("end ");
+            printOperand(inst->result);
+            break;
+
+        case IR_PARAM:
+            printf("param ");
+            printOperand(inst->ar1);
+            break;
+
+        case IR_CALL:
+            if (inst->result.type != OPERAND_NONE) {
+                printOperand(inst->result);
+                printf(" = ");
+            }
+            printf("call ");
+            printOperand(inst->ar1); 
+            printf(", ");
+            printOperand(inst->ar2);
             break;
 
         default:

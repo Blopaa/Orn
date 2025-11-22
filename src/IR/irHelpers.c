@@ -61,7 +61,7 @@ int matchLit(const char *start, size_t len, const char *lit) {
     return memcmp(start, lit, len) == 0;
 }
 
-int BufferEqual(const char *start1, size_t len1, const char *start2, size_t len2) {
+int bufferEqual(const char *start1, size_t len1, const char *start2, size_t len2) {
     if (len1 != len2) return 0;
     
     return memcmp(start1, start2, len1) == 0;
