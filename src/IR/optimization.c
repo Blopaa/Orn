@@ -81,7 +81,7 @@ int copyProp(IrContext *ctx){
     int changed = 0;
     IrInstruction *inst = ctx->instructions;
     while (inst){
-        if(inst->op == IR_COPY && isReplaceable(inst->result) && (inst->ar1.type == OPERAND_CONSTANT || isReplaceable(inst->ar1))){
+        if((inst->op == IR_COPY || inst->op == IR_CAST) && isReplaceable(inst->result) && ((inst->ar1.type == OPERAND_CONSTANT) || isReplaceable(inst->ar1))){
             IrInstruction *scan = inst->next;
             while (scan && !(scan->op == IR_FUNC_BEGIN || scan->op == IR_FUNC_END)) {
                 if (isReplaceable(scan->ar1) && operandsEqual(scan->ar1, inst->result)) {

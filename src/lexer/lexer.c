@@ -102,15 +102,15 @@ static void skipWhitespace(Lexer *lx) {
 			lx->cur++;
 			lx->line++;
 			lx->line_start = lx->cur - lx->src;
-		} else if (lx->cur[0] == ':' && lx->cur[1] == ':') {
+		} else if (lx->cur[0] == '/' && lx->cur[1] == '/') {
 			// Single-line comment
 			lx->cur += 2;
 			while (*lx->cur && *lx->cur != '\n') lx->cur++;
-		} else if (lx->cur[0] == ':' && lx->cur[1] == '|') {
+		} else if (lx->cur[0] == '/' && lx->cur[1] == '*') {
 			// Multi-line comment
 			lx->cur += 2;
 			while (*lx->cur) {
-				if (lx->cur[0] == '|' && lx->cur[1] == ':') {
+				if (lx->cur[0] == '*' && lx->cur[1] == '/') {
 					lx->cur += 2;
 					break;
 				}

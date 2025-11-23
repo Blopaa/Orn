@@ -45,7 +45,9 @@ typedef enum {
 
     IR_NOP,
     IR_FUNC_BEGIN,
-    IR_FUNC_END
+    IR_FUNC_END,
+
+    IR_CAST
 } IrOpCode;
 
 typedef enum {

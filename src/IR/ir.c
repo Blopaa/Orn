@@ -445,6 +445,19 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         return leftOp;
     }
 
+    
+    case CAST_EXPRESSION: {
+        ASTNode sourceExpr = node->children;
+        ASTNode targetType = sourceExpr->brothers;
+
+        IrOperand source = generateExpressionIr(ctx, sourceExpr, typeCtx);
+        IrDataType target = nodeTypeToIrType(targetType->nodeType);
+
+        IrOperand res = createTemp(ctx, target);
+        emitUnary(ctx, IR_CAST, res, source);
+        return res;
+    }
+
     default: return createNone();
     }
 }
@@ -600,6 +613,7 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_NOP: return "NOP";
         case IR_FUNC_BEGIN: return "FUNC_BEGIN";
         case IR_FUNC_END: return "FUNC_END";
+        case IR_CAST: return "CAST";
         default: return "UNKNOWN";
     }
 }
@@ -721,8 +735,6 @@ void printInstruction(IrInstruction *inst) {
 
 void printIR(IrContext *ctx) {
     if (!ctx) return;
-
-    printf("\nTHREE-ADDRESS CODE (IR)\n\n");
     printf("Total instructions: %d\n", ctx->instructionCount);
     printf("Temporaries used: t1 - t%d\n", ctx->nextTempNum - 1);
     printf("Labels used: L1 - L%d\n\n", ctx->nextLabelNum - 1);
