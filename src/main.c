@@ -46,24 +46,24 @@ void printUsage(const char* programName) {
     printf("    %s --verbose <INPUT_FILE>       Show both IR, AST and compilation steps\n", programName);
     printf("    %s --ir <INPUT_FILE>            Show IR only\n", programName);
     printf("    %s --ast <INPUT_FILE>           Show AST only\n", programName);
+    printf("    %s -O<level> <INPUT_FILE>       Set optimization level (0-3)\n", programName);
     printf("    %s --help\n\n", programName);
     printf("OPTIONS:\n");
     printf("    --verbose    Enable verbose compilation output (shows --ir and --ast)\n");
     printf("    --ir         Show intermediate representation (TAC)\n");
     printf("    --ast        Show Abstract Syntax Tree\n");
+    printf("    -O0          No optimization (default)\n");
+    printf("    -O1          Basic optimization (3 passes)\n");
+    printf("    -O2          Moderate optimization (5 passes)\n");
+    printf("    -O3          Aggressive optimization (10 passes)\n");
     printf("    --help       Show this help message\n\n");
-    printf("EXAMPLES:\n");
-    printf("    %s program.orn\n", programName);
-    printf("    %s --ir program.orn\n", programName);
-    printf("    %s --ast program.orn\n", programName);
-    printf("    %s --verbose program.orn\n\n", programName);
-    
 }
 
 int main(int argc, char* argv[]) {
     const char* inputFile = NULL;
     int showIr = 0;
     int showAST = 0;
+    int optLvl = 0;
     const char* outputFile = "output.s";
 
     if (argc < 2) {
@@ -71,23 +71,39 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (strcmp(argv[1], "--help") == 0) {
-        printUsage(argv[0]);
-        return 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0) {
+            printUsage(argv[0]);
+            return 0;
+        }
+        else if (strcmp(argv[i], "--verbose") == 0) {
+            showIr = 1;
+            showAST = 1;
+        }
+        else if (strcmp(argv[i], "--ir") == 0) {
+            showIr = 1;
+        }
+        else if (strcmp(argv[i], "--ast") == 0) {
+            showAST = 1;
+        }
+        else if (strncmp(argv[i], "-O", 2) == 0) {
+            char level = argv[i][2];
+            if (level >= '0' && level <= '3') {
+                optLvl = level - '0';
+            } else {
+                fprintf(stderr, "Invalid optimization level: %s (use -O0 to -O3)\n", argv[i]);
+                return 1;
+            }
+        }
+        else if (argv[i][0] != '-') {
+            inputFile = argv[i];
+        }
     }
 
-    if (argc >= 3 && strcmp(argv[1], "--verbose") == 0) {
-        showIr = 1;
-        showAST = 1;
-        inputFile = argv[2];
-    } else if(argc >= 3 && strcmp(argv[1], "--ir")==0){
-        showIr = 1;
-        inputFile = argv[2];
-    }else if(argc >= 3 && strcmp(argv[1], "--ast")==0){
-        showAST = 1;
-        inputFile = argv[2];
-    }else {
-        inputFile = argv[1];
+    if (!inputFile) {
+        fprintf(stderr, "Error: No input file specified\n");
+        printUsage(argv[0]);
+        return 1;
     }
 
     if (showAST && showIr) {
@@ -161,8 +177,7 @@ int main(int argc, char* argv[]) {
     if (showIr && showAST) printf("OK (%d instructions)\n", ir->instructionCount);
 
     if (showIr) {
-        constantFolding(ir);
-        copyProp(ir);
+        optimizeIR(ir, optLvl);
         printIR(ir);
     }
 
