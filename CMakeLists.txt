@@ -23,6 +23,8 @@ set(LIB_SOURCES
         src/IR/ir.h
         src/IR/irHelpers.c
         src/IR/irHelpers.h
+        src/IR/optimization.c
+        src/IR/optimization.h
 )
 
 # Create compiler library

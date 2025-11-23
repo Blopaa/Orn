@@ -7,6 +7,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "IR/ir.h"
+#include "IR/optimization.h"
 
 char* readFile(const char* filename) {
     FILE* file = fopen(filename, "r");
@@ -160,6 +161,8 @@ int main(int argc, char* argv[]) {
     if (showIr && showAST) printf("OK (%d instructions)\n", ir->instructionCount);
 
     if (showIr) {
+        constantFolding(ir);
+        copyProp(ir);
         printIR(ir);
     }
 
