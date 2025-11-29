@@ -27,7 +27,7 @@ The syntax is designed to be approachable for developers coming from high-level 
 
 Many low-level languages have steep learning curves that intimidate developers from high-level backgrounds. Orn bridges this gap by offering:
 
-* **Modern syntax** – Clear type annotations and familiar control flow structures
+* **Modern syntax** – TypeScript-style type annotations with `const` and `let`
 * **Clear error feedback** – Error messages are precise and tell you exactly how to fix problems
 * **Low-level control** – Direct access to memory and performance-critical operations
 * **Fast compile times** – Efficient compilation pipeline for quick iteration
@@ -49,7 +49,6 @@ Many low-level languages have steep learning curves that intimidate developers f
 ## Performance Architecture
 
 Orn uses a **zero-copy reference design** inspired by production compilers like Clang and Rust:
-
 ```
 Source Buffer (one malloc)
     ↓
@@ -88,7 +87,6 @@ You'll need:
 * **[Valgrind](https://valgrind.org/)** *(optional)* – Memory debugging
 
 ### Installation
-
 ```bash
 # Clone the repository
 git clone https://github.com/Blopaa/Orn.git
@@ -101,13 +99,11 @@ cmake --build .
 ```
 
 You can now run Orn on your own programs:
-
 ```bash
 ./orn program.orn
 ```
 
 Or, for verbose compilation output:
-
 ```bash
 ./orn --verbose program.orn
 ```
@@ -119,26 +115,26 @@ This will perform lexical analysis, parsing, semantic analysis, and IR generatio
 ## Usage
 
 ### Example Program
-
-```c
-int x = 42;
-float rate = 3.14;
-string msg = "Hello, World!";
-bool b = true; :: bools and ints cannot mix
+```typescript
+const x: int = 42;
+let rate: float = 3.14;
+const msg: string = "Hello, World!";
+const b: bool = true; // bools and ints cannot mix
 
 if x > 0 {
    print(msg);
 }
 
-while x > 0 {
-    print(x);
-    x = x - 1;
+let i: int = 0;
+while i <= 10 {
+    print(i);
+    i++;
 }
 
-:: simple add function
+// simple add function
 fn add(a: int, b: int) -> int {
     return a + b;
-};
+}
 
 print(add(3, 5));
 ```
@@ -146,13 +142,22 @@ print(add(3, 5));
 ### Error Example
 
 Orn provides actionable error messages:
-
 ```
+error [E2005]: cannot assign to constant (x)
+  --> source.orn:2:1
+   |
+ 2 | x = 20;
+   | ^
+   |
+   = help: assignment to immutable value
+   = note: constants cannot be modified after initialization
+   = suggestion: use a mutable variable instead
+
 error [E1001]: mismatched types (x)
   --> source.orn:2:11
    |
-   2 | int x = "hello";
-       |           ^
+ 2 | const x: int = "hello";
+   |                ^^^^^^^
    |
    = expected `int`, found `string`
    = note: string literals cannot be assigned to int variables

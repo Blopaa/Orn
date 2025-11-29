@@ -20,6 +20,8 @@ typedef enum {
 	TK_TRUE,
 	TK_FALSE,
 	TK_AS,	
+	TK_CONST,
+	TK_LET,
 
 	// Data types
 	TK_INT,
@@ -97,7 +99,7 @@ typedef struct TokenList {
 	size_t count;
 	size_t capacity;
 	char * buffer;
-	const char *filename;
+	char *filename;
 }TokenList;
 
 typedef struct {

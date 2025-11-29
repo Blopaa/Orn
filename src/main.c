@@ -64,7 +64,6 @@ int main(int argc, char* argv[]) {
     int showIr = 0;
     int showAST = 0;
     int optLvl = 0;
-    const char* outputFile = "output.s";
 
     if (argc < 2) {
         printUsage(argv[0]);
@@ -183,12 +182,11 @@ int main(int argc, char* argv[]) {
 
     printErrorSummary();
     if (showIr && showAST) {
-        printf("OK → %s\n\n", outputFile);
         printf("✓ Compilation SUCCESSFUL\n");
         printf("IR: %d instructions, %d temporaries, %d labels\n", ir->instructionCount,
                ir->nextTempNum - 1, ir->nextLabelNum - 1);
     } else {
-        printf("Successfully compiled '%s' → '%s'\n", inputFile, outputFile);
+        printf("Successfully compiled '%s'\n", inputFile);
     }
 
     freeTokens(tokens);

@@ -32,7 +32,7 @@ CompatResult areCompatible(DataType target, DataType source);
 DataType getOperationResultType(DataType left, DataType right, NodeTypes op);
 DataType getExpressionType(ASTNode node, TypeCheckContext context);
 ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType);
-int validateVariableDeclaration(ASTNode node, TypeCheckContext context);
+int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst);
 int validateAssignment(ASTNode node, TypeCheckContext context);
 int validateVariableUsage(ASTNode node, TypeCheckContext context);
 int typeCheckNode(ASTNode node, TypeCheckContext context);

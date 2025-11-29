@@ -553,25 +553,8 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
     }
 }
 
-/**
- * @brief Validates a variable declaration for semantic correctness.
- *
- * Performs comprehensive validation of variable declarations including:
- * - Node structure validation
- * - Type extraction from AST node
- * - Duplicate declaration checking in current scope
- * - Symbol table insertion
- * - Optional initialization type checking
- *
- * @param node Variable declaration AST node
- * @param context Type checking context
- * @return 1 if declaration is valid, 0 if validation failed
- *
- * @note Sets the isInitialized flag if the variable has an initializer.
- *       Only checks for duplicates in the current scope, allowing
- *       variable shadowing in nested scopes.
- */
-int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
+//checks if a variable declaration is correctly written
+int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst) {
     if (node == NULL || node->start == NULL) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null or has no name");
         return 0;
@@ -594,6 +577,9 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
         repError(ERROR_SYMBOL_TABLE_CREATION_FAILED,"Failed to add symbol to symbol table");
         return 0;
     }
+
+    newSymbol->isConst = isConst;
+    
     if (node->children != NULL) {
         DataType initType = getExpressionType(node->children, context);
         if (initType == TYPE_UNKNOWN) return 0;
@@ -609,6 +595,11 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context) {
             free(tempText);
         }
         newSymbol->isInitialized = 1;
+    }else if (isConst) {
+        char * tempText = extractText(node->start, node->length);
+        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
+        free(tempText);
+        return 0;
     }
     return 1;
 }
@@ -624,6 +615,16 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
     if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS) {
         REPORT_ERROR(ERROR_INVALID_ASSIGNMENT_TARGET, node, context, "Left side of assignment must be a variable or member access");
         return 0;
+    }
+
+    if(left->nodeType == VARIABLE){
+        Symbol sym = lookupSymbol(context->current, left->start, left->length);
+        if(sym && sym->isConst){
+            char * tempText = extractText(left->start, left->length);
+            REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context, tempText);
+            free(tempText);
+            return 0;
+        }
     }
 
     DataType leftType = getExpressionType(left, context);
@@ -998,22 +999,22 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case PROGRAM:
             success = typeCheckChildren(node, context);
             break;
-
-        // Variable declarations
-        case INT_VARIABLE_DEFINITION:
-        case FLOAT_VARIABLE_DEFINITION:
-        case STRING_VARIABLE_DEFINITION:
-        case BOOL_VARIABLE_DEFINITION:
-        case DOUBLE_VARIABLE_DEFINITION:
-            success = validateVariableDeclaration(node, context);
-            break;
-
-        case ASSIGNMENT:
-        case COMPOUND_ADD_ASSIGN:
-        case COMPOUND_SUB_ASSIGN:
-        case COMPOUND_MUL_ASSIGN:
-        case COMPOUND_DIV_ASSIGN:
+        case ASSIGNMENT:                  
+        case COMPOUND_ADD_ASSIGN:         
+        case COMPOUND_SUB_ASSIGN:         
+        case COMPOUND_MUL_ASSIGN:        
+        case COMPOUND_DIV_ASSIGN:           
             success = validateAssignment(node, context);
+            break;
+        case LET_DEC:
+        case CONST_DEC :
+            ASTNode varDef = node->children;
+            if(!varDef){
+                repError(ERROR_INTERNAL_PARSER_ERROR, "Declaration wrapper has no child");
+                return 0;
+            }
+            int isConst = node->nodeType == CONST_DEC;
+            success = validateVariableDeclaration(varDef, context, isConst);
             break;
         case FUNCTION_DEFINITION:
             success = validateFunctionDef(node, context);

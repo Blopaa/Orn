@@ -475,7 +475,12 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             }
             break;
         }
-
+        case LET_DEC:
+        case CONST_DEC:
+            if (node->children) {
+                generateStatementIr(ctx, node->children, typeCtx);
+            }
+            break;
         case INT_VARIABLE_DEFINITION:
         case FLOAT_VARIABLE_DEFINITION:
         case DOUBLE_VARIABLE_DEFINITION:

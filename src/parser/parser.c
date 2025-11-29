@@ -658,26 +658,64 @@ ASTNode parseStruct(TokenList *list, size_t *pos) {
  * @param decType Declaration type
  * @return Declaration AST node or NULL on error
  */
-ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType) {
-	if (*pos < list->count && list->tokens[*pos].type == TK_LBRACKET) {
-        Token* typeToken = &list->tokens[*pos - 1];
-        return parseArrayDec(list, pos, typeToken);
-    }
-	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
-		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected identifier after type");
-		return NULL;
-	}
-
-	ASTNode decNode;
-	CREATE_NODE_OR_FAIL(decNode, &list->tokens[*pos], decType, list, pos);
+ASTNode parseDeclaration(TokenList* list, size_t* pos) {
+	int isConst = list->tokens[*pos].type == TK_CONST;
+	Token *keyTok = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
 
-	if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
-		ADVANCE_TOKEN(list, pos);
-		PARSE_OR_CLEANUP(decNode->children, parseExpression(list, pos, PREC_NONE), decNode);
+	Token *varName = &list->tokens[*pos];
+	if(detectLitType(varName, list, pos) != VARIABLE){
+		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), 
+                   "Expected identifier after const/let");
+        return NULL;
 	}
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
-	return decNode;
+	ADVANCE_TOKEN(list, pos);
+	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after identifier");
+	if(*pos >= list->count || !isTypeToken(list->tokens[*pos].type)){
+		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), 
+                   "Expected type after ':'");
+        return NULL;
+	}
+
+	Token *typeToken = &list->tokens[*pos];
+	NodeTypes varDefType = getDecType(typeToken->type);
+
+	if (varDefType == null_NODE) {
+        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+                   "Invalid type in declaration");
+        return NULL;
+    }
+	
+	ADVANCE_TOKEN(list, pos);
+
+	ASTNode wrapNode;
+	NodeTypes wrapperType = isConst ? CONST_DEC : LET_DEC;
+	CREATE_NODE_OR_FAIL(wrapNode, keyTok, wrapperType, list, pos);
+
+	ASTNode varDefNode;
+    CREATE_NODE_OR_FAIL(varDefNode, varName, varDefType, list, pos);
+    
+    wrapNode->children = varDefNode;
+    
+    if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
+        ADVANCE_TOKEN(list, pos);
+        ASTNode initExpr;
+        PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), 
+                        wrapNode, varDefNode);
+        
+        varDefNode->children = initExpr;
+    } else if (isConst) {
+        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+                   "const declarations must have an initializer");
+        freeAST(wrapNode);
+        return NULL;
+    }
+    
+    EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, 
+                      "Expected ';' after declaration");
+    
+    return wrapNode;
+
 }
 
 /**
@@ -819,12 +857,10 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
 		}
 	}
 
-	// Check for variable declarations
-	NodeTypes decType = getDecType(currentToken->type);
-	if (decType != null_NODE) {
-		ADVANCE_TOKEN(list, pos);
-		return parseDeclaration(list, pos, decType);
-	}
+	// Check for const/let declarations
+    if (currentToken->type == TK_CONST || currentToken->type == TK_LET) {
+        return parseDeclaration(list, pos);  // Your renamed function handles it
+    }
 
 	if (currentToken->type == TK_LIT && list->tokens[*pos+1].type == TK_LIT) {
 		return parseStructVarDec(list, pos);
