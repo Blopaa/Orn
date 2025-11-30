@@ -597,7 +597,7 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
         newSymbol->isInitialized = 1;
     }else if (isConst) {
         char * tempText = extractText(node->start, node->length);
-        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
+        REPORT_ERROR(ERROR_CONST_MUST_BE_INITIALIZED, node, context, tempText);
         free(tempText);
         return 0;
     }
