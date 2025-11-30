@@ -99,6 +99,9 @@ typedef enum {
     STRUCT_VARIABLE_DEFINITION,
     ARRAY_VARIABLE_DEFINITION,
 
+    CONST_DEC,
+    LET_DEC,
+
     // Literals
     STRING_LIT,
     INT_LIT,
@@ -183,6 +186,8 @@ typedef struct {
 
 static const NodeTypeMap nodeTypeMapping[] = {
     {PROGRAM, "PROGRAM"},
+    {LET_DEC, "LET_DECLARATION"},
+    {CONST_DEC, "CONST_DECLARATION"},
     {STRING_VARIABLE_DEFINITION, "STRING_VAR_DEF"},
     {INT_VARIABLE_DEFINITION, "INT_VAR_DEF"},
     {FLOAT_VARIABLE_DEFINITION, "FLOAT_VAR_DEF"},
@@ -410,7 +415,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
                                   ASTNode (*parseElement)(TokenList*, size_t*));
 ASTNode parseTernary(TokenList* list, size_t* pos);
 ASTNode parseReturnType(TokenList* list, size_t* pos);
-ASTNode parseDeclaration(TokenList* list, size_t* pos, NodeTypes decType);
+ASTNode parseDeclaration(TokenList* list, size_t* pos);
 ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 ASTNode parseStruct(TokenList* list, size_t* pos);
 ASTNode parseStructField(TokenList* list, size_t* pos);

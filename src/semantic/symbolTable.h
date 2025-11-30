@@ -68,6 +68,8 @@ typedef struct StructType {
     int fieldCount;
 } *StructType;
 
+// gotta redo this with unions
+
 /**
  * @brief Symbol structure representing a declared variable.
  *
@@ -80,15 +82,22 @@ typedef struct Symbol {
     uint16_t nameLength;
     SymbolType symbolType;
     DataType type;
-    StructType structType; // only for structs
+    union {
+        StructType structType; // only for structs
+        struct {
+            // only for functions
+            FunctionParameter parameters;
+            int paramCount;
+        };
+        struct {
+            // only for vars
+            int isInitialized;
+            int isConst; 
+        };
+    };
     int line;
     int column;
     int scope;
-    int isInitialized; // only for vars
-    //only for functions
-    FunctionParameter parameters;
-    int paramCount;
-
     struct Symbol *next;
 } *Symbol;
 

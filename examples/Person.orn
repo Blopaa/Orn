@@ -1,16 +1,18 @@
+// STRUCT STILL NOT SUPPORTED AFTER TYPECHECKER, ONLY AST
+
 struct Person {
     age: int
     score: int
 };
 
-Person player;
+let player: Player;
 player.age = 25;
 player.score = 100;
 
-:: Give bonus points
-int bonus = 10;
+// Give bonus points
+const bonus: int = 10;
 player.score += bonus;
 
-print(player.age);    :: Should print 25
+print(player.age);    // Should print 25
 print("\n");
-print(player.score);  :: Should print 110
+print(player.score);  // Should print 110

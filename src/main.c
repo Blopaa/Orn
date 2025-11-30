@@ -4,9 +4,10 @@
 
 #include "errorHandling.h"
 #include "typeChecker.h"
-#include "codeGeneration/codeGeneration.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "IR/ir.h"
+#include "IR/optimization.h"
 
 char* readFile(const char* filename) {
     FILE* file = fopen(filename, "r");
@@ -42,39 +43,69 @@ void printUsage(const char* programName) {
     printf("Orn Lang Compiler\n\n");
     printf("USAGE:\n");
     printf("    %s <INPUT_FILE>\n", programName);
-    printf("    %s --verbose <INPUT_FILE>\n", programName);
+    printf("    %s --verbose <INPUT_FILE>       Show both IR, AST and compilation steps\n", programName);
+    printf("    %s --ir <INPUT_FILE>            Show IR only\n", programName);
+    printf("    %s --ast <INPUT_FILE>           Show AST only\n", programName);
+    printf("    %s -O<level> <INPUT_FILE>       Set optimization level (0-3)\n", programName);
     printf("    %s --help\n\n", programName);
     printf("OPTIONS:\n");
-    printf("    --verbose    Enable verbose compilation output\n");
+    printf("    --verbose    Enable verbose compilation output (shows --ir and --ast)\n");
+    printf("    --ir         Show intermediate representation (TAC)\n");
+    printf("    --ast        Show Abstract Syntax Tree\n");
+    printf("    -O0          No optimization (default)\n");
+    printf("    -O1          Basic optimization (3 passes)\n");
+    printf("    -O2          Moderate optimization (5 passes)\n");
+    printf("    -O3          Aggressive optimization (10 passes)\n");
     printf("    --help       Show this help message\n\n");
-    printf("EXAMPLES:\n");
-    printf("    %s program.orn\n", programName);
-    printf("    %s --verbose program.orn\n\n", programName);
 }
 
 int main(int argc, char* argv[]) {
     const char* inputFile = NULL;
-    int verbose = 0;
-    const char* outputFile = "output.s";
+    int showIr = 0;
+    int showAST = 0;
+    int optLvl = 0;
 
     if (argc < 2) {
         printUsage(argv[0]);
         return 1;
     }
 
-    if (strcmp(argv[1], "--help") == 0) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0) {
+            printUsage(argv[0]);
+            return 0;
+        }
+        else if (strcmp(argv[i], "--verbose") == 0) {
+            showIr = 1;
+            showAST = 1;
+        }
+        else if (strcmp(argv[i], "--ir") == 0) {
+            showIr = 1;
+        }
+        else if (strcmp(argv[i], "--ast") == 0) {
+            showAST = 1;
+        }
+        else if (strncmp(argv[i], "-O", 2) == 0) {
+            char level = argv[i][2];
+            if (level >= '0' && level <= '3') {
+                optLvl = level - '0';
+            } else {
+                fprintf(stderr, "Invalid optimization level: %s (use -O0 to -O3)\n", argv[i]);
+                return 1;
+            }
+        }
+        else if (argv[i][0] != '-') {
+            inputFile = argv[i];
+        }
+    }
+
+    if (!inputFile) {
+        fprintf(stderr, "Error: No input file specified\n");
         printUsage(argv[0]);
-        return 0;
+        return 1;
     }
 
-    if (argc >= 3 && strcmp(argv[1], "--verbose") == 0) {
-        verbose = 1;
-        inputFile = argv[2];
-    } else {
-        inputFile = argv[1];
-    }
-
-    if (verbose) {
+    if (showAST && showIr) {
         printf("=== COMPILER ===\n");
         printf("Input file: %s\n\n", inputFile);
     }
@@ -84,66 +115,78 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (verbose) {
-        printf("Input:\n%s\n\n", input);
+    if (showIr && showAST) {
+        printf("Source code:\n");
+        printf("----------------------------------------\n");
+        printf("%s\n", input);
+        printf("----------------------------------------\n\n");
     }
 
-    if (verbose) printf("1. LEXICAL ANALYSIS: ");
+    if (showIr && showAST) printf("1. LEXICAL ANALYSIS: ");
     TokenList* tokens = lex(input, inputFile);
     if (!tokens || hasErrors()) {
-        if (verbose) printf("FAILED\n");
+        if (showIr && showAST) printf("FAILED\n");
         printErrorSummary();
         if (tokens) freeTokens(tokens);
         free(input);
         return 1;
     }
-    if (verbose) printf("OK (%zu tokens)\n", tokens->count);
+    if (showIr && showAST) printf("OK (%zu tokens)\n", tokens->count);
 
-    if (verbose) printf("2. PARSING: ");
+    if (showIr && showAST) printf("2. PARSING: ");
     ASTContext *astContext = ASTGenerator(tokens);
     if (!astContext || !astContext->root || hasErrors()) {
-        if (verbose) printf("FAILED\n");
+        if (showIr && showAST) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
         if (astContext) freeASTContext(astContext);
         free(input);
         return 1;
     }
-    if (verbose) printf("OK\n");
+    if (showIr && showAST) printf("OK\n");
 
-    if (verbose) {
+    if (showAST) {
         printAST(astContext->root, 0);
         printf("\n");
     }
 
-    if (verbose) printf("3. TYPE CHECKING: ");
+    if (showIr && showAST) printf("3. TYPE CHECKING: ");
     TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
     if (!globalSymbolTable || hasErrors()) {
-        if (verbose) printf("FAILED\n");
+        if (showIr && showAST) printf("FAILED\n");
         printErrorSummary();
         freeTokens(tokens);
         freeASTContext(astContext);
         free(input);
         return 1;
     }
-    if (verbose) printf("OK\n");
+    if (showIr && showAST) printf("OK\n");
 
-    if (verbose) printf("4. CODE GENERATION: ");
-    int codeGenSuccess = generateCode(astContext->root, outputFile, input, inputFile, globalSymbolTable->global);
-    if (!codeGenSuccess) {
-        if (verbose) printf("FAILED\n");
-        printErrorSummary();
+    if (showIr && showAST) printf("4. IR GENERATION: ");
+    IrContext *ir = generateIr(astContext->root, globalSymbolTable);
+    if (!ir) {
+        if (showIr && showAST) printf("FAILED\n");
+        fprintf(stderr, "Error: Failed to generate intermediate representation\n");
         freeTokens(tokens);
         freeASTContext(astContext);
+        freeTypeCheckContext(globalSymbolTable);
         free(input);
         return 1;
     }
+    if (showIr && showAST) printf("OK (%d instructions)\n", ir->instructionCount);
+
+    if (showIr) {
+        optimizeIR(ir, optLvl);
+        printIR(ir);
+    }
+
     printErrorSummary();
-    if (verbose) {
-        printf("OK → %s\n\n", outputFile);
+    if (showIr && showAST) {
         printf("✓ Compilation SUCCESSFUL\n");
+        printf("IR: %d instructions, %d temporaries, %d labels\n", ir->instructionCount,
+               ir->nextTempNum - 1, ir->nextLabelNum - 1);
     } else {
-        printf("Successfully compiled '%s' → '%s'\n", inputFile, outputFile);
+        printf("Successfully compiled '%s'\n", inputFile);
     }
 
     freeTokens(tokens);

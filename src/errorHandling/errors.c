@@ -342,6 +342,14 @@ const ErrorInfo errorDatabase[] = {
         "missing '?' token",
         "write the expression as: condition ? true_value : false_value"
     },
+    {
+        ERROR_CONST_MUST_BE_INITIALIZED,
+        ERROR,
+        "const must be initialized",
+        "const variables must be initialized at declaration",
+        "const variable without initializer",
+        "add an initializer: `const x: int = 42;`"
+    },
 
     // Logic/Control flow errors (4000s)
     {

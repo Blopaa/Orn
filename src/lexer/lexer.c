@@ -41,10 +41,14 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 	switch (s[0]) {
 	case 'a':
 		if(len == 2 && memcmp(s, "as", 2) == 0) return TK_AS;
+		break;
 	case 'b':
 		if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
 		break;
-	case 'd':
+	case 'c':
+		if(len == 5 && memcmp(s, "const", 5) == 0) return TK_CONST;
+		break;
+	case 'd': 
 		if (len == 6 && memcmp(s, "double", 6) == 0) return TK_DOUBLE;
 		break;
 	case 'e':
@@ -60,6 +64,9 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 	case 'i':
 		if (len == 3 && memcmp(s, "int", 3) == 0) return TK_INT;
 		if (len == 2 && memcmp(s, "if", 2) == 0) return TK_IF;
+		break;
+	case 'l':
+		if(len == 3 && memcmp(s, "let", 3) == 0) return TK_LET;
 		break;
 	case 'r':
 		if (len == 6 && memcmp(s, "return", 6) == 0) return TK_RETURN;
@@ -102,15 +109,15 @@ static void skipWhitespace(Lexer *lx) {
 			lx->cur++;
 			lx->line++;
 			lx->line_start = lx->cur - lx->src;
-		} else if (lx->cur[0] == ':' && lx->cur[1] == ':') {
+		} else if (lx->cur[0] == '/' && lx->cur[1] == '/') {
 			// Single-line comment
 			lx->cur += 2;
 			while (*lx->cur && *lx->cur != '\n') lx->cur++;
-		} else if (lx->cur[0] == ':' && lx->cur[1] == '|') {
+		} else if (lx->cur[0] == '/' && lx->cur[1] == '*') {
 			// Multi-line comment
 			lx->cur += 2;
 			while (*lx->cur) {
-				if (lx->cur[0] == '|' && lx->cur[1] == ':') {
+				if (lx->cur[0] == '*' && lx->cur[1] == '/') {
 					lx->cur += 2;
 					break;
 				}
