@@ -25,6 +25,16 @@ set(LIB_SOURCES
         src/IR/irHelpers.h
         src/IR/optimization.c
         src/IR/optimization.h
+        src/codeGeneration/codegen.c
+        src/codeGeneration/codegen.h
+        src/codeGeneration/dataPool.h
+        src/codeGeneration/dataPool.c
+        src/codeGeneration/emiter.h
+        src/codeGeneration/emiter.c
+        src/codeGeneration/stringBuffer.h
+        src/codeGeneration/stringBuffer.c
+        src/codeGeneration/variableHandling.c
+        src/codeGeneration/variableHandling.h
 )
 
 # Create compiler library
@@ -41,3 +51,9 @@ target_include_directories(compiler_lib PUBLIC
 # Main executable
 add_executable(orn src/main.c)
 target_link_libraries(orn compiler_lib)
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/src/runtime/runtime.s
+    ${CMAKE_BINARY_DIR}/runtime.s
+    COPYONLY
+)
