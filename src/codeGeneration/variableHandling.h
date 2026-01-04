@@ -35,5 +35,6 @@ const char *getIntSuffix(IrDataType type);
 int isFloatingPoint(IrDataType type);
 void freeVarList(VarLoc *list);
 void freeTempList(TempLoc *list);
+const char *getParamIntReg(int index, IrDataType type);
 
 #endif // VARIABLE_HANDLING_H

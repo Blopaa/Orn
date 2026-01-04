@@ -230,6 +230,37 @@ void genUnaryOp(CodeGenContext *ctx, IrInstruction *inst) {
 void genCopy(CodeGenContext *ctx, IrInstruction *inst) {
     IrDataType type = inst->result.dataType;
     
+    if (inst->result.type == OPERAND_VAR && 
+        inst->ar1.type == OPERAND_VAR &&
+        inst->ar2.type == OPERAND_CONSTANT &&
+        inst->result.value.var.nameLen == inst->ar1.value.var.nameLen &&
+        memcmp(inst->result.value.var.name, inst->ar1.value.var.name, inst->result.value.var.nameLen) == 0) {
+        
+        int paramIndex = inst->ar2.value.constant.intVal;
+        
+        addLocalVar(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, type);
+        int off = getVarOffset(ctx, inst->result.value.var.name, inst->result.value.var.nameLen);
+        
+        if (isFloatingPoint(type)) {
+            if (paramIndex < 8) {
+                emitInstruction(ctx, "mov%s %s, %d(%%rbp)", 
+                               getSSESuffix(type), 
+                               getSSEReg(paramIndex), 
+                               off);
+            }
+        } else {
+            if (paramIndex < 6) {
+                const char *reg = isFloatingPoint(type) ? getSSEReg(paramIndex)
+                                                        : getParamIntReg(paramIndex, type);
+                emitInstruction(ctx, "mov%s %s, %d(%%rbp)", 
+                               getIntSuffix(type), 
+                               reg, 
+                               off);
+            }
+        }
+        return;
+    }
+    
     if (isFloatingPoint(type)) {
         loadOp(ctx, &inst->ar1, "%xmm0");
         storeOp(ctx, "%xmm0", &inst->result);
@@ -584,70 +615,52 @@ char *generateAssembly(IrContext *ir) {
     CodeGenContext *ctx = createCodeGenContext();
     if (!ctx) return NULL;
     
-    // Start data section
     sbAppend(&ctx->data, "    .section .rodata\n");
     
-    // Start text section
-    sbAppend(&ctx->data, "    .text\n");
+    sbAppend(&ctx->text, "    .text\n");
     
-    // Track if we're in a function or global scope
-    int inUserFunction = 0;
-    int needMainWrapper = 1;
     int paramCount = 0;
+    int inUserFunction = 0;
+    int mainStarted = 0;
     
-    // First pass: check if there's any global code
     IrInstruction *inst = ir->instructions;
     while (inst) {
         if (inst->op == IR_FUNC_BEGIN) {
-            inUserFunction = 1;
-        } else if (inst->op == IR_FUNC_END) {
-            inUserFunction = 0;
-        } else if (!inUserFunction && inst->op != IR_NOP) {
-            needMainWrapper = 1;
-            break;
-        }
-        inst = inst->next;
-    }
-    
-    // Generate main wrapper if we have global code
-    if (needMainWrapper) {
-        generateMainWrapper(ctx);
-    }
-    
-    // Generate code for each instruction
-    inUserFunction = 0;
-    inst = ir->instructions;
-    while (inst) {
-        if (inst->op == IR_FUNC_BEGIN) {
-            if (needMainWrapper && !inUserFunction) {
-                // End main before starting user function
-                generateMainEpilogue(ctx);
+            if (mainStarted && !inUserFunction) {
             }
             inUserFunction = 1;
-        }
-        
-        generateInstruction(ctx, inst, &paramCount);
-        
-        if (inst->op == IR_FUNC_END) {
+            generateInstruction(ctx, inst, &paramCount);
+        } 
+        else if (inst->op == IR_FUNC_END) {
+            generateInstruction(ctx, inst, &paramCount);
             inUserFunction = 0;
+        }
+        else if (!inUserFunction) {
+            if (!mainStarted) {
+                generateMainWrapper(ctx);
+                emitInstruction(ctx, "subq $256, %%rsp");
+                mainStarted = 1;
+            }
+            generateInstruction(ctx, inst, &paramCount);
+        }
+        else {
+            generateInstruction(ctx, inst, &paramCount);
         }
         
         inst = inst->next;
     }
     
-    // End main if we didn't have user functions
-    if (needMainWrapper && !inUserFunction) {
+    if (mainStarted) {
         generateMainEpilogue(ctx);
     }
     
-    // Combine sections
     StringBuffer result = sbCreate(ctx->data.len + ctx->text.len + 100);
     sbAppend(&result, ctx->data.data);
     sbAppend(&result, "\n");
     sbAppend(&result, ctx->text.data);
     
     char *assembly = result.data;
-    result.data = NULL;  // Transfer ownership
+    result.data = NULL;
     
     freeCodeGenContext(ctx);
     

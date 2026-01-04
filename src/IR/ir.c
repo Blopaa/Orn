@@ -563,7 +563,22 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             IrOperand funcName = createFn(node->start, node->length);
             IrOperand none = createNone();
             emitBinary(ctx, IR_FUNC_BEGIN, funcName, none, none);
-            
+
+            if (fnSymbol && fnSymbol->parameters) {
+                FunctionParameter param = fnSymbol->parameters;
+                int paramIndex = 0;
+                while (param) {
+                    IrDataType irType = symbolTypeToIrType(param->type);
+                    IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
+                    IrOperand indexOp = createIntConst(paramIndex);
+
+                    emitBinary(ctx, IR_COPY, paramVar, paramVar, indexOp);
+
+                    param = param->next;
+                    paramIndex++;
+                }
+            }
+
             generateStatementIr(ctx, body, typeCtx);
             
             emitBinary(ctx, IR_FUNC_END, funcName, none, none);

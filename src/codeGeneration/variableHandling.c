@@ -18,6 +18,15 @@ int getTypeSize(IrDataType type){
     }
 }
 
+const char *getParamIntReg(int index, IrDataType type) {
+    static const char *regs32[] = {"%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d"};
+    static const char *regs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    
+    if (index < 0 || index >= 6) return NULL;
+    
+    return (type == IR_TYPE_INT) ? regs32[index] : regs64[index];
+}
+
 const char *getIntSuffix(IrDataType type){
     switch (type) {
         case IR_TYPE_BOOL:  return "b";
@@ -80,8 +89,9 @@ void addGlobalVar(CodeGenContext *ctx, const char *name, size_t len, IrDataType 
     
     int size = getTypeSize(type);
     ctx->globalStackOff -= size;
-    if (ctx->globalStackOff % size != 0) {
-        ctx->globalStackOff -= (ctx->globalStackOff % size);
+    int misalignment = (-ctx->globalStackOff) % size;
+    if (misalignment != 0) {
+        ctx->globalStackOff -= (size - misalignment);
     }
     
     var->name = name;
@@ -111,8 +121,9 @@ void addLocalVar(CodeGenContext *ctx, const char *name, size_t len, IrDataType t
     
     int size = getTypeSize(type);
     ctx->currentFn->stackSize += size;
-    if (ctx->currentFn->stackSize % size != 0) {
-        ctx->currentFn->stackSize += size - (ctx->currentFn->stackSize % size);
+    int misalignment = (-ctx->globalStackOff) % size;
+    if (misalignment != 0) {
+        ctx->globalStackOff -= (size - misalignment);
     }
     
     var->name = name;
