@@ -44,12 +44,26 @@ typedef enum {
 	TK_INCR,
 	TK_DECR,
 
+	// Bitwise op
+	// bitwise 'and' gonna be treated as TK_AMPERSAND for pointer purposes
+	TK_BIT_OR,
+	TK_BIT_XOR,
+	TK_BIT_NOT,
+	TK_LSHIFT,
+	TK_RSHIFT,
+
 	// Assignment operators
 	TK_ASSIGN,
 	TK_PLUS_ASSIGN,
 	TK_MINUS_ASSIGN,
 	TK_STAR_ASSIGN,
 	TK_SLASH_ASSIGN,
+	TK_AND_ASSIGN,
+	TK_OR_ASSIGN,
+	TK_XOR_ASSIGN,
+	TK_NOT_ASSIGN,
+	TK_LSHIFT_ASSIGN,
+	TK_RSHIFT_ASSIGN,
 
 	// Comparison operators
 	TK_EQ,

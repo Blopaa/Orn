@@ -10,6 +10,13 @@ typedef enum {
     IR_MOD,
     IR_NEG,
     IR_MUL,
+
+    IR_BIT_AND,
+    IR_BIT_OR,
+    IR_BIT_XOR,
+    IR_BIT_NOT,
+    IR_SHL,
+    IR_SHR,
     
     IR_AND,
     IR_OR,

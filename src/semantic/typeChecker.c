@@ -295,6 +295,27 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             REPORT_ERROR(ERROR_INVALID_UNARY_OPERAND, node, context, "Increment/decrement operators require numeric operands");
             return TYPE_UNKNOWN;
         }
+        case BITWISE_AND:
+        case BITWISE_OR:
+        case BITWISE_XOR:
+        case BITWISE_LSHIFT:
+        case BITWISE_RSHIFT: {
+            if (node->children == NULL || node->children->brothers == NULL) {
+                repError(ERROR_INTERNAL_PARSER_ERROR, "Binary operation missing operands");
+                return TYPE_UNKNOWN;
+            }
+
+            DataType leftType = getExpressionType(node->children, context);
+            DataType rightType = getExpressionType(node->children->brothers, context);
+
+            if (leftType != TYPE_INT || rightType != TYPE_INT) {
+                REPORT_ERROR(ERROR_INCOMPATIBLE_BINARY_OPERANDS, node, context,
+                            "Bitwise operators require integer operands");
+                return TYPE_UNKNOWN;
+            }
+
+            return TYPE_INT;
+        }
         case ADD_OP:
         case SUB_OP:
         case MUL_OP:
@@ -1003,7 +1024,12 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case COMPOUND_ADD_ASSIGN:         
         case COMPOUND_SUB_ASSIGN:         
         case COMPOUND_MUL_ASSIGN:        
-        case COMPOUND_DIV_ASSIGN:           
+        case COMPOUND_DIV_ASSIGN:
+        case COMPOUND_AND_ASSIGN:        
+        case COMPOUND_OR_ASSIGN:
+        case COMPOUND_XOR_ASSIGN:
+        case COMPOUND_LSHIFT_ASSIGN:
+        case COMPOUND_RSHIFT_ASSIGN:
             success = validateAssignment(node, context);
             break;
         case LET_DEC:
@@ -1069,6 +1095,11 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case MUL_OP:
         case DIV_OP:
         case MOD_OP:
+        case BITWISE_AND:
+        case BITWISE_OR:
+        case BITWISE_XOR:
+        case BITWISE_LSHIFT:
+        case BITWISE_RSHIFT:
         case EQUAL_OP:
         case NOT_EQUAL_OP:
         case LESS_THAN_OP:

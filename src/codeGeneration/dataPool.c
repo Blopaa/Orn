@@ -72,7 +72,7 @@ int addDoubleLit(CodeGenContext *ctx, double d){
     ctx->doublePool = newEntry;
 
     emitDataLabel(ctx, newEntry->label);
-    sbAppendf(&ctx->data, "    .float %.17g\n", d);
+    sbAppendf(&ctx->data, "    .double %.17g\n", d);
     return newEntry->label;
 }
 

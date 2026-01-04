@@ -240,6 +240,11 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
         case MUL_OP: return IR_MUL;
         case DIV_OP: return IR_DIV;
         case MOD_OP: return IR_MOD;
+        case BITWISE_AND: return IR_BIT_AND;
+        case BITWISE_OR: return IR_BIT_OR;
+        case BITWISE_XOR: return IR_BIT_XOR;
+        case BITWISE_LSHIFT: return IR_SHL;
+        case BITWISE_RSHIFT: return IR_SHR;
         case EQUAL_OP: return IR_EQ;
         case NOT_EQUAL_OP: return IR_NE;
         case LESS_THAN_OP: return IR_LT;
@@ -291,6 +296,11 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     case MUL_OP:
     case DIV_OP:
     case MOD_OP:
+    case BITWISE_AND:
+    case BITWISE_OR:
+    case BITWISE_XOR:
+    case BITWISE_LSHIFT:
+    case BITWISE_RSHIFT:
     case EQUAL_OP:
     case NOT_EQUAL_OP:
     case LESS_THAN_OP:
@@ -403,7 +413,12 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     case COMPOUND_ADD_ASSIGN:
     case COMPOUND_SUB_ASSIGN:
     case COMPOUND_MUL_ASSIGN:
-    case COMPOUND_DIV_ASSIGN: {
+    case COMPOUND_DIV_ASSIGN:
+    case COMPOUND_AND_ASSIGN:
+    case COMPOUND_OR_ASSIGN:
+    case COMPOUND_XOR_ASSIGN:
+    case COMPOUND_LSHIFT_ASSIGN:
+    case COMPOUND_RSHIFT_ASSIGN: {
         ASTNode left = node->children;
         ASTNode right = left ? left->brothers : NULL;
         if (!left || !right) return createNone();
@@ -428,6 +443,21 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
                 break;
             case COMPOUND_DIV_ASSIGN:
                 op = IR_DIV;
+                break;
+            case COMPOUND_AND_ASSIGN:
+                op = IR_BIT_AND;
+                break;
+            case COMPOUND_OR_ASSIGN:
+                op = IR_BIT_OR;
+                break;
+            case COMPOUND_XOR_ASSIGN:
+                op = IR_BIT_XOR;
+                break;
+            case COMPOUND_LSHIFT_ASSIGN:
+                op = IR_SHL;
+                break;
+            case COMPOUND_RSHIFT_ASSIGN:
+                op = IR_SHR;
                 break;
             default:
                 op = IR_NOP;
@@ -609,6 +639,12 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_DIV: return "DIV";
         case IR_MOD: return "MOD";
         case IR_NEG: return "NEG";
+        case IR_BIT_AND: return "BIT_AND";
+        case IR_BIT_OR: return "BIT_OR";
+        case IR_BIT_XOR: return "BIT_XOR";
+        case IR_BIT_NOT: return "BIT_NOT";
+        case IR_SHL: return "SHL";
+        case IR_SHR: return "SHR";
         case IR_AND: return "AND";
         case IR_OR: return "OR";
         case IR_NOT: return "NOT";

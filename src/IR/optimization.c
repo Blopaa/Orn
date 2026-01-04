@@ -52,6 +52,31 @@ int constantFolding(IrContext *ctx){
                     }
                     break;
                 }
+                case IR_BIT_AND: {
+                    inst->op = IR_COPY;
+                    inst->ar1 = createIntConst(inst->ar1.value.constant.intVal & inst->ar2.value.constant.intVal);
+                    break;
+                }
+                case IR_BIT_OR: {
+                    inst->op = IR_COPY;
+                    inst->ar1 = createIntConst(inst->ar1.value.constant.intVal | inst->ar2.value.constant.intVal);
+                    break;
+                }
+                case IR_BIT_XOR: {
+                    inst->op = IR_COPY;
+                    inst->ar1 = createIntConst(inst->ar1.value.constant.intVal ^ inst->ar2.value.constant.intVal);
+                    break;
+                }
+                case IR_SHL: {
+                    inst->op = IR_COPY;
+                    inst->ar1 = createIntConst(inst->ar1.value.constant.intVal << inst->ar2.value.constant.intVal);
+                    break;
+                }
+                case IR_SHR: {
+                    inst->op = IR_COPY;
+                    inst->ar1 = createIntConst(inst->ar1.value.constant.intVal >> inst->ar2.value.constant.intVal);
+                    break;
+                }
                 default: break;
             }
             inst->ar2 = createNone();

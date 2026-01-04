@@ -136,6 +136,39 @@ void storeOp(CodeGenContext *ctx, const char *reg, IrOperand *op){
     }
 }
 
+void genBitwiseOp(CodeGenContext *ctx, IrInstruction *inst){
+    IrDataType type = inst->result.dataType;
+    
+    loadOp(ctx, &inst->ar1, "a");
+    loadOp(ctx, &inst->ar2, "c");
+    
+    const char *suffix = getIntSuffix(type);
+    const char *regA = getIntReg("a", type);
+    const char *regC = getIntReg("c", type);
+    
+    switch (inst->op) {
+        case IR_BIT_AND:
+            emitInstruction(ctx, "and%s %s, %s", suffix, regC, regA);
+            break;
+        case IR_BIT_OR:
+            emitInstruction(ctx, "or%s %s, %s", suffix, regC, regA);
+            break;
+        case IR_BIT_XOR:
+            emitInstruction(ctx, "xor%s %s, %s", suffix, regC, regA);
+            break;
+        case IR_SHL:
+            emitInstruction(ctx, "shl%s %%cl, %s", suffix, regA);
+            break;
+        case IR_SHR:
+            emitInstruction(ctx, "shr%s %%cl, %s", suffix, regA);
+            break;
+        default:
+            break;
+    }
+    
+    storeOp(ctx, "a", &inst->result);
+}
+
 void genBinaryOp(CodeGenContext *ctx, IrInstruction *inst){
     IrDataType type = inst->result.dataType;
     if(isFloatingPoint(type)){
@@ -354,8 +387,10 @@ void genCall(CodeGenContext *ctx, IrInstruction *inst) {
                 emitInstruction(ctx, "call print_int");
                 break;
             case IR_TYPE_FLOAT:
+                emitInstruction(ctx, "call print_float");
+                break;
             case IR_TYPE_DOUBLE:
-                emitInstruction(ctx, "call print_float"); // Necesitas añadir esto al runtime
+                emitInstruction(ctx, "call print_double");
                 break;
             default:
                 emitInstruction(ctx, "call print_int");
@@ -525,6 +560,14 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_DIV:
         case IR_MOD:
             genBinaryOp(ctx, inst);
+            break;
+
+        case IR_BIT_AND:
+        case IR_BIT_OR:
+        case IR_BIT_XOR:
+        case IR_SHL:
+        case IR_SHR:
+            genBitwiseOp(ctx, inst);
             break;
             
         case IR_NEG:

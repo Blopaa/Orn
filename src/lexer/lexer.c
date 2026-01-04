@@ -193,18 +193,34 @@ static void lexOperator(Lexer *lx) {
             if (next == '=') { lx->cur++; addToken(lx, TK_NOT_EQ, start, 2); return; }
             addToken(lx, TK_NOT, start, 1); return;
         case '<':
+			if (next == '<') {
+				lx->cur++;
+				if(*lx->cur == '=') {lx->cur++; addToken(lx, TK_LSHIFT_ASSIGN, start, 3); return; }
+				addToken(lx, TK_LSHIFT, start, 2); return;
+			}
             if (next == '=') { lx->cur++; addToken(lx, TK_LESS_EQ, start, 2); return; }
             addToken(lx, TK_LESS, start, 1); return;
         case '>':
+			if(next == '>'){
+				lx->cur++;
+				if(*lx->cur == '=') { lx->cur++; addToken(lx, TK_RSHIFT_ASSIGN, start, 3); return; }
+				addToken(lx, TK_RSHIFT, start, 2); return;
+			}
             if (next == '=') { lx->cur++; addToken(lx, TK_GREATER_EQ, start, 2); return; }
             addToken(lx, TK_GREATER, start, 1); return;
         case '&':
             if (next == '&') { lx->cur++; addToken(lx, TK_AND, start, 2); return; }
+			if(next == '=') { lx->cur++; addToken(lx, TK_AND_ASSIGN, start, 2); return; }
             addToken(lx, TK_AMPERSAND, start, 1); return;
-		//FUTURE
         case '|':
             if (next == '|') { lx->cur++; addToken(lx, TK_OR, start, 2); return; }
-            addToken(lx, TK_INVALID, start, 1); return;
+			if( next == '=') { lx->cur++; addToken(lx, TK_OR_ASSIGN, start, 2); return;}
+            addToken(lx, TK_BIT_OR, start, 1); return;
+		case '^':
+			if (next == '=') { lx->cur++; addToken(lx, TK_XOR_ASSIGN, start, 2); return; }
+            addToken(lx, TK_BIT_XOR, start, 1); return;
+		case '~':
+            addToken(lx, TK_BIT_NOT, start, 1); return;
         case '%':
             addToken(lx, TK_MOD, start, 1); return;
         case ';':
@@ -223,8 +239,8 @@ static void lexOperator(Lexer *lx) {
             addToken(lx, TK_QUESTION, start, 1); return;
         case ':':
             addToken(lx, TK_COLON, start, 1); return;
-    	case '.':
-    		addToken(lx, TK_DOT, start, 1); return;
+		case '.':
+			addToken(lx, TK_DOT, start, 1); return;
         case '[':
             addToken(lx, TK_LBRACKET, start, 1); return;
         case ']':
