@@ -628,6 +628,14 @@ const ErrorInfo errorDatabase[] = {
         "I/O error",
         "check file permissions and disk space"
     },
+    {
+        ERROR_INTERNAL_TYPECHECKER_ERROR,
+        ERROR,
+        "internal typechecker error",
+        "unexpected error occurred during semantic analysis",
+        "semantic analysis error",
+        "please report this issue with the problematic code"
+    },
 
     // Sentinel
     {

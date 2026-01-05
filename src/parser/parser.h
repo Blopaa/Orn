@@ -91,23 +91,17 @@ typedef enum {
     REF_CUSTOM,
 
     // Variable definitions
-    STRING_VARIABLE_DEFINITION,
-    INT_VARIABLE_DEFINITION,
-    FLOAT_VARIABLE_DEFINITION,
-    BOOL_VARIABLE_DEFINITION,
-    DOUBLE_VARIABLE_DEFINITION,
     STRUCT_VARIABLE_DEFINITION,
     ARRAY_VARIABLE_DEFINITION,
+    VAR_DEFINITION,
+    TYPE_REF,
+    VALUE,
 
     CONST_DEC,
     LET_DEC,
 
     // Literals
-    STRING_LIT,
-    INT_LIT,
-    FLOAT_LIT,
-    DOUBLE_LIT,
-    BOOL_LIT,
+    LITERAL,
     ARRAY_LIT,
 
     // Variables and assignment
@@ -200,16 +194,10 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {PROGRAM, "PROGRAM"},
     {LET_DEC, "LET_DECLARATION"},
     {CONST_DEC, "CONST_DECLARATION"},
-    {STRING_VARIABLE_DEFINITION, "STRING_VAR_DEF"},
-    {INT_VARIABLE_DEFINITION, "INT_VAR_DEF"},
-    {FLOAT_VARIABLE_DEFINITION, "FLOAT_VAR_DEF"},
-    {BOOL_VARIABLE_DEFINITION, "BOOL_VAR_DEF"},
-    {DOUBLE_VARIABLE_DEFINITION, "DOUBLE_VAR_DEF"},
-    {STRING_LIT, "STRING_LIT"},
-    {INT_LIT, "INT_LIT"},
-    {FLOAT_LIT, "FLOAT_LIT"},
-    {BOOL_LIT, "BOOL_LIT"},
-    {DOUBLE_LIT, "DOUBLE_LIT"},
+    {VAR_DEFINITION, "VAR_DEF"},
+    {VALUE, "VALUE"},
+    {TYPE_REF, "TYPE_REF"},
+    {LITERAL, "LITERAL"},
     {VARIABLE, "VARIABLE"},
     {ASSIGNMENT, "ASSIGNMENT"},
     {COMPOUND_ADD_ASSIGN, "COMPOUND_ADD_ASSIGN"},
@@ -317,16 +305,9 @@ typedef struct {
     NodeTypes type;
 } TypeDefMap;
 
-static const TypeDefMap TypeDefs[] = {
-    {TK_INT, INT_VARIABLE_DEFINITION},
-    {TK_STRING, STRING_VARIABLE_DEFINITION},
-    {TK_FLOAT, FLOAT_VARIABLE_DEFINITION},
-    {TK_BOOL, BOOL_VARIABLE_DEFINITION},
-    {TK_DOUBLE, DOUBLE_VARIABLE_DEFINITION},
-    {TK_NULL, null_NODE}
-};
-
 /**
+ * todo: update
+ * deprecated doc
  * @brief Operator precedence levels for Pratt parser.
  *
  * Higher numeric values indicate higher precedence.
@@ -429,7 +410,6 @@ const char *getNodeTypeName(NodeTypes nodeType);
 ASTNode createValNode(const Token* current_token, TokenList *list, size_t* pos);
 const OperatorInfo *getOperatorInfo(TokenType type);
 int isTypeToken(TokenType type);
-NodeTypes getReturnTypeFromToken(TokenType type);
 NodeTypes getUnaryOpType(TokenType t);
 NodeTypes detectLitType(const Token* tok, TokenList * list, size_t * pos);
 char* extractText(const char* start, size_t length);
