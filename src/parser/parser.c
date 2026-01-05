@@ -162,7 +162,7 @@ ASTNode parseUnary(TokenList * list, size_t *pos) {
 		CREATE_NODE_OR_FAIL(opNode, opToken, opType, list, pos);
 		opNode->children = operand;
 		return opNode;
-		}
+	}
 
 	// Parse primary expression
 	ASTNode node = parsePrimaryExp(list, pos);
@@ -247,7 +247,6 @@ ASTNode parseExpression(TokenList *list,size_t * pos, Precedence minPrec) {
 
 		ASTNode right = parseExpression(list, pos, nextMinPrec);
 		if (right == NULL) return NULL;
-
 		ASTNode opNode = createNode(opToken, opInfo->nodeType, list, pos);
 		opNode->children = left;
 		left->brothers = right;
@@ -407,7 +406,7 @@ ASTNode parseParameter(TokenList* list, size_t* pos) {
 		return NULL;
 	}
 
-	ASTNode paramNode, typeNode;
+	ASTNode paramNode, typeNode, typeRefWrap;
 	CREATE_NODE_OR_FAIL(paramNode, token, PARAMETER, list, pos);
 	ADVANCE_TOKEN(list, pos);
 
@@ -420,8 +419,10 @@ ASTNode parseParameter(TokenList* list, size_t* pos) {
 
 	Token* typeToken = &list->tokens[*pos];
 	ADVANCE_TOKEN(list, pos);
-	CREATE_NODE_OR_FAIL(typeNode, typeToken, getDecType(typeToken->type), list, pos);
-	paramNode->children = typeNode;
+	CREATE_NODE_OR_FAIL(typeRefWrap, NULL, TYPE_REF, list, pos);
+	CREATE_NODE_OR_FAIL(typeNode, NULL, getDecType(typeToken->type), list, pos);
+	typeRefWrap->children = typeNode;
+	paramNode->children = typeRefWrap;
 	return paramNode;
 }
 
@@ -490,14 +491,14 @@ ASTNode parseReturnType(TokenList* list, size_t* pos) {
 	}
 
 	Token* typeToken = &list->tokens[*pos];
-	NodeTypes returnType = getReturnTypeFromToken(typeToken->type);
+	NodeTypes returnType = getDecType(typeToken->type);
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode returnTypeNode, typeNode;
-	CREATE_NODE_OR_FAIL(returnTypeNode, typeToken, RETURN_TYPE, list, pos);
+	CREATE_NODE_OR_FAIL(returnTypeNode, NULL, RETURN_TYPE, list, pos);
 
 	if (returnType != null_NODE) {
-		CREATE_NODE_OR_FAIL(typeNode, typeToken, returnType, list, pos);
+		CREATE_NODE_OR_FAIL(typeNode, NULL, returnType, list, pos);
 		returnTypeNode->children = typeNode;
 	}
 
@@ -678,9 +679,9 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 	}
 
 	Token *typeToken = &list->tokens[*pos];
-	NodeTypes varDefType = getDecType(typeToken->type);
+	NodeTypes varRefType = getDecType(typeToken->type);
 
-	if (varDefType == null_NODE) {
+	if (varRefType == null_NODE) {
         reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
                    "Invalid type in declaration");
         return NULL;
@@ -688,33 +689,38 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 	
 	ADVANCE_TOKEN(list, pos);
 
-	ASTNode wrapNode;
-	NodeTypes wrapperType = isConst ? CONST_DEC : LET_DEC;
-	CREATE_NODE_OR_FAIL(wrapNode, keyTok, wrapperType, list, pos);
+	ASTNode mutWrapNode;
+	CREATE_NODE_OR_FAIL(mutWrapNode, keyTok, isConst ? CONST_DEC : LET_DEC, list, pos);
 
 	ASTNode varDefNode;
-    CREATE_NODE_OR_FAIL(varDefNode, varName, varDefType, list, pos);
+    CREATE_NODE_OR_FAIL(varDefNode, varName, VAR_DEFINITION, list, pos);
     
-    wrapNode->children = varDefNode;
+    mutWrapNode->children = varDefNode;
+	ASTNode typeRefWrapNode, typeNode;
+	CREATE_NODE_OR_FAIL(typeRefWrapNode, NULL, TYPE_REF, list, pos);
+	CREATE_NODE_OR_FAIL(typeNode, NULL, varRefType, list, pos);
+	varDefNode->children=typeRefWrapNode;
+	typeRefWrapNode->children = typeNode;
     
     if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
         ADVANCE_TOKEN(list, pos);
-        ASTNode initExpr;
+        ASTNode initExpr, valueWrap;
+		CREATE_NODE_OR_FAIL(valueWrap, NULL, VALUE, list, pos);
         PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), 
-                        wrapNode, varDefNode);
-        
-        varDefNode->children = initExpr;
+                        mutWrapNode, varDefNode);
+        valueWrap->children = initExpr;
+        typeRefWrapNode->brothers = valueWrap;
     } else if (isConst) {
         reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
                    "const declarations must have an initializer");
-        freeAST(wrapNode);
+        freeAST(mutWrapNode);
         return NULL;
     }
     
     EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, 
                       "Expected ';' after declaration");
     
-    return wrapNode;
+    return mutWrapNode;
 
 }
 
@@ -754,42 +760,42 @@ ASTNode parseStructVarDec(TokenList* list, size_t* pos) {
 	return structVarNode;
 }
 
-ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType){
-	EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected [");
-	Token *tokSize = &list->tokens[*pos];
-	if(tokSize->type != TK_NUM){
-		 reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Array size must be an integer");
-        return NULL;
-	}
-	ADVANCE_TOKEN(list, pos);
-	EXPECT_AND_ADVANCE(list, pos, TK_RBRACKET, ERROR_INVALID_EXPRESSION, "Expected ']'");
+// ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType){
+// 	EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected [");
+// 	Token *tokSize = &list->tokens[*pos];
+// 	if(tokSize->type != TK_NUM){
+// 		 reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Array size must be an integer");
+//         return NULL;
+// 	}
+// 	ADVANCE_TOKEN(list, pos);
+// 	EXPECT_AND_ADVANCE(list, pos, TK_RBRACKET, ERROR_INVALID_EXPRESSION, "Expected ']'");
 
-	Token *tokName = &list->tokens[*pos];
-    if (detectLitType(tokName, list, pos) != VARIABLE) {
-        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected variable name");
-        return NULL;
-    }
-    ADVANCE_TOKEN(list, pos);
+// 	Token *tokName = &list->tokens[*pos];
+//     if (detectLitType(tokName, list, pos) != VARIABLE) {
+//         reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected variable name");
+//         return NULL;
+//     }
+//     ADVANCE_TOKEN(list, pos);
 	
-	ASTNode arrDec, typeNode, sizeNode;
-	CREATE_NODE_OR_FAIL(arrDec, tokName, ARRAY_VARIABLE_DEFINITION, list, pos);
-    CREATE_NODE_OR_FAIL(typeNode, tokType, getDecType(tokType->type), list, pos);
-    CREATE_NODE_OR_FAIL(sizeNode, tokSize, INT_LIT, list, pos);
+// 	ASTNode arrDec, typeNode, sizeNode;
+// 	CREATE_NODE_OR_FAIL(arrDec, tokName, ARRAY_VARIABLE_DEFINITION, list, pos);
+//     CREATE_NODE_OR_FAIL(typeNode, tokType, getDecType(tokType->type), list, pos);
+//     CREATE_NODE_OR_FAIL(sizeNode, tokSize, INT_LIT, list, pos);
 
-	arrDec->children = typeNode;
-	typeNode->brothers = sizeNode;
+// 	arrDec->children = typeNode;
+// 	typeNode->brothers = sizeNode;
 
-	if(*pos < list->count && list->tokens[*pos].type == TK_ASSIGN){
-		ADVANCE_TOKEN(list, pos);
-		ASTNode init = parseArrLit(list, pos);
-		if(init){
-			sizeNode->brothers = init;
-		}
-	}
+// 	if(*pos < list->count && list->tokens[*pos].type == TK_ASSIGN){
+// 		ADVANCE_TOKEN(list, pos);
+// 		ASTNode init = parseArrLit(list, pos);
+// 		if(init){
+// 			sizeNode->brothers = init;
+// 		}
+// 	}
 
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ;");
-	return arrDec;
-}
+// 	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ;");
+// 	return arrDec;
+// }
 
 ASTNode parseArrLit(TokenList *list, size_t *pos){
 	EXPECT_AND_ADVANCE(list, pos, TK_LBRACKET, ERROR_INVALID_EXPRESSION, "Expected '['");
@@ -859,7 +865,7 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
 
 	// Check for const/let declarations
     if (currentToken->type == TK_CONST || currentToken->type == TK_LET) {
-        return parseDeclaration(list, pos);  // Your renamed function handles it
+        return parseDeclaration(list, pos);
     }
 
 	if (currentToken->type == TK_LIT && list->tokens[*pos+1].type == TK_LIT) {

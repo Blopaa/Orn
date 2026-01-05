@@ -23,24 +23,18 @@
 
 #include "../errorHandling/errorHandling.h"
 #include "../lexer/lexer.h"
-// --- HELPER FUNCTIONS ---
-/**
- * @brief Converts a token type to its corresponding AST declaration node type.
- *
- * Looks up the token type in the TypeDefs mapping table to find the
- * corresponding AST node type for variable declarations.
- *
- * @param type Token type from lexer (e.g., TokenIntDefinition)
- * @return Corresponding AST node type (e.g., INT_VARIABLE_DEFINITION) or null_NODE
- *
- * @note Used primarily for converting type keywords (int, string, etc.)
- *       to their declaration node types during parsing.
- */
+
+// return the the type its refering to
 NodeTypes getDecType(TokenType type) {
-    for (int i = 0; TypeDefs[i].TkType != TK_NULL; i++) {
-        if (TypeDefs[i].TkType == type) return TypeDefs[i].type;
-    }
-    return null_NODE;
+    switch (type)
+	{
+		case TK_INT: return REF_INT;
+		case TK_FLOAT: return REF_FLOAT;
+		case TK_DOUBLE: return REF_DOUBLE;
+		case TK_BOOL: return REF_BOOL;
+		case TK_STRING: return REF_STRING;
+		default: return null_NODE;
+	}
 }
 
 static int containsFChar(const char * val, size_t i, int hasDot, size_t len){
@@ -58,10 +52,10 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 	const char *val = tok->start;
 
 	if (len >= 2 && val[0] == '"' && val[len-1] == '"')
-		return STRING_LIT;
+		return REF_STRING;
 	if ((len == 4 && memcmp(val, "true", 4)==0 )||
 		(len == 5 && memcmp(val, "false", 5)==0)) {
-		return BOOL_LIT;
+		return REF_BOOL;
 	}
 
 	size_t start = (val[0] == '-') ? 1 : 0;
@@ -81,10 +75,10 @@ NodeTypes detectLitType(const Token * tok, TokenList * list, size_t * pos) {
 
 	if (allDigits) {
 		if (hasDot) {
-            if(containsFChar(val, len-1, hasDot, len)) return FLOAT_LIT;
-            return DOUBLE_LIT;
+            if(containsFChar(val, len-1, hasDot, len)) return REF_FLOAT;
+            return REF_DOUBLE;
         }
-		return INT_LIT;
+		return REF_INT;
 	}
 
 	checkVariable:
@@ -186,6 +180,13 @@ ASTNode createValNode(const Token * currentToken, TokenList * list, size_t*pos) 
 
     NodeTypes type = detectLitType(currentToken, list, pos);
     if (type == null_NODE) return NULL;
+	if (type != VARIABLE){
+		ASTNode litNode, typeRefNode;
+		CREATE_NODE_OR_FAIL(litNode, currentToken, LITERAL, list, pos);
+		CREATE_NODE_OR_FAIL(typeRefNode, NULL, type, list, pos);
+		litNode->children = typeRefNode;
+		return litNode;
+	}
 
     return createNode(currentToken, type,  list, pos);
 }
@@ -222,23 +223,6 @@ int isTypeToken(TokenType type) {
             type == TK_BOOL ||
 			type == TK_DOUBLE ||
             type == TK_VOID);
-}
-
-/**
- * @brief Converts a token type to corresponding AST return type node.
- *
- * @param type Token type (e.g., TokenIntDefinition)
- * @return Corresponding AST node type (e.g., INT_VARIABLE_DEFINITION)
- */
-NodeTypes getReturnTypeFromToken(TokenType type) {
-    switch (type) {
-    case TK_INT: return INT_VARIABLE_DEFINITION;
-    case TK_STRING: return STRING_VARIABLE_DEFINITION;
-    case TK_FLOAT: return FLOAT_VARIABLE_DEFINITION;
-    case TK_BOOL: return BOOL_VARIABLE_DEFINITION;
-    case TK_DOUBLE: return DOUBLE_VARIABLE_DEFINITION;
-    default: return null_NODE;
-    }
 }
 
 NodeTypes getUnaryOpType(TokenType t) {

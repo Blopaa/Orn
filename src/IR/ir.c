@@ -196,29 +196,19 @@ IrDataType symbolTypeToIrType(DataType type) {
 
 IrDataType nodeTypeToIrType(NodeTypes nodeType) {
     switch (nodeType) {
-        case INT_LIT:
         case REF_INT:
-        case INT_VARIABLE_DEFINITION:
             return IR_TYPE_INT;
 
-        case FLOAT_LIT:
         case REF_FLOAT:
-        case FLOAT_VARIABLE_DEFINITION:
             return IR_TYPE_FLOAT;
 
-        case DOUBLE_LIT:
         case REF_DOUBLE:
-        case DOUBLE_VARIABLE_DEFINITION:
             return IR_TYPE_DOUBLE;
 
-        case BOOL_LIT:
         case REF_BOOL:
-        case BOOL_VARIABLE_DEFINITION:
             return IR_TYPE_BOOL;
 
-        case STRING_LIT:
         case REF_STRING:
-        case STRING_VARIABLE_DEFINITION:
             return IR_TYPE_STRING;
 
         case REF_VOID:
@@ -227,7 +217,7 @@ IrDataType nodeTypeToIrType(NodeTypes nodeType) {
         case REF_CUSTOM:
         case STRUCT_VARIABLE_DEFINITION:
             return IR_TYPE_POINTER;
-
+//todo: throw error instead of stupid default
         default:
             return IR_TYPE_INT;
     }
@@ -261,17 +251,31 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
 
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
     if(!node) return createNone();
-    switch (node->nodeType)
-    {
-    case INT_LIT: return createIntConst(parseInt(node->start, node->length));
-    
-    case FLOAT_LIT: return createFloatConst(parseFloat(node->start, node->length));
-    
-    case DOUBLE_LIT: return createDoubleConst(parseFloat(node->start, node->length));
-    
-    case BOOL_LIT: return createBoolConst(matchLit(node->start, node->length, "true") ? 1 : 0);
+    switch (node->nodeType){
+    case LITERAL: {
+        if (!node->children) {
+            return createNone();
+        }
+        switch (node->children->nodeType) {
+        case REF_INT:
+            return createIntConst(parseInt(node->start, node->length));
 
-    case STRING_LIT: return createStringConst(node->start, node->length);
+        case REF_FLOAT:
+            return createFloatConst(parseFloat(node->start, node->length));
+
+        case REF_DOUBLE:
+            return createDoubleConst(parseFloat(node->start, node->length));
+
+        case REF_BOOL:
+            return createBoolConst(matchLit(node->start, node->length, "true") ? 1 : 0);
+
+        case REF_STRING:
+            return createStringConst(node->start, node->length);
+        default:
+            return createNone();
+        }
+        break;
+    }
 
     case VARIABLE: {
         Symbol sym = lookupSymbol(typeCtx->current, node->start, node->length);
@@ -511,14 +515,10 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 generateStatementIr(ctx, node->children, typeCtx);
             }
             break;
-        case INT_VARIABLE_DEFINITION:
-        case FLOAT_VARIABLE_DEFINITION:
-        case DOUBLE_VARIABLE_DEFINITION:
-        case BOOL_VARIABLE_DEFINITION:
-        case STRING_VARIABLE_DEFINITION: {
+        case VAR_DEFINITION: {
             if(node->children){
-                IrOperand val = generateExpressionIr(ctx, node->children, typeCtx);
-                IrDataType type  = nodeTypeToIrType(node->nodeType);
+                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+                IrDataType type  = nodeTypeToIrType(node->children->nodeType);
 
                 IrOperand var = createVar(node->start, node->length, type);
                 emitCopy(ctx, var, val);
@@ -585,7 +585,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             ASTNode paramList = node->children;
             ASTNode returnType = paramList->brothers;
             ASTNode body = returnType->brothers;
-            
+
             Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
             Symbol oldFunction = typeCtx->currentFunction;
             typeCtx->currentFunction = fnSymbol;
