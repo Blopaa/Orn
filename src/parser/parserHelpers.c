@@ -28,13 +28,12 @@
 NodeTypes getDecType(TokenType type) {
     switch (type)
 	{
-	case TK_INT: return REF_INT;
-	case TK_FLOAT: return REF_FLOAT;
-	case TK_DOUBLE: return REF_DOUBLE;
-	case TK_BOOL: return REF_BOOL;
-	case TK_STRING: return REF_STRING;
-	default:
-		return null_NODE;
+		case TK_INT: return REF_INT;
+		case TK_FLOAT: return REF_FLOAT;
+		case TK_DOUBLE: return REF_DOUBLE;
+		case TK_BOOL: return REF_BOOL;
+		case TK_STRING: return REF_STRING;
+		default: return null_NODE;
 	}
 }
 

@@ -8,7 +8,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "errorHandling.h"
 #include "semanticHelpers.h"
@@ -250,6 +249,10 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
     if (node == NULL) return TYPE_UNKNOWN;
     switch (node->nodeType) {
         case LITERAL: {
+            if (node->children == NULL) {
+                repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid literal node: missing child");
+                return TYPE_UNKNOWN;
+            }
             switch(node->children->nodeType){
             case REF_INT:
                 return TYPE_INT;
@@ -262,6 +265,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             default:
                 return TYPE_STRING;
             }
+            break;
         }
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
@@ -590,6 +594,10 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
         repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null or has no name");
         return 0;
     };
+    if (node->children == NULL || node->children->children == NULL) {
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration is missing type information");
+        return 0;
+    }
     //from VAR_DEF -> TYPE_REF -> ACTUAL TYPE -> nodeType
     DataType varType = getDataTypeFromNode(node->children->children->nodeType);
     if (varType == TYPE_UNKNOWN) {
@@ -612,12 +620,13 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
 
     newSymbol->isConst = isConst;
     
-    if (node->children != NULL) {
+    if (node->children && node->children->brothers && node->children->brothers->children) {
         DataType initType = getExpressionType(node->children->brothers->children, context);
         if (initType == TYPE_UNKNOWN) {
             char * tempText = extractText(node->start, node->length);
             REPORT_ERROR(ERROR_INTERNAL_TYPECHECKER_ERROR, node, context, tempText);
             free(tempText);
+            return 0;
         }
         CompatResult compat = areCompatible(varType, initType);
         if (compat == COMPAT_ERROR) {
@@ -735,7 +744,11 @@ FunctionParameter extractParameters(ASTNode paramListNode) {
 
     ASTNode paramNode = paramListNode->children;
     while (paramNode != NULL) {
-        if (paramNode->nodeType == PARAMETER && paramNode->length > 0 && paramNode->start != NULL && paramNode->children != NULL) {
+        if (paramNode->nodeType == PARAMETER &&
+            paramNode->length > 0 &&
+            paramNode->start != NULL &&
+            paramNode->children != NULL &&
+            paramNode->children->children != NULL) {
             DataType paramType = getDataTypeFromNode(paramNode->children->children->nodeType);
             FunctionParameter param = createParameter(paramNode->start, paramNode->length, paramType);
             if (param == NULL) {

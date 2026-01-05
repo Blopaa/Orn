@@ -253,7 +253,10 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     if(!node) return createNone();
     switch (node->nodeType){
     case LITERAL: {
-        switch(node->children->nodeType){
+        if (!node->children) {
+            return createNone();
+        }
+        switch (node->children->nodeType) {
         case REF_INT:
             return createIntConst(parseInt(node->start, node->length));
 
@@ -268,6 +271,8 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
         case REF_STRING:
             return createStringConst(node->start, node->length);
+        default:
+            createNone();
         }
     }
 
@@ -511,11 +516,13 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         case VAR_DEFINITION: {
             if(node->children){
-                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
-                IrDataType type  = nodeTypeToIrType(node->children->nodeType);
-
-                IrOperand var = createVar(node->start, node->length, type);
-                emitCopy(ctx, var, val);
+                ASTNode initNode = node->children->brothers;
+                if (initNode && initNode->children) {
+                    IrOperand val = generateExpressionIr(ctx, initNode->children, typeCtx);
+                    IrDataType type  = nodeTypeToIrType(node->children->nodeType);
+                    IrOperand var = createVar(node->start, node->length, type);
+                    emitCopy(ctx, var, val);
+                }
             }
             break;
         }
@@ -579,7 +586,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             ASTNode paramList = node->children;
             ASTNode returnType = paramList->brothers;
             ASTNode body = returnType->brothers;
-            
+
             Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
             Symbol oldFunction = typeCtx->currentFunction;
             typeCtx->currentFunction = fnSymbol;
