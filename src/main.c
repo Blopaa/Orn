@@ -280,10 +280,24 @@ int main(int argc, char* argv[]) {
     if (!asmOnly) {
         if (showIr && showAST) printf("%d. ASSEMBLING & LINKING: ", optLvl > 0 ? 7 : 6);
         
-        char cmd[512];
-        snprintf(cmd, sizeof(cmd), "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile);
-        
+        size_t cmdLen =
+            snprintf(NULL, 0, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile) +
+            1;
+        char *cmd = malloc(cmdLen);
+        if (!cmd) {
+            fprintf(stderr, "Error: Failed to allocate memory for command\n");
+            free(assembly);
+            freeTokens(tokens);
+            freeASTContext(astContext);
+            freeTypeCheckContext(globalSymbolTable);
+            freeIrContext(ir);
+            free(input);
+            return 1;
+        }
+        snprintf(cmd, cmdLen, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile);
+
         int result = system(cmd);
+        free(cmd);
         if (result != 0) {
             if (showIr && showAST) printf("FAILED\n");
             fprintf(stderr, "Error: Assembly/linking failed\n");

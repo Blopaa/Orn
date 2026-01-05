@@ -57,3 +57,15 @@ configure_file(
     ${CMAKE_BINARY_DIR}/runtime.s
     COPYONLY
 )
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/unity/src/unity.c")
+    add_library(unity unity/src/unity.c)
+    target_include_directories(unity PUBLIC unity/src)
+    
+    file(GLOB_RECURSE TEST_SOURCES "tests/*.c")
+    foreach(test_file ${TEST_SOURCES})
+        get_filename_component(test_name ${test_file} NAME_WE)
+        add_executable(${test_name} ${test_file})
+        target_link_libraries(${test_name} compiler_lib unity)
+    endforeach()
+endif()
