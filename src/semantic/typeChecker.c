@@ -265,7 +265,6 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             default:
                 return TYPE_STRING;
             }
-            break;
         }
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);

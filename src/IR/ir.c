@@ -272,8 +272,9 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         case REF_STRING:
             return createStringConst(node->start, node->length);
         default:
-            createNone();
+            return createNone();
         }
+        break;
     }
 
     case VARIABLE: {
@@ -516,13 +517,11 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         case VAR_DEFINITION: {
             if(node->children){
-                ASTNode initNode = node->children->brothers;
-                if (initNode && initNode->children) {
-                    IrOperand val = generateExpressionIr(ctx, initNode->children, typeCtx);
-                    IrDataType type  = nodeTypeToIrType(node->children->nodeType);
-                    IrOperand var = createVar(node->start, node->length, type);
-                    emitCopy(ctx, var, val);
-                }
+                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+                IrDataType type  = nodeTypeToIrType(node->children->nodeType);
+
+                IrOperand var = createVar(node->start, node->length, type);
+                emitCopy(ctx, var, val);
             }
             break;
         }
