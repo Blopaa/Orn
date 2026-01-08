@@ -439,7 +439,7 @@ ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 ASTNode parseStruct(TokenList* list, size_t* pos);
 ASTNode parseStructField(TokenList* list, size_t* pos);
 NodeTypes getTypeNodeFromToken(TokenType type);
-ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType);
+ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType, Token *varName);
 ASTNode parseArrLit(TokenList *list, size_t *pos);
 ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode);
 

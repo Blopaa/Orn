@@ -51,7 +51,7 @@ void printUsage(const char* programName) {
     printf("    %s -O<level> <INPUT_FILE>        Set optimization level (0-3)\n", programName);
     printf("    %s --help                        Show this help\n\n", programName);
     printf("OPTIONS:\n");
-    printf("    -S           Output assembly file (.s) instead of executable\n");
+    printf("    -S <file>    Output assembly file (.s) instead of executable\n");
     printf("    -o <file>    Write output to <file>\n");
     printf("    --verbose    Show AST, IR, and compilation steps\n");
     printf("    --ir         Show intermediate representation (TAC)\n");

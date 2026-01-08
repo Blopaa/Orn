@@ -34,8 +34,9 @@ typedef enum {
     IR_STORE,
     IR_ADDR,
 
-    IR_ARRAY_LOAD,
-    IR_ARRAY_STORE,
+    IR_REQ_MEM,
+    IR_POINTER_LOAD,
+    IR_POINTER_STORE,
 
     IR_MEMBER_LOAD,
     IR_MEMBER_STORE,
@@ -63,7 +64,7 @@ typedef enum {
     OPERAND_VAR,        
     OPERAND_CONSTANT,    
     OPERAND_LABEL,       
-    OPERAND_FUNCTION     
+    OPERAND_FUNCTION,
 } OperandType;
 
 typedef enum {
@@ -98,6 +99,11 @@ typedef struct IrOperand {
                 } str;
             };
         } constant;
+        struct {
+            char* start;
+            size_t len;
+            int off;
+        } mem;
         struct {
             int labelNum;
         } label;

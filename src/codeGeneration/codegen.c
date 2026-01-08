@@ -135,6 +135,63 @@ void storeOp(CodeGenContext *ctx, const char *reg, IrOperand *op){
         emitInstruction(ctx, "mov%s %s, %d(%%rbp)", getIntSuffix(op->dataType), getIntReg(reg, op->dataType), off);
     }
 }
+void genPointerLoad(CodeGenContext *ctx, IrInstruction *inst) {
+
+    IrOperand *result = &inst->result;
+    IrOperand *base = &inst->ar1;
+    IrOperand *offset = &inst->ar2;
+
+    if (base->type != OPERAND_VAR) return;
+
+    VarLoc *baseVar = findVar(ctx, base->value.var.name, base->value.var.nameLen);
+    if (!baseVar) return;
+
+    IrDataType elemType = result->dataType;
+    int elemSize = getTypeSize(elemType);
+
+    loadOp(ctx, offset, "a");
+
+    if (isFloatingPoint(elemType)) {
+        emitInstruction(ctx, "mov%s %d(%%rbp,%%rax,%d), %%xmm0", getSSESuffix(elemType),
+                        baseVar->stackOffset, elemSize);
+        storeOp(ctx, "%xmm0", result);
+    } else {
+        emitInstruction(ctx, "mov%s %d(%%rbp,%%rax,%d), %s", getIntSuffix(elemType),
+                        baseVar->stackOffset, elemSize, getIntReg("a", elemType));
+        storeOp(ctx, "a", result);
+    }
+}
+
+void genPointerStore(CodeGenContext *ctx, IrInstruction *inst) {
+
+    IrOperand *base = &inst->result;
+    IrOperand *offset = &inst->ar1;
+    IrOperand *value = &inst->ar2;
+
+    if (base->type != OPERAND_VAR) return;
+
+    VarLoc *baseVar = findVar(ctx, base->value.var.name, base->value.var.nameLen);
+    if (!baseVar) return;
+
+    IrDataType elemType = value->dataType;
+    int elemSize = getTypeSize(elemType);
+
+    if (isFloatingPoint(elemType)) {
+        loadOp(ctx, value, "%xmm0");
+    } else {
+        loadOp(ctx, value, "d");
+    }
+
+    loadOp(ctx, offset, "a");
+    
+    if (isFloatingPoint(elemType)) {
+        emitInstruction(ctx, "mov%s %%xmm0, %d(%%rbp,%%rax,%d)", getSSESuffix(elemType),
+                        baseVar->stackOffset, elemSize);
+    } else {
+        emitInstruction(ctx, "mov%s %s, %d(%%rbp,%%rax,%d)", getIntSuffix(elemType),
+                        getIntReg("d", elemType), baseVar->stackOffset, elemSize);
+    }
+}
 
 void genBitwiseOp(CodeGenContext *ctx, IrInstruction *inst){
     IrDataType type = inst->result.dataType;
@@ -258,6 +315,18 @@ void genUnaryOp(CodeGenContext *ctx, IrInstruction *inst) {
         
         storeOp(ctx, "a", &inst->result);
     }
+}
+
+void genReqMem(CodeGenContext *ctx, IrInstruction *inst) {
+    if (inst->result.type != OPERAND_VAR || inst->ar1.type != OPERAND_CONSTANT) {
+        return;
+    }
+
+    addLocalVar(ctx, inst->result.value.var.name, inst->result.value.var.nameLen,
+                inst->result.dataType);
+
+    int arraySize = inst->ar1.value.constant.intVal;
+    markVarAsArray(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, arraySize);
 }
 
 void genCopy(CodeGenContext *ctx, IrInstruction *inst) {
@@ -561,7 +630,13 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_MOD:
             genBinaryOp(ctx, inst);
             break;
-
+        case IR_POINTER_LOAD:
+            genPointerLoad(ctx, inst);
+            break;
+            
+        case IR_POINTER_STORE:
+            genPointerStore(ctx, inst);
+            break;
         case IR_BIT_AND:
         case IR_BIT_OR:
         case IR_BIT_XOR:
@@ -588,7 +663,9 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_GE:
             genComparison(ctx, inst);
             break;
-            
+        case IR_REQ_MEM:
+            genReqMem(ctx, inst);
+            break;
         case IR_COPY:
             genCopy(ctx, inst);
             break;
