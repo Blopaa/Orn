@@ -440,7 +440,7 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         if(node->children->nodeType == ARRAY_ACCESS){
             leftOp = generateExpressionIr(ctx, left->children, typeCtx);
             ASTNode target = node->children->children->brothers;
-            emitPointerStore(ctx, leftOp, createVar(target->start, target->length, IR_TYPE_INT), rightOp);
+            emitPointerStore(ctx, leftOp, generateExpressionIr(ctx, target, typeCtx), rightOp);
         }else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
@@ -558,7 +558,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         case ARRAY_VARIABLE_DEFINITION:{
             if(node->children){
                 ASTNode typeref = node->children;
-                IrDataType type = nodeTypeToIrType(node->children->nodeType);
+                IrDataType type = nodeTypeToIrType(typeref->children->nodeType);
                 ASTNode staticSizeNode = typeref->brothers;
                 IrOperand arr = createVar(node->start, node->length, type);
                 ASTNode valNode = staticSizeNode->brothers;
@@ -569,11 +569,13 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                     Symbol arrSym = lookupSymbol(typeCtx->current, staticSizeNode->start, staticSizeNode->length);
                     staticSize = arrSym->constVal;
                 }
+                IrOperand sizeOp = createIntConst(staticSize);
+                emitUnary(ctx, IR_REQ_MEM, arr, sizeOp);
                 if(valNode){
                     if (valNode->children->nodeType == ARRAY_LIT) {
                         ASTNode arrLitVal = valNode->children->children;
                         for (int i = 0; i < staticSize; ++i) {
-                            IrOperand val = createVar(arrLitVal->start, arrLitVal->length, type);
+                            IrOperand val = generateExpressionIr(ctx, arrLitVal, typeCtx);
                             IrOperand off = createIntConst(i);
                             emitPointerStore(ctx, arr, off, val);
                             arrLitVal = arrLitVal->brothers;
@@ -733,6 +735,7 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_CAST: return "CAST";
         case IR_POINTER_LOAD: return "PTRLD";
         case IR_POINTER_STORE: return "PTRST";
+        case IR_REQ_MEM: return "REQMEM";
         default: return "UNKNOWN";
     }
 }

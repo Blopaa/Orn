@@ -34,6 +34,7 @@ typedef enum {
     IR_STORE,
     IR_ADDR,
 
+    IR_REQ_MEM,
     IR_POINTER_LOAD,
     IR_POINTER_STORE,
 
