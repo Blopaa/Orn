@@ -6,8 +6,11 @@
 
 #include "builtIns.h"
 
+
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include "../IR/irHelpers.h"
 
 #include "errorHandling.h"
 #include "semanticHelpers.h"
@@ -266,22 +269,88 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
                 return TYPE_STRING;
             }
         }
+        case ARRAY_ACCESS: {
+            ASTNode arrayNode = node->children;
+            ASTNode indexNode = arrayNode ? arrayNode->brothers : NULL;
+
+            if (!arrayNode || !indexNode) {
+                repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid array access structure");
+                return TYPE_UNKNOWN;
+            }
+
+            if (arrayNode->nodeType != VARIABLE) {
+                REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                            "Array access requires variable");
+                return TYPE_UNKNOWN;
+            }
+
+            Symbol sym = lookupSymbol(context->current, arrayNode->start, arrayNode->length);
+            if (!sym) {
+                char *tempText = extractText(arrayNode->start, arrayNode->length);
+                REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, tempText);
+                free(tempText);
+                return TYPE_UNKNOWN;
+            }
+
+            if (!sym->isArray) {
+                REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                            "Subscript on non-array type");
+                return TYPE_UNKNOWN;
+            }
+
+            DataType indexType = getExpressionType(indexNode, context);
+            if (indexType != TYPE_INT) {
+                REPORT_ERROR(ERROR_ARRAY_INDEX_NOT_INTEGER, indexNode, context,
+                            "Array index must be integer type");
+                return TYPE_UNKNOWN;
+            }
+
+            if (indexNode->nodeType == LITERAL) {
+                int indexValue = parseInt(indexNode->start, indexNode->length);
+                if (indexValue < 0 || indexValue >= sym->staticSize) {
+                    char msg[100];
+                    snprintf(msg, sizeof(msg), "Array index %d out of bounds [0, %d)", indexValue,
+                            sym->staticSize);
+                    REPORT_ERROR(ERROR_ARRAY_INDEX_OUT_OF_BOUNDS, indexNode, context, msg);
+                    return TYPE_UNKNOWN;
+                }
+            } else if (indexNode->nodeType == VARIABLE) {
+                // Check if it's a const variable with known value
+                Symbol indexSym =
+                    lookupSymbol(context->current, indexNode->start, indexNode->length);
+                if (indexSym && indexSym->isConst && indexSym->hasConstVal) {
+                    if (indexSym->constVal < 0 || indexSym->constVal >= sym->staticSize) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg), "Array index %d out of bounds [0, %d)",
+                                indexSym->constVal, sym->staticSize);
+                        REPORT_ERROR(ERROR_ARRAY_INDEX_OUT_OF_BOUNDS, indexNode, context, msg);
+                        return TYPE_UNKNOWN;
+                    }
+                }
+            }
+
+            return sym->type;
+        }
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
             if (symbol == NULL) {
                 char * tempText = extractText(node->start, node->length);
-                REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
-                free(tempText);
-                return TYPE_UNKNOWN;
-            }
-            if (!symbol->isInitialized) {
-                char * tempText = extractText(node->start, node->length);
-                REPORT_ERROR(ERROR_VARIABLE_NOT_INITIALIZED, node, context, tempText);
+                REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, tempText);
                 free(tempText);
                 return TYPE_UNKNOWN;
             }
             return symbol->type;
         }
+        case REF_INT:
+            return TYPE_INT;
+        case REF_FLOAT:
+            return TYPE_FLOAT;
+        case REF_BOOL:
+            return TYPE_BOOL;
+        case REF_DOUBLE:
+            return TYPE_DOUBLE;
+        case REF_STRING:
+            return TYPE_STRING;
         case UNARY_MINUS_OP:
         case UNARY_PLUS_OP: {
             DataType opType = getExpressionType(node->children, context);
@@ -454,7 +523,7 @@ int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context) {
     int result = (builtinId != BUILTIN_UNKNOWN);
 
     if (!result) {
-        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, "No matching overload for built-in function");
+        REPORT_ERROR(ERROR_FUNCTION_NO_OVERLOAD_MATCH, node, context, "No matching overload for built-in function");
     }
 
     if (argTypes != NULL) {
@@ -587,6 +656,18 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
     }
 }
 
+const char* getTypeName(DataType type) {
+    switch (type) {
+        case TYPE_INT: return "int";
+        case TYPE_FLOAT: return "float";
+        case TYPE_DOUBLE: return "double";
+        case TYPE_STRING: return "string";
+        case TYPE_BOOL: return "bool";
+        case TYPE_VOID: return "void";
+        default: return "unknown";
+    }
+}
+
 //checks if a variable declaration is correctly written
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst) {
     if (node == NULL || node->start == NULL) {
@@ -597,6 +678,7 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
         repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration is missing type information");
         return 0;
     }
+    int isArr = node->nodeType == ARRAY_VARIABLE_DEFINITION;
     //from VAR_DEF -> TYPE_REF -> ACTUAL TYPE -> nodeType
     DataType varType = getDataTypeFromNode(node->children->children->nodeType);
     if (varType == TYPE_UNKNOWN) {
@@ -617,31 +699,156 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
         return 0;
     }
 
+    if(isArr){
+        ASTNode typeref = node->children; 
+        ASTNode sizeNode = typeref->brothers;
+        if(!sizeNode ||( sizeNode->nodeType != LITERAL && sizeNode->nodeType != VARIABLE)){
+            REPORT_ERROR(ERROR_ARRAY_SIZE_INVALID_SPEC, node, context, "invalid static size for array");
+            return 0;
+        }
+        int arraySize;
+        if (sizeNode->nodeType == LITERAL) {
+            arraySize = parseInt(sizeNode->start, sizeNode->length);
+        } else { // VARIABLE
+            Symbol sizeSym = lookupSymbol(context->current, sizeNode->start, sizeNode->length);
+            if (isConst && (!sizeSym || !sizeSym->isConst || !sizeSym->hasConstVal)) {
+                REPORT_ERROR(ERROR_ARRAY_SIZE_NOT_CONSTANT, sizeNode, context,
+                            "Array size must be a compile-time constant");
+                return 0;
+            }
+            arraySize = sizeSym->constVal;
+        }
+        if(arraySize <= 0){
+            REPORT_ERROR(ERROR_ARRAY_SIZE_NOT_POSITIVE, sizeNode, context, 
+                        "Array size must be positive");
+            return 0;
+        }
+        newSymbol->isArray = 1;
+        newSymbol->staticSize = arraySize;
+    }
+
     newSymbol->isConst = isConst;
+
+    // check for inicialization on declaration
     
-    if (node->children && node->children->brothers && node->children->brothers->children) {
-        DataType initType = getExpressionType(node->children->brothers->children, context);
-        if (initType == TYPE_UNKNOWN) {
-            char * tempText = extractText(node->start, node->length);
-            REPORT_ERROR(ERROR_INTERNAL_TYPECHECKER_ERROR, node, context, tempText);
-            free(tempText);
-            return 0;
+    if (node->children && node->children->brothers) {
+        ASTNode initNode = node->children->brothers;
+        if(isArr){
+            ASTNode valueNode = initNode->brothers;
+
+            if(valueNode && valueNode->nodeType == VALUE && valueNode->children){
+                ASTNode arrLit = valueNode->children;
+                if(arrLit->nodeType == ARRAY_LIT){
+                    int initCount = 0;
+                    ASTNode elem = arrLit->children;
+                    while(elem){
+                        DataType elemType = getExpressionType(elem, context);
+                        CompatResult compat = areCompatible(varType, elemType);
+                        if(elemType == TYPE_UNKNOWN || compat == COMPAT_ERROR){
+                            char msg[100];
+                            snprintf(msg, sizeof(msg), 
+                                    "Array element %d has incompatible type", initCount + 1);
+                            REPORT_ERROR(ERROR_ARRAY_INIT_ELEMENT_TYPE, elem, context, 
+                            msg);
+                            return 0;
+                        }
+
+                        initCount++;
+                        elem=elem->brothers;
+                    }
+                    if (initCount != newSymbol->staticSize && isConst) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg), 
+                                "declared %d, initialized with %d elements",
+                                newSymbol->staticSize, initCount);
+                        REPORT_ERROR(ERROR_ARRAY_INIT_SIZE_MISMATCH, arrLit, context, msg);
+                        return 0;
+                    }
+                    
+                    newSymbol->isInitialized = 1;
+                } else if (arrLit->nodeType == VARIABLE) {
+                    Symbol sourceSym =
+                        lookupSymbol(context->current, arrLit->start, arrLit->length);
+
+                    if (!sourceSym) {
+                        char *tempText = extractText(arrLit->start, arrLit->length);
+                        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, arrLit, context, tempText);
+                        free(tempText);
+                        return 0;
+                    }
+
+                    if (!sourceSym->isArray) {
+                        char *tempText = extractText(arrLit->start, arrLit->length);
+                        REPORT_ERROR(ERROR_CANNOT_ASSIGN_SCALAR_TO_ARRAY, node, context,
+                                     "Cannot initialize array with scalar value");
+                        free(tempText);
+                        return 0;
+                    }
+
+                    if (sourceSym->type != varType) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg),
+                                 "cannot assign %s[] to %s[]",
+                                 getTypeName(sourceSym->type), getTypeName(varType));
+                        REPORT_ERROR(ERROR_ARRAY_LITERAL_TYPE_MISMATCH, arrLit, context, msg);
+                        return 0;
+                    }
+
+                    if (sourceSym->staticSize != newSymbol->staticSize) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg),
+                                 "cannot assign array of size %d to array of "
+                                 "size %d",
+                                 sourceSym->staticSize, newSymbol->staticSize);
+                        REPORT_ERROR(ERROR_ARRAY_SIZE_MISMATCH, arrLit, context, msg);
+                        return 0;
+                    }
+
+                    newSymbol->isInitialized = 1;
+                }
+            }
+        }else{
+            ASTNode initExpr = node->children->brothers->children;
+            if (!isArr && initExpr && initExpr->nodeType == VARIABLE) {
+                Symbol initSymbol =
+                    lookupSymbol(context->current, initExpr->start, initExpr->length);
+                if (initSymbol && initSymbol->isArray) {
+                    char *tempText = extractText(node->start, node->length);
+                    REPORT_ERROR(ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR, node, context, tempText);
+                    free(tempText);
+                    return 0;
+                }
+            }
+            DataType initType = getExpressionType(initExpr, context);
+            if (initType == TYPE_UNKNOWN) {
+                char *tempText = extractText(node->start, node->length);
+                REPORT_ERROR(ERROR_INTERNAL_TYPECHECKER_ERROR, node, context, tempText);
+                free(tempText);
+                return 0;
+            }
+            CompatResult compat = areCompatible(varType, initType);
+            if (compat == COMPAT_ERROR) {
+                char *tempText = extractText(node->start, node->length);
+                REPORT_ERROR(variableErrorCompatibleHandling(varType, initType), node, context,
+                            tempText);
+                free(tempText);
+                return 0;
+            } else if (compat == COMPAT_WARNING) {
+                char *tempText = extractText(node->start, node->length);
+                REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, tempText);
+                free(tempText);
+            }
+            newSymbol->isInitialized = 1;
+            if (isConst && !isArr && initNode->children->nodeType == LITERAL) {
+                newSymbol->hasConstVal = 1;
+                newSymbol->constVal = parseInt(initNode->children->start, initNode->children->length);
+            } else {
+                newSymbol->hasConstVal = 0;
+            }
         }
-        CompatResult compat = areCompatible(varType, initType);
-        if (compat == COMPAT_ERROR) {
-            char * tempText = extractText(node->start, node->length);
-            REPORT_ERROR(variableErrorCompatibleHandling(varType, initType), node, context, tempText);
-            free(tempText);
-            return 0;
-        }else if(compat == COMPAT_WARNING){
-            char * tempText = extractText(node->start, node->length);
-            REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, tempText);
-            free(tempText);
-        }
-        newSymbol->isInitialized = 1;
     }else if (isConst) {
         char * tempText = extractText(node->start, node->length);
-        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, tempText);
+        REPORT_ERROR(ERROR_CONST_MUST_BE_INITIALIZED, node, context, tempText);
         free(tempText);
         return 0;
     }
@@ -656,7 +863,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
     ASTNode left = node->children;
     ASTNode right = node->children->brothers;
 
-    if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS) {
+    if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS && left->nodeType != ARRAY_ACCESS) {
         REPORT_ERROR(ERROR_INVALID_ASSIGNMENT_TARGET, node, context, "Left side of assignment must be a variable or member access");
         return 0;
     }
@@ -671,11 +878,82 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
         }
     }
 
+    if(left->nodeType == ARRAY_ACCESS){
+        ASTNode baseNode = left->children;
+        if(baseNode && baseNode->nodeType == VARIABLE){
+            Symbol sym = lookupSymbol(context->current, baseNode->start, baseNode->length);
+            if(sym && sym->isConst){
+                char * tempText = extractText(baseNode->start, baseNode->length);
+                REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context, tempText);
+                free(tempText);
+                return 0;
+            }
+            if (!sym->isArray) {
+                REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, baseNode, context, 
+                            "Array subscript on non-array variable");
+                return 0;
+            }
+            ASTNode indexNode = baseNode->brothers;
+            if (indexNode) {
+                DataType indexType = getExpressionType(indexNode, context);
+                if (indexType == TYPE_UNKNOWN) {
+                    REPORT_ERROR(ERROR_ARRAY_INDEX_INVALID_EXPR, indexNode, context, 
+                                "Invalid array index expression");
+                    return 0;
+                }
+                if (indexType != TYPE_INT) {
+                    REPORT_ERROR(ERROR_ARRAY_INDEX_NOT_INTEGER, indexNode, context, 
+                                "Array index must be integer type");
+                    return 0;
+                }
+                if (indexNode->nodeType == LITERAL) {
+                    int indexValue = parseInt(indexNode->start, indexNode->length);
+                    if (indexValue < 0 || indexValue >= sym->staticSize) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg), 
+                                "Array index %d out of bounds [0, %d)", 
+                                indexValue, sym->staticSize);
+                        REPORT_ERROR(ERROR_INVALID_EXPRESSION, indexNode, context, msg);
+                        return 0;
+                    }
+                }
+            }
+        }
+    }
+
+    if (left->nodeType == VARIABLE) {
+        Symbol leftSym = lookupSymbol(context->current, left->start, left->length);
+        if (leftSym && right->nodeType == VARIABLE) {
+            Symbol rightSym = lookupSymbol(context->current, right->start, right->length);
+            if (!leftSym->isArray && rightSym && rightSym->isArray) {
+                char *tempText = extractText(left->start, left->length);
+                REPORT_ERROR(ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR, node, context, tempText);
+                free(tempText);
+                return 0;
+            }
+            if (leftSym->isArray && rightSym && rightSym->isArray) {
+                if (leftSym->staticSize != rightSym->staticSize) {
+                    char msg[100];
+                    snprintf(msg, sizeof(msg), "Cannot assign array of size %d to array of size %d",
+                             rightSym->staticSize, leftSym->staticSize);
+                    REPORT_ERROR(ERROR_ARRAY_SIZE_MISMATCH, node, context, msg);
+                    return 0;
+                }
+            }
+        }
+    }
+
     DataType leftType = getExpressionType(left, context);
-    if (leftType == TYPE_UNKNOWN) return 0;
+    if (leftType == TYPE_UNKNOWN) {
+        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_LHS, left, context, "Cannot determine type of left-hand side");
+        return 0;
+    }
 
     DataType rightType = getExpressionType(right, context);
-    if (rightType == TYPE_UNKNOWN) return 0;
+    if (rightType == TYPE_UNKNOWN) {
+        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_RHS, right, context, "Cannot determine type of right-hand side");
+        return 0;
+    }
 
     CompatResult compat = areCompatible(leftType, rightType);
     if (compat == COMPAT_ERROR) {
@@ -1180,7 +1458,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
 TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
     TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
     if (context == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Failed to create type check context");
+        repError(ERROR_CONTEXT_CREATION_FAILED, "Failed to create type check context");
         return 0;
     }
     int success = typeCheckNode(ast, context);

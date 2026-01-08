@@ -36,6 +36,7 @@ typedef enum {
     TYPE_BOOL,
     TYPE_VOID,
     TYPE_STRUCT,
+    TYPE_ARRAY,
     TYPE_UNKNOWN
 } DataType;
 
@@ -93,6 +94,10 @@ typedef struct Symbol {
             // only for vars
             int isInitialized;
             int isConst; 
+            int isArray;
+            int staticSize;
+            int constVal;
+            int hasConstVal;
         };
     };
     int line;

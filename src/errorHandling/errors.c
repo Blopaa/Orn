@@ -441,6 +441,166 @@ const ErrorInfo errorDatabase[] = {
         "write the declaration as `fn name(params) -> return_type { ... }`"
     },
     {
+        ERROR_EXPECTED_OPENING_BRACKET,
+        ERROR,
+        "expected '['",
+        "array declarations and literals require an opening bracket",
+        "missing '['",
+        "use '[' to start array declaration or literal"
+    },
+    {
+        ERROR_EXPECTED_CLOSING_BRACKET,
+        ERROR,
+        "expected ']'",
+        "array declarations and literals require a closing bracket",
+        "missing ']'",
+        "use ']' to end array declaration or literal"
+    },
+    {
+        ERROR_EXPECTED_COMMA,
+        ERROR,
+        "expected ','",
+        "array elements must be separated by commas",
+        "missing ','",
+        "separate array elements with commas: [1, 2, 3]"
+    },
+    {
+        ERROR_ARRAY_SIZE_NOT_INTEGER,
+        ERROR,
+        "array size must be an integer",
+        "array declarations require integer size: type[size]",
+        "invalid array size",
+        "use an integer literal like int[5] not int[x]"
+    },
+    {
+        ERROR_ARRAY_INDEX_NOT_INTEGER,
+        ERROR,
+        "array index must be an integer",
+        "array access requires integer index: arr[index]",
+        "invalid array index",
+        "use an integer index like arr[0] or arr[i] where i is int"
+    },
+    {
+        ERROR_ARRAY_ACCESS_ON_NON_ARRAY,
+        ERROR,
+        "cannot access non-array as array",
+        "indexing [] is only valid for array types",
+        "type is not an array",
+        "ensure the variable is declared as an array type"
+    },
+    {
+        ERROR_ARRAY_LITERAL_TYPE_MISMATCH,
+        ERROR,
+        "array element type mismatch",
+        "all array elements must have compatible types",
+        "incompatible types in array literal",
+        "ensure all array elements have the same or compatible type"
+    },
+    {
+        ERROR_ARRAY_SIZE_NOT_CONSTANT,
+        ERROR,
+        "array size must be constant",
+        "array size must be a compile-time constant value",
+        "non-constant array size",
+        "use a literal number or a const variable with a known value"
+    },
+    {
+        ERROR_ARRAY_SIZE_NOT_POSITIVE,
+        ERROR,
+        "array size must be positive",
+        "arrays must have at least one element",
+        "invalid array size: must be > 0",
+        "use a positive integer for the array size"
+    },
+    {
+        ERROR_ARRAY_SIZE_INVALID_SPEC,
+        ERROR,
+        "invalid array size specification",
+        "array size must be specified with an integer literal or const variable",
+        "expected integer size in array declaration",
+        "use syntax like: type[10] or type[CONST_SIZE]"
+    },
+    {
+        ERROR_ARRAY_INDEX_OUT_OF_BOUNDS,
+        ERROR,
+        "array index out of bounds",
+        "array access with index outside valid range",
+        "index exceeds array bounds",
+        "ensure the index is within [0, array_size)"
+    },
+    {
+        ERROR_ARRAY_INDEX_INVALID_EXPR,
+        ERROR,
+        "invalid array index expression",
+        "array index expression could not be evaluated",
+        "malformed array index",
+        "use a valid integer expression as the array index"
+    },
+    {
+        ERROR_ARRAY_INIT_SIZE_MISMATCH,
+        ERROR,
+        "array initializer size mismatch",
+        "number of initializer elements doesn't match declared array size",
+        "initializer count != declared size",
+        "provide exactly the same number of elements as the declared size"
+    },
+    {
+        ERROR_ARRAY_INIT_ELEMENT_TYPE,
+        ERROR,
+        "array initializer element type mismatch",
+        "one or more array initializer elements have incompatible type",
+        "element type doesn't match array type",
+        "ensure all initializer elements match the declared array type"
+    },
+    {
+        ERROR_EXPRESSION_TYPE_UNKNOWN_LHS,
+        ERROR,
+        "cannot determine type of left-hand side",
+        "unable to resolve the type of the expression on the left side",
+        "unknown type in left operand",
+        "check the left-hand side expression for errors"
+    },
+    {
+        ERROR_ARRAY_USED_AS_SCALAR,
+        ERROR,
+        "array used as scalar value",
+        "arrays cannot be used directly as scalar values",
+        "expected scalar, found array",
+        "use array[index] to access individual elements"
+    },
+    {
+        ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR,
+        ERROR,
+        "cannot assign array to scalar variable",
+        "array types cannot be assigned to non-array variables",
+        "type mismatch: array vs scalar",
+        "declare the variable as an array or access a specific element"
+    },
+    {
+        ERROR_ARRAY_SIZE_MISMATCH,
+        ERROR,
+        "array size mismatch",
+        "cannot assign array of different size",
+        "array sizes must match in assignment",
+        "ensure both arrays have the same declared size"
+    },
+    {
+        ERROR_CANNOT_ASSIGN_SCALAR_TO_ARRAY,
+        ERROR,
+        "cannot assign scalar to array",
+        "array variables must be initialized with array literals or other arrays",
+        "expected array, found scalar",
+        "use array literal syntax: [1, 2, 3] or another array variable"
+    },
+    {
+        ERROR_EXPRESSION_TYPE_UNKNOWN_RHS,
+        ERROR,
+        "cannot determine type of right-hand side",
+        "unable to resolve the type of the expression on the right side",
+        "unknown type in right operand",
+        "check the right-hand side expression for errors"
+    },
+    {
         ERROR_INVALID_CAST_TARGET,
         ERROR,
         "invalid cast target",
