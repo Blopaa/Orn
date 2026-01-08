@@ -826,11 +826,17 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 
 	// Check if this is an array declaration
 	int isArray = (*pos < list->count && list->tokens[*pos].type == TK_LBRACKET);
+	int isPointer = (*pos < list->count && list->tokens[*pos].type == TK_STAR);
 
 	ASTNode mutWrapNode;
 	CREATE_NODE_OR_FAIL(mutWrapNode, keyTok, isConst ? CONST_DEC : LET_DEC, list, pos);
 
 	ASTNode varDefNode;
+	Token *starToken = NULL;
+	if(isPointer){
+		starToken = &list->tokens[*pos];
+		ADVANCE_TOKEN(list, pos);
+	}
 	if (isArray) {
 		// Parse array type declaration
 		varDefNode = parseArrayDec(list, pos, typeToken, varName);
@@ -848,11 +854,24 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 		varDefNode->children=typeRefWrapNode;
 		typeRefWrapNode->children = typeNode;
 	}
+	if(isPointer){
+		ASTNode pointerWrap;
+		CREATE_NODE_OR_FAIL(pointerWrap, starToken, POINTER, list, pos);
+		pointerWrap->children = varDefNode->children->children;
+		varDefNode->children->children = pointerWrap;
+	}
+	
     
     mutWrapNode->children = varDefNode;
     
     if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
         ADVANCE_TOKEN(list, pos);
+		int isRef = (*pos < list->count && list->tokens[*pos].type == TK_AMPERSAND);
+		Token *refTok = NULL;
+		if(isRef){
+			refTok = &list->tokens[*pos];
+			ADVANCE_TOKEN(list, pos);
+		}
         ASTNode initExpr, valueWrap;
 		CREATE_NODE_OR_FAIL(valueWrap, NULL, VALUE, list, pos);
         PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), 
@@ -877,16 +896,22 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
                 typeRefWrapNode->brothers = valueWrap;
             }
         }
+		if(isRef){
+			ASTNode memNode;
+			CREATE_NODE_OR_FAIL(memNode, refTok, MEMADDRS, list, pos);
+			memNode->children = valueWrap->children;
+			valueWrap->children = memNode;
+		}
     } else if (isConst) {
         reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
-                   "const declarations must have an initializer");
+                    "const declarations must have an initializer");
         freeAST(mutWrapNode);
         return NULL;
     }
-    
-    EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, 
-                      "Expected ';' after declaration");
-    
+
+    EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON,
+                        "Expected ';' after declaration");
+
     return mutWrapNode;
 
 }

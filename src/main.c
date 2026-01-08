@@ -207,18 +207,18 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    // === TYPE CHECKING ===
-    if (showIr && showAST) printf("3. TYPE CHECKING: ");
-    TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
-    if (!globalSymbolTable || hasErrors()) {
-        if (showIr && showAST) printf("FAILED\n");
-        printErrorSummary();
-        freeTokens(tokens);
-        freeASTContext(astContext);
-        free(input);
-        return 1;
-    }
-    if (showIr && showAST) printf("OK\n");
+    // // === TYPE CHECKING ===
+    // if (showIr && showAST) printf("3. TYPE CHECKING: ");
+    // TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
+    // if (!globalSymbolTable || hasErrors()) {
+    //     if (showIr && showAST) printf("FAILED\n");
+    //     printErrorSummary();
+    //     freeTokens(tokens);
+    //     freeASTContext(astContext);
+    //     free(input);
+    //     return 1;
+    // }
+    // if (showIr && showAST) printf("OK\n");
 
     // // === IR GENERATION ===
     // if (showIr && showAST) printf("4. IR GENERATION: ");
