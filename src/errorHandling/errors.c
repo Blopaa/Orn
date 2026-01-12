@@ -497,6 +497,22 @@ const ErrorInfo errorDatabase[] = {
         "ensure all array elements have the same or compatible type"
     },
     {
+        ERROR_CANNOT_TAKE_ADDRESS_OF_LITERAL,
+        ERROR,
+        "cannot take address of literal",
+        "the address-of operator (&) can only be applied to variables or array elements",
+        "attempted to take address of a literal value",
+        "store the value in a variable first, then take its address"
+    },
+    {
+        ERROR_CANNOT_TAKE_ADDRESS_OF_TEMPORARY,
+        ERROR,
+        "cannot take address of temporary expression",
+        "the address-of operator (&) can only be applied to lvalues with stable addresses",
+        "attempted to take address of temporary expression result",
+        "assign the expression to a variable first, then take the address of that variable"
+    },
+    {
         ERROR_ARRAY_SIZE_NOT_CONSTANT,
         ERROR,
         "array size must be constant",

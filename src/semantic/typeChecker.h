@@ -42,7 +42,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context);
 int validateFunctionCall(ASTNode node, TypeCheckContext context);
 int validateReturnStatement(ASTNode node, TypeCheckContext context);
 FunctionParameter extractParameters(ASTNode paramListNode);
-DataType getReturnTypeFromNode(ASTNode returnTypeNode);
+DataType getReturnTypeFromNode(ASTNode returnTypeNode, int *outPointerLevel);
 int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context);
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context);
 #endif //CINTERPRETER_TYPECHECKER_H
