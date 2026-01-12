@@ -207,140 +207,140 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    // // === TYPE CHECKING ===
-    // if (showIr && showAST) printf("3. TYPE CHECKING: ");
-    // TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
-    // if (!globalSymbolTable || hasErrors()) {
-    //     if (showIr && showAST) printf("FAILED\n");
-    //     printErrorSummary();
-    //     freeTokens(tokens);
-    //     freeASTContext(astContext);
-    //     free(input);
-    //     return 1;
-    // }
-    // if (showIr && showAST) printf("OK\n");
+    // === TYPE CHECKING ===
+    if (showIr && showAST) printf("3. TYPE CHECKING: ");
+    TypeCheckContext globalSymbolTable = typeCheckAST(astContext->root, input, inputFile);
+    if (!globalSymbolTable || hasErrors()) {
+        if (showIr && showAST) printf("FAILED\n");
+        printErrorSummary();
+        freeTokens(tokens);
+        freeASTContext(astContext);
+        free(input);
+        return 1;
+    }
+    if (showIr && showAST) printf("OK\n");
 
-    // // === IR GENERATION ===
-    // if (showIr && showAST) printf("4. IR GENERATION: ");
-    // IrContext *ir = generateIr(astContext->root, globalSymbolTable);
-    // if (!ir) {
-    //     if (showIr && showAST) printf("FAILED\n");
-    //     fprintf(stderr, "Error: Failed to generate intermediate representation\n");
-    //     freeTokens(tokens);
-    //     freeASTContext(astContext);
-    //     freeTypeCheckContext(globalSymbolTable);
-    //     free(input);
-    //     return 1;
-    // }
-    // if (showIr && showAST) printf("OK (%d instructions)\n", ir->instructionCount);
+    // === IR GENERATION ===
+    if (showIr && showAST) printf("4. IR GENERATION: ");
+    IrContext *ir = generateIr(astContext->root, globalSymbolTable);
+    if (!ir) {
+        if (showIr && showAST) printf("FAILED\n");
+        fprintf(stderr, "Error: Failed to generate intermediate representation\n");
+        freeTokens(tokens);
+        freeASTContext(astContext);
+        freeTypeCheckContext(globalSymbolTable);
+        free(input);
+        return 1;
+    }
+    if (showIr && showAST) printf("OK (%d instructions)\n", ir->instructionCount);
 
-    // if (optLvl > 0) {
-    //     if (showIr && showAST) printf("5. OPTIMIZATION (-O%d): ", optLvl);
-    //     optimizeIR(ir, optLvl);
-    //     if (showIr && showAST) printf("OK (%d instructions after optimization)\n", ir->instructionCount);
-    // }
+    if (optLvl > 0) {
+        if (showIr && showAST) printf("5. OPTIMIZATION (-O%d): ", optLvl);
+        optimizeIR(ir, optLvl);
+        if (showIr && showAST) printf("OK (%d instructions after optimization)\n", ir->instructionCount);
+    }
 
-    // if (showIr) {
-    //     printf("\n=== IR (Three-Address Code) ===\n");
-    //     printIR(ir);
-    //     printf("\n");
-    // }
+    if (showIr) {
+        printf("\n=== IR (Three-Address Code) ===\n");
+        printIR(ir);
+        printf("\n");
+    }
 
-    // if (showIr && showAST) printf("%d. CODE GENERATION: ", optLvl > 0 ? 6 : 5);
+    if (showIr && showAST) printf("%d. CODE GENERATION: ", optLvl > 0 ? 6 : 5);
     
-    // char *assembly = generateAssembly(ir);
-    // if (!assembly) {
-    //     if (showIr && showAST) printf("FAILED\n");
-    //     fprintf(stderr, "Error: Failed to generate assembly\n");
-    //     freeTokens(tokens);
-    //     freeASTContext(astContext);
-    //     freeTypeCheckContext(globalSymbolTable);
-    //     freeIrContext(ir);
-    //     free(input);
-    //     return 1;
-    // }
-    // if (showIr && showAST) printf("OK\n");
+    char *assembly = generateAssembly(ir);
+    if (!assembly) {
+        if (showIr && showAST) printf("FAILED\n");
+        fprintf(stderr, "Error: Failed to generate assembly\n");
+        freeTokens(tokens);
+        freeASTContext(astContext);
+        freeTypeCheckContext(globalSymbolTable);
+        freeIrContext(ir);
+        free(input);
+        return 1;
+    }
+    if (showIr && showAST) printf("OK\n");
 
-    // if (!writeAssemblyToFile(assembly, asmFile)) {
-    //     fprintf(stderr, "Error: Failed to write assembly to '%s'\n", asmFile);
-    //     free(assembly);
-    //     freeTokens(tokens);
-    //     freeASTContext(astContext);
-    //     freeTypeCheckContext(globalSymbolTable);
-    //     freeIrContext(ir);
-    //     free(input);
-    //     return 1;
-    // }
+    if (!writeAssemblyToFile(assembly, asmFile)) {
+        fprintf(stderr, "Error: Failed to write assembly to '%s'\n", asmFile);
+        free(assembly);
+        freeTokens(tokens);
+        freeASTContext(astContext);
+        freeTypeCheckContext(globalSymbolTable);
+        freeIrContext(ir);
+        free(input);
+        return 1;
+    }
 
-    // if (showIr && showAST) {
-    //     printf("\n=== GENERATED ASSEMBLY ===\n");
-    //     printf("%s\n", assembly);
-    // }
+    if (showIr && showAST) {
+        printf("\n=== GENERATED ASSEMBLY ===\n");
+        printf("%s\n", assembly);
+    }
 
-    // if (!asmOnly) {
-    //     if (showIr && showAST) printf("%d. ASSEMBLING & LINKING: ", optLvl > 0 ? 7 : 6);
+    if (!asmOnly) {
+        if (showIr && showAST) printf("%d. ASSEMBLING & LINKING: ", optLvl > 0 ? 7 : 6);
         
-    //     size_t cmdLen =
-    //         snprintf(NULL, 0, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile) +
-    //         1;
-    //     char *cmd = malloc(cmdLen);
-    //     if (!cmd) {
-    //         fprintf(stderr, "Error: Failed to allocate memory for command\n");
-    //         free(assembly);
-    //         freeTokens(tokens);
-    //         freeASTContext(astContext);
-    //         freeTypeCheckContext(globalSymbolTable);
-    //         freeIrContext(ir);
-    //         free(input);
-    //         return 1;
-    //     }
-    //     snprintf(cmd, cmdLen, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile);
+        size_t cmdLen =
+            snprintf(NULL, 0, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile) +
+            1;
+        char *cmd = malloc(cmdLen);
+        if (!cmd) {
+            fprintf(stderr, "Error: Failed to allocate memory for command\n");
+            free(assembly);
+            freeTokens(tokens);
+            freeASTContext(astContext);
+            freeTypeCheckContext(globalSymbolTable);
+            freeIrContext(ir);
+            free(input);
+            return 1;
+        }
+        snprintf(cmd, cmdLen, "gcc -no-pie -nostdlib -o %s %s ./runtime.s 2>&1", exeFile, asmFile);
 
-    //     int result = system(cmd);
-    //     free(cmd);
-    //     if (result != 0) {
-    //         if (showIr && showAST) printf("FAILED\n");
-    //         fprintf(stderr, "Error: Assembly/linking failed\n");
-    //         free(assembly);
-    //         freeTokens(tokens);
-    //         freeASTContext(astContext);
-    //         freeTypeCheckContext(globalSymbolTable);
-    //         freeIrContext(ir);
-    //         free(input);
-    //         return 1;
-    //     }
-    //     if (showIr && showAST) printf("OK\n");
+        int result = system(cmd);
+        free(cmd);
+        if (result != 0) {
+            if (showIr && showAST) printf("FAILED\n");
+            fprintf(stderr, "Error: Assembly/linking failed\n");
+            free(assembly);
+            freeTokens(tokens);
+            freeASTContext(astContext);
+            freeTypeCheckContext(globalSymbolTable);
+            freeIrContext(ir);
+            free(input);
+            return 1;
+        }
+        if (showIr && showAST) printf("OK\n");
         
-    //     remove(asmFile);
-    // }
+        remove(asmFile);
+    }
 
-    // // === SUCCESS ===
-    // printErrorSummary();
+    // === SUCCESS ===
+    printErrorSummary();
     
-    // if (showIr && showAST) {
-    //     printf("\n✓ Compilation SUCCESSFUL\n");
-    //     printf("  IR: %d instructions, %d temporaries, %d labels\n", 
-    //            ir->instructionCount, ir->nextTempNum - 1, ir->nextLabelNum - 1);
-    //     if (asmOnly) {
-    //         printf("  Output: %s\n", asmFile);
-    //     } else {
-    //         printf("  Output: %s\n", exeFile);
-    //     }
-    // } else {
-    //     if (asmOnly) {
-    //         printf("Compiled '%s' -> '%s'\n", inputFile, asmFile);
-    //     } else {
-    //         printf("Compiled '%s' -> '%s'\n", inputFile, exeFile);
-    //     }
-    // }
+    if (showIr && showAST) {
+        printf("\n✓ Compilation SUCCESSFUL\n");
+        printf("  IR: %d instructions, %d temporaries, %d labels\n", 
+               ir->instructionCount, ir->nextTempNum - 1, ir->nextLabelNum - 1);
+        if (asmOnly) {
+            printf("  Output: %s\n", asmFile);
+        } else {
+            printf("  Output: %s\n", exeFile);
+        }
+    } else {
+        if (asmOnly) {
+            printf("Compiled '%s' -> '%s'\n", inputFile, asmFile);
+        } else {
+            printf("Compiled '%s' -> '%s'\n", inputFile, exeFile);
+        }
+    }
 
-    // // Cleanup
-    // free(assembly);
-    // freeTokens(tokens);
-    // freeASTContext(astContext);
-    // freeTypeCheckContext(globalSymbolTable);
-    // freeIrContext(ir);
-    // free(input);
+    // Cleanup
+    free(assembly);
+    freeTokens(tokens);
+    freeASTContext(astContext);
+    freeTypeCheckContext(globalSymbolTable);
+    freeIrContext(ir);
+    free(input);
 
     return 0;
 }

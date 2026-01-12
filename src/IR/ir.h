@@ -30,13 +30,14 @@ typedef enum {
     IR_GE,
 
     IR_COPY,
-    IR_LOAD,
-    IR_STORE,
-    IR_ADDR,
+
 
     IR_REQ_MEM,
     IR_POINTER_LOAD,
     IR_POINTER_STORE,
+    IR_ADDROF,
+    IR_DEREF,
+    IR_STORE,
 
     IR_MEMBER_LOAD,
     IR_MEMBER_STORE,

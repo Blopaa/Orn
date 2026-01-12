@@ -108,18 +108,26 @@ void freeTypeCheckContext(TypeCheckContext context) {
  * - All other type combinations are incompatible
  */
 CompatResult areCompatible(DataType target, DataType source) {
+    if (target == TYPE_POINTER && source == TYPE_POINTER) {
+        return COMPAT_OK;
+    }
+    
     if (target == source) return COMPAT_OK;
 
     switch (target) {
         case TYPE_STRING:
         case TYPE_BOOL:
-        case TYPE_INT: return COMPAT_ERROR;
+        case TYPE_INT: 
+        case TYPE_POINTER:
+            return COMPAT_ERROR;
         case TYPE_FLOAT: {
             if(source == TYPE_DOUBLE) return COMPAT_WARNING;
             return source == TYPE_INT ? COMPAT_OK : COMPAT_ERROR;
         }
-        case TYPE_DOUBLE: return source == TYPE_INT || source == TYPE_FLOAT ? COMPAT_OK : COMPAT_ERROR;
-        default: return COMPAT_ERROR;
+        case TYPE_DOUBLE: 
+            return source == TYPE_INT || source == TYPE_FLOAT ? COMPAT_OK : COMPAT_ERROR;
+        default: 
+            return COMPAT_ERROR;
     }
 }
 
@@ -269,6 +277,90 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
                 return TYPE_STRING;
             }
         }
+         case POINTER: { // Dereference: *ptr, **pp, *arr[i], etc.
+            ASTNode ptrNode = node->children;
+            if (!ptrNode) return TYPE_UNKNOWN;
+
+            // Count dereference depth and find the base expression
+            int derefCount = 1;
+            ASTNode current = ptrNode;
+            
+            while (current && current->nodeType == POINTER) {
+                derefCount++;
+                current = current->children;
+            }
+            
+            if (!current) return TYPE_UNKNOWN;
+            
+            if (current->nodeType == VARIABLE) {
+                Symbol ptrSym = lookupSymbol(context->current, current->start, current->length);
+                if (!ptrSym || !ptrSym->isPointer) {
+                    REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                                "Cannot dereference non-pointer");
+                    return TYPE_UNKNOWN;
+                }
+                
+                int remainingLevel = ptrSym->pointerLvl - derefCount;
+                
+                if (remainingLevel < 0) {
+                    REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                                "Too many dereference operations");
+                    return TYPE_UNKNOWN;
+                } else if (remainingLevel > 0) {
+                    return TYPE_POINTER;
+                } else { 
+                    return ptrSym->baseType;
+                }
+            }
+            
+            if (current->nodeType == ARRAY_ACCESS) {
+                ASTNode arrayNode = current->children;
+                if (arrayNode && arrayNode->nodeType == VARIABLE) {
+                    Symbol arraySym = lookupSymbol(context->current, arrayNode->start, arrayNode->length);
+                    
+                    if (!arraySym) {
+                        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, current, context,
+                                    "Undefined array variable");
+                        return TYPE_UNKNOWN;
+                    }
+                    
+                    if (!arraySym->isArray) {
+                        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, current, context,
+                                    "Subscript on non-array type");
+                        return TYPE_UNKNOWN;
+                    }
+                    
+                    if (arraySym->isPointer) {
+                        int remainingLevel = arraySym->pointerLvl - derefCount;
+                        
+                        if (remainingLevel < 0) {
+                            REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                                        "Too many dereference operations");
+                            return TYPE_UNKNOWN;
+                        } else if (remainingLevel > 0) {
+                            return TYPE_POINTER;
+                        } else {
+                            return arraySym->baseType;
+                        }
+                    } else {
+                        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                                    "Cannot dereference non-pointer array element");
+                        return TYPE_UNKNOWN;
+                    }
+                }
+            }
+            DataType innerType = getExpressionType(current, context);
+            if (innerType != TYPE_POINTER) {
+                REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                            "Cannot dereference non-pointer expression");
+                return TYPE_UNKNOWN;
+            }
+            
+            // TYPE_POINTER alone doesn't carry base type info
+            // For complex expressions, we'd need a richer type system
+            // For now, this is a limitation - return TYPE_UNKNOWN
+            return TYPE_UNKNOWN;
+        }
         case ARRAY_ACCESS: {
             ASTNode arrayNode = node->children;
             ASTNode indexNode = arrayNode ? arrayNode->brothers : NULL;
@@ -330,6 +422,18 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             }
 
             return sym->type;
+        }
+        case MEMADDRS: { 
+            ASTNode target = node->children;
+            if (!target) return TYPE_UNKNOWN;
+            if (target->nodeType == VARIABLE) {
+                Symbol sym = lookupSymbol(context->current, target->start, target->length);
+                if (!sym) {
+                    return TYPE_UNKNOWN;
+                }
+            }
+
+            return TYPE_POINTER;
         }
         case VARIABLE: {
             Symbol symbol = lookupSymbol(context->current, node->start, node->length);
@@ -563,7 +667,7 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
         return 0;
     }
 
-    // Stream validate argument types (no allocation needed!)
+    // Stream validate argument types
     FunctionParameter param = funcSymbol->parameters;
     arg = argListNode->children;
 
@@ -572,11 +676,11 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
         if (argType == TYPE_UNKNOWN) {
             return 0; // Error already reported
         }
-
+        printf("%d == %d", argType==TYPE_POINTER, param->type == TYPE_POINTER);
         CompatResult compat = areCompatible(param->type, argType);
         if (compat == COMPAT_ERROR) {
             char * tempText = extractText(param->nameStart, param->nameLength);
-            REPORT_ERROR(variableErrorCompatibleHandling(param->type, argType), node, context, tempText);
+            REPORT_ERROR(variableErrorCompatibleHandling(param->type, argType), node, context, "pito");
             free(tempText);
             return 0;
         } else if (compat == COMPAT_WARNING) {
@@ -650,7 +754,7 @@ ErrorCode variableErrorCompatibleHandling(DataType varType, DataType initType) {
                 case TYPE_BOOL: return ERROR_TYPE_MISMATCH_BOOL_TO_STRING;
                 default: return ERROR_INCOMPATIBLE_BINARY_OPERANDS;
             }
-        }
+        } 
         default:
             return ERROR_INVALID_OPERATION_FOR_TYPE; // Unsupported type
     }
@@ -668,190 +772,143 @@ const char* getTypeName(DataType type) {
     }
 }
 
+static ASTNode getBaseTypeFromPointerChain(ASTNode typeRefNode, int* outPointerLevel) {
+    int ptrLevel = 0;
+    ASTNode current = typeRefNode;
+
+    while (current && current->nodeType == POINTER) {
+        ptrLevel++;
+        current = current->children;
+    }
+    
+    if (outPointerLevel) {
+        *outPointerLevel = ptrLevel;
+    }
+    
+    return current;
+}
+
 //checks if a variable declaration is correctly written
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst) {
+    // Basic validation
     if (node == NULL || node->start == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null or has no name");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration node is null");
         return 0;
-    };
+    }
+    
     if (node->children == NULL || node->children->children == NULL) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable declaration is missing type information");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Variable missing type information");
         return 0;
     }
-    int isArr = node->nodeType == ARRAY_VARIABLE_DEFINITION;
-    //from VAR_DEF -> TYPE_REF -> ACTUAL TYPE -> nodeType
-    DataType varType = getDataTypeFromNode(node->children->children->nodeType);
+    
+    int isArr = (node->nodeType == ARRAY_VARIABLE_DEFINITION);
+    
+    // Extract type information
+    int pointerLevel = 0;
+    ASTNode typeref = getBaseTypeFromPointerChain(node->children->children, &pointerLevel);
+    DataType varType = getDataTypeFromNode(typeref->nodeType);
+    
     if (varType == TYPE_UNKNOWN) {
-        repError(ERROR_INTERNAL_PARSER_ERROR,"Unknown variable type in declaration");
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Unknown variable type in declaration");
         return 0;
     }
-
+    
+    // Check for redeclaration
     Symbol existing = lookupSymbolCurrentOnly(context->current, node->start, node->length);
     if (existing != NULL) {
-        char * tempText = extractText(node->start, node->length);
-        REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);        
-        free(tempText);
+        reportErrorWithText(ERROR_VARIABLE_REDECLARED, node, context, "Variable redeclared");
         return 0;
     }
+    
+    // Create new symbol
     Symbol newSymbol = addSymbolFromNode(context->current, node, varType);
     if (!newSymbol) {
-        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED,"Failed to add symbol to symbol table");
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to add symbol");
         return 0;
     }
+    
+    newSymbol->isPointer = (pointerLevel > 0);
+    newSymbol->pointerLvl = pointerLevel;
+    newSymbol->isConst = isConst;
 
-    if(isArr){
-        ASTNode typeref = node->children; 
-        ASTNode sizeNode = typeref->brothers;
-        if(!sizeNode ||( sizeNode->nodeType != LITERAL && sizeNode->nodeType != VARIABLE)){
-            REPORT_ERROR(ERROR_ARRAY_SIZE_INVALID_SPEC, node, context, "invalid static size for array");
+    if (pointerLevel > 0) {
+        newSymbol->baseType = varType;  
+        newSymbol->type = TYPE_POINTER;
+        varType = TYPE_POINTER;         // Actualiza varType para validación posterior
+    }
+
+    // Handle array-specific validation
+    if (isArr) {
+        ASTNode sizeNode = node->children->brothers;
+        if (!sizeNode || (sizeNode->nodeType != LITERAL && sizeNode->nodeType != VARIABLE)) {
+            REPORT_ERROR(ERROR_ARRAY_SIZE_INVALID_SPEC, node, context, 
+                        "invalid static size for array");
             return 0;
         }
+        
         int arraySize;
         if (sizeNode->nodeType == LITERAL) {
             arraySize = parseInt(sizeNode->start, sizeNode->length);
-        } else { // VARIABLE
+        } else {
             Symbol sizeSym = lookupSymbol(context->current, sizeNode->start, sizeNode->length);
             if (isConst && (!sizeSym || !sizeSym->isConst || !sizeSym->hasConstVal)) {
                 REPORT_ERROR(ERROR_ARRAY_SIZE_NOT_CONSTANT, sizeNode, context,
-                            "Array size must be a compile-time constant");
+                            "Array size must be compile-time constant");
                 return 0;
             }
             arraySize = sizeSym->constVal;
         }
-        if(arraySize <= 0){
+        
+        if (arraySize <= 0) {
             REPORT_ERROR(ERROR_ARRAY_SIZE_NOT_POSITIVE, sizeNode, context, 
                         "Array size must be positive");
             return 0;
         }
+        
         newSymbol->isArray = 1;
         newSymbol->staticSize = arraySize;
     }
-
-    newSymbol->isConst = isConst;
-
-    // check for inicialization on declaration
     
+    // Handle pointer initialization with const tracking
+    if (newSymbol->isPointer && node->children->brothers) {
+        ASTNode valueNode = node->children->brothers;
+        if (valueNode->children && valueNode->children->nodeType == MEMADDRS) {
+            ASTNode target = valueNode->children->children;
+            updateConstMemRef(newSymbol, target, context);
+        }
+    }
+    
+    // Process initialization if present
     if (node->children && node->children->brothers) {
         ASTNode initNode = node->children->brothers;
-        if(isArr){
-            ASTNode valueNode = initNode->brothers;
-
-            if(valueNode && valueNode->nodeType == VALUE && valueNode->children){
-                ASTNode arrLit = valueNode->children;
-                if(arrLit->nodeType == ARRAY_LIT){
-                    int initCount = 0;
-                    ASTNode elem = arrLit->children;
-                    while(elem){
-                        DataType elemType = getExpressionType(elem, context);
-                        CompatResult compat = areCompatible(varType, elemType);
-                        if(elemType == TYPE_UNKNOWN || compat == COMPAT_ERROR){
-                            char msg[100];
-                            snprintf(msg, sizeof(msg), 
-                                    "Array element %d has incompatible type", initCount + 1);
-                            REPORT_ERROR(ERROR_ARRAY_INIT_ELEMENT_TYPE, elem, context, 
-                            msg);
-                            return 0;
-                        }
-
-                        initCount++;
-                        elem=elem->brothers;
-                    }
-                    if (initCount != newSymbol->staticSize && isConst) {
-                        char msg[100];
-                        snprintf(msg, sizeof(msg), 
-                                "declared %d, initialized with %d elements",
-                                newSymbol->staticSize, initCount);
-                        REPORT_ERROR(ERROR_ARRAY_INIT_SIZE_MISMATCH, arrLit, context, msg);
-                        return 0;
-                    }
-                    
-                    newSymbol->isInitialized = 1;
-                } else if (arrLit->nodeType == VARIABLE) {
-                    Symbol sourceSym =
-                        lookupSymbol(context->current, arrLit->start, arrLit->length);
-
-                    if (!sourceSym) {
-                        char *tempText = extractText(arrLit->start, arrLit->length);
-                        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, arrLit, context, tempText);
-                        free(tempText);
-                        return 0;
-                    }
-
-                    if (!sourceSym->isArray) {
-                        char *tempText = extractText(arrLit->start, arrLit->length);
-                        REPORT_ERROR(ERROR_CANNOT_ASSIGN_SCALAR_TO_ARRAY, node, context,
-                                     "Cannot initialize array with scalar value");
-                        free(tempText);
-                        return 0;
-                    }
-
-                    if (sourceSym->type != varType) {
-                        char msg[100];
-                        snprintf(msg, sizeof(msg),
-                                 "cannot assign %s[] to %s[]",
-                                 getTypeName(sourceSym->type), getTypeName(varType));
-                        REPORT_ERROR(ERROR_ARRAY_LITERAL_TYPE_MISMATCH, arrLit, context, msg);
-                        return 0;
-                    }
-
-                    if (sourceSym->staticSize != newSymbol->staticSize) {
-                        char msg[100];
-                        snprintf(msg, sizeof(msg),
-                                 "cannot assign array of size %d to array of "
-                                 "size %d",
-                                 sourceSym->staticSize, newSymbol->staticSize);
-                        REPORT_ERROR(ERROR_ARRAY_SIZE_MISMATCH, arrLit, context, msg);
-                        return 0;
-                    }
-
-                    newSymbol->isInitialized = 1;
-                }
-            }
-        }else{
-            ASTNode initExpr = node->children->brothers->children;
-            if (!isArr && initExpr && initExpr->nodeType == VARIABLE) {
-                Symbol initSymbol =
-                    lookupSymbol(context->current, initExpr->start, initExpr->length);
-                if (initSymbol && initSymbol->isArray) {
-                    char *tempText = extractText(node->start, node->length);
-                    REPORT_ERROR(ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR, node, context, tempText);
-                    free(tempText);
-                    return 0;
-                }
-            }
-            DataType initType = getExpressionType(initExpr, context);
-            if (initType == TYPE_UNKNOWN) {
-                char *tempText = extractText(node->start, node->length);
-                REPORT_ERROR(ERROR_INTERNAL_TYPECHECKER_ERROR, node, context, tempText);
-                free(tempText);
+        int isMemRef = (initNode->children->nodeType == MEMADDRS);
+        
+        // Validate address-of operator if used
+        if (isMemRef) {
+            ASTNode addrTarget = initNode->children->children;
+            if (!validateAddressOf(addrTarget, context)) {
                 return 0;
-            }
-            CompatResult compat = areCompatible(varType, initType);
-            if (compat == COMPAT_ERROR) {
-                char *tempText = extractText(node->start, node->length);
-                REPORT_ERROR(variableErrorCompatibleHandling(varType, initType), node, context,
-                            tempText);
-                free(tempText);
-                return 0;
-            } else if (compat == COMPAT_WARNING) {
-                char *tempText = extractText(node->start, node->length);
-                REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, tempText);
-                free(tempText);
-            }
-            newSymbol->isInitialized = 1;
-            if (isConst && !isArr && initNode->children->nodeType == LITERAL) {
-                newSymbol->hasConstVal = 1;
-                newSymbol->constVal = parseInt(initNode->children->start, initNode->children->length);
-            } else {
-                newSymbol->hasConstVal = 0;
             }
         }
-    }else if (isConst) {
-        char * tempText = extractText(node->start, node->length);
-        REPORT_ERROR(ERROR_CONST_MUST_BE_INITIALIZED, node, context, tempText);
-        free(tempText);
+        
+        // Branch on array vs scalar initialization
+        if (isArr) {
+            if (!validateArrayInitialization(newSymbol, initNode, varType, isConst, context)) {
+                return 0;
+            }
+        } else {
+            if (!validateScalarInitialization(newSymbol, node, varType, isConst, 
+                                             isMemRef, context)) {
+                return 0;
+            }
+        }
+    } else if (isConst) {
+        // Const variables must be initialized
+        reportErrorWithText(ERROR_CONST_MUST_BE_INITIALIZED, node, context,
+                          "Const must be initialized");
         return 0;
     }
+    
     return 1;
 }
 
@@ -860,116 +917,176 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Assignment node missing operands");
         return 0;
     }
+    
     ASTNode left = node->children;
     ASTNode right = node->children->brothers;
+    ASTNode leftForType = left;
+    ASTNode rightForType = right;
+    int isPointerDeref = (left->nodeType == POINTER);
+    
+    // Check for pointer dereference to const
+    if (isPointerDeref) {
+        ASTNode derefTarget = left->children;
 
-    if (left->nodeType != VARIABLE && left->nodeType != MEMBER_ACCESS && left->nodeType != ARRAY_ACCESS) {
-        REPORT_ERROR(ERROR_INVALID_ASSIGNMENT_TARGET, node, context, "Left side of assignment must be a variable or member access");
-        return 0;
-    }
-
-    if(left->nodeType == VARIABLE){
-        Symbol sym = lookupSymbol(context->current, left->start, left->length);
-        if(sym && sym->isConst){
-            char * tempText = extractText(left->start, left->length);
-            REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context, tempText);
-            free(tempText);
-            return 0;
+        // Case 1: *ptr where ptr is a variable
+        if (derefTarget->nodeType == VARIABLE) {
+            Symbol ptrSym = lookupSymbol(context->current, derefTarget->start, derefTarget->length);
+            if (checkConstViolation(ptrSym, node, context, isPointerDeref)) {
+                return 0;
+            }
+        }
+        // Case 2: *arr[i] where arr is an array of pointers
+        else if (derefTarget->nodeType == ARRAY_ACCESS) {
+            ASTNode arrayNode = derefTarget->children;
+            if (arrayNode && arrayNode->nodeType == VARIABLE) {
+                Symbol arraySym =
+                    lookupSymbol(context->current, arrayNode->start, arrayNode->length);
+                // Check if array itself is const or has const memory reference
+                if (arraySym && arraySym->isConst) {
+                    REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context,
+                                 "Cannot modify through const array element");
+                    return 0;
+                }
+                if (arraySym && arraySym->hasConstMemRef) {
+                    REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context,
+                                 "Cannot modify through pointer to const");
+                    return 0;
+                }
+            }
         }
     }
 
-    if(left->nodeType == ARRAY_ACCESS){
-        ASTNode baseNode = left->children;
-        if(baseNode && baseNode->nodeType == VARIABLE){
-            Symbol sym = lookupSymbol(context->current, baseNode->start, baseNode->length);
-            if(sym && sym->isConst){
-                char * tempText = extractText(baseNode->start, baseNode->length);
-                REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context, tempText);
-                free(tempText);
-                return 0;
-            }
-            if (!sym->isArray) {
-                REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, baseNode, context, 
-                            "Array subscript on non-array variable");
-                return 0;
-            }
-            ASTNode indexNode = baseNode->brothers;
-            if (indexNode) {
-                DataType indexType = getExpressionType(indexNode, context);
-                if (indexType == TYPE_UNKNOWN) {
-                    REPORT_ERROR(ERROR_ARRAY_INDEX_INVALID_EXPR, indexNode, context, 
-                                "Invalid array index expression");
+    // Normalize node types for easier processing
+    if (left->nodeType == POINTER) left = left->children;
+    if (right->nodeType == MEMADDRS) right = right->children;
+    
+    // Validate left-hand side is assignable
+    if (left->nodeType != VARIABLE && 
+        left->nodeType != MEMBER_ACCESS && 
+        left->nodeType != ARRAY_ACCESS && 
+        left->nodeType != POINTER) {
+        REPORT_ERROR(ERROR_INVALID_ASSIGNMENT_TARGET, node, context, 
+                    "Left side must be a variable or member access");
+        return 0;
+    }
+    
+    // Handle variable assignment
+    if (left->nodeType == VARIABLE) {
+        Symbol sym = lookupSymbolOrError(context, left);
+        if (!sym) return 0;
+        
+        if (checkConstViolation(sym, node, context, isPointerDeref)) {
+            return 0;
+        }
+        
+        // Check for array assignment issues
+        if (right->nodeType == VARIABLE) {
+            Symbol rightSym = lookupSymbol(context->current, right->start, right->length);
+            if (rightSym) {
+                // Scalar = Array (error)
+                if (!sym->isArray && rightSym->isArray) {
+                    reportErrorWithText(ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR, node, context,
+                                      "Cannot assign array to scalar");
                     return 0;
                 }
-                if (indexType != TYPE_INT) {
-                    REPORT_ERROR(ERROR_ARRAY_INDEX_NOT_INTEGER, indexNode, context, 
-                                "Array index must be integer type");
-                    return 0;
-                }
-                if (indexNode->nodeType == LITERAL) {
-                    int indexValue = parseInt(indexNode->start, indexNode->length);
-                    if (indexValue < 0 || indexValue >= sym->staticSize) {
+                // Array = Array (check sizes)
+                if (sym->isArray && rightSym->isArray) {
+                    if (sym->staticSize != rightSym->staticSize) {
                         char msg[100];
                         snprintf(msg, sizeof(msg), 
-                                "Array index %d out of bounds [0, %d)", 
-                                indexValue, sym->staticSize);
-                        REPORT_ERROR(ERROR_INVALID_EXPRESSION, indexNode, context, msg);
+                                "Cannot assign array of size %d to array of size %d",
+                                rightSym->staticSize, sym->staticSize);
+                        REPORT_ERROR(ERROR_ARRAY_SIZE_MISMATCH, node, context, msg);
                         return 0;
                     }
                 }
             }
         }
     }
-
-    if (left->nodeType == VARIABLE) {
-        Symbol leftSym = lookupSymbol(context->current, left->start, left->length);
-        if (leftSym && right->nodeType == VARIABLE) {
-            Symbol rightSym = lookupSymbol(context->current, right->start, right->length);
-            if (!leftSym->isArray && rightSym && rightSym->isArray) {
-                char *tempText = extractText(left->start, left->length);
-                REPORT_ERROR(ERROR_CANNOT_ASSIGN_ARRAY_TO_SCALAR, node, context, tempText);
-                free(tempText);
+    
+    // Handle array access assignment
+    if (left->nodeType == ARRAY_ACCESS) {
+        if (!validateArrayAccessNode(left, context)) {
+            return 0;
+        }
+        
+        // Additional const checking for array access
+        ASTNode baseNode = left->children;
+        Symbol arraySym = lookupSymbol(context->current, baseNode->start, baseNode->length);
+        if (arraySym) {
+            if (arraySym->isConst) {
+                reportErrorWithText(ERROR_CONSTANT_REASSIGNMENT, node, context,
+                                  "Cannot modify const array");
                 return 0;
             }
-            if (leftSym->isArray && rightSym && rightSym->isArray) {
-                if (leftSym->staticSize != rightSym->staticSize) {
-                    char msg[100];
-                    snprintf(msg, sizeof(msg), "Cannot assign array of size %d to array of size %d",
-                             rightSym->staticSize, leftSym->staticSize);
-                    REPORT_ERROR(ERROR_ARRAY_SIZE_MISMATCH, node, context, msg);
-                    return 0;
-                }
+            if (arraySym->isPointer && arraySym->hasConstMemRef) {
+                REPORT_ERROR(ERROR_CONSTANT_REASSIGNMENT, node, context,
+                            "Cannot modify through pointer to const");
+                return 0;
             }
         }
     }
-
-    DataType leftType = getExpressionType(left, context);
+    
+    // Type compatibility checking
+    DataType leftType = getExpressionType(leftForType, context);
     if (leftType == TYPE_UNKNOWN) {
-        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_LHS, left, context, "Cannot determine type of left-hand side");
+        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_LHS, leftForType, context, 
+                    "Cannot determine type of left-hand side");
         return 0;
     }
-
-    DataType rightType = getExpressionType(right, context);
+    
+    DataType rightType = getExpressionType(rightForType, context);
     if (rightType == TYPE_UNKNOWN) {
-        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_RHS, right, context, "Cannot determine type of right-hand side");
+        REPORT_ERROR(ERROR_EXPRESSION_TYPE_UNKNOWN_RHS, rightForType, context, 
+                    "Cannot determine type of right-hand side");
         return 0;
     }
-
+    
     CompatResult compat = areCompatible(leftType, rightType);
     if (compat == COMPAT_ERROR) {
-        REPORT_ERROR(variableErrorCompatibleHandling(leftType, rightType), node, context, "Type mismatch in assignment");
+        REPORT_ERROR(variableErrorCompatibleHandling(leftType, rightType), node, context, 
+                    "Type mismatch in assignment");
         return 0;
     } else if (compat == COMPAT_WARNING) {
-        REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, "Type mismatch in assignment");
+        REPORT_ERROR(ERROR_TYPE_MISMATCH_DOUBLE_TO_FLOAT, node, context, 
+                    "Type mismatch in assignment");
     }
-
+    
+    // Handle address-of with const tracking
+    if (left->nodeType == VARIABLE && right->nodeType == MEMADDRS) {
+        Symbol leftSym = lookupSymbol(context->current, left->start, left->length);
+        if (leftSym) {
+            updateConstMemRef(leftSym, right->children, context);
+        }
+    }
+    
+    // Mark variable as initialized and handle pointer level validation
     if (left->nodeType == VARIABLE) {
         Symbol symbol = lookupSymbol(context->current, left->start, left->length);
         if (symbol && node->nodeType == ASSIGNMENT) {
             symbol->isInitialized = 1;
+            
+            // Pointer level validation
+            if (symbol->isPointer && right->nodeType == VARIABLE) {
+                Symbol rightSym = lookupSymbol(context->current, right->start, right->length);
+                if (rightSym && rightSym->isPointer) {
+                    if (symbol->pointerLvl != rightSym->pointerLvl) {
+                        char msg[100];
+                        snprintf(msg, sizeof(msg),
+                                "Cannot assign pointer of level %d to pointer of level %d",
+                                rightSym->pointerLvl, symbol->pointerLvl);
+                        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, msg);
+                        return 0;
+                    }
+                    
+                    if (rightSym->hasConstMemRef) {
+                        symbol->hasConstMemRef = 1;
+                    }
+                }
+            }
         }
     }
-
+    
     return 1;
 }
 
@@ -1026,11 +1143,21 @@ FunctionParameter extractParameters(ASTNode paramListNode) {
             paramNode->start != NULL &&
             paramNode->children != NULL &&
             paramNode->children->children != NULL) {
-            DataType paramType = getDataTypeFromNode(paramNode->children->children->nodeType);
+            
+            int pointerLevel = 0;
+            ASTNode baseTypeNode = getBaseTypeFromPointerChain(
+                paramNode->children->children, &pointerLevel);
+            DataType paramType = getDataTypeFromNode(baseTypeNode->nodeType);
+            
             FunctionParameter param = createParameter(paramNode->start, paramNode->length, paramType);
             if (param == NULL) {
                 freeParamList(firstParam);
                 return NULL;
+            }
+            param->isPointer = (pointerLevel > 0);
+            param->pointerLevel = pointerLevel;
+            if (pointerLevel > 0) {
+                param->type = TYPE_POINTER;
             }
             if (firstParam == NULL) {
                 firstParam = param;
@@ -1044,15 +1171,19 @@ FunctionParameter extractParameters(ASTNode paramListNode) {
     return firstParam;
 }
 
-DataType getReturnTypeFromNode(ASTNode returnTypeNode) {
+DataType getReturnTypeFromNode(ASTNode returnTypeNode, int *outPointerLevel) {
     if (returnTypeNode == NULL || returnTypeNode->nodeType != RETURN_TYPE) {
-        return TYPE_VOID; // Default to void if no return type specified
+        if (outPointerLevel) *outPointerLevel = 0;
+        return TYPE_VOID;
     }
 
     if (returnTypeNode->children != NULL) {
-        return getDataTypeFromNode(returnTypeNode->children->nodeType);
+        ASTNode typeRef = getBaseTypeFromPointerChain(
+            returnTypeNode->children, outPointerLevel);
+        return getDataTypeFromNode(typeRef->nodeType);
     }
 
+    if (outPointerLevel) *outPointerLevel = 0;
     return TYPE_VOID;
 }
 
@@ -1072,7 +1203,8 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     }
 
     FunctionParameter parameters = extractParameters(paramListNode);
-    DataType returnType = getReturnTypeFromNode(returnTypeNode);
+    int returnPointerLevel = 0;
+    DataType returnType = getReturnTypeFromNode(returnTypeNode, &returnPointerLevel);
 
     int paramCount = 0;
     FunctionParameter param = parameters;
@@ -1081,14 +1213,20 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         param = param->next;
     }
 
-    Symbol funcSymbol =
-        addFunctionSymbolFromNode(context->current, node, returnType, parameters, paramCount);
+    Symbol funcSymbol = addFunctionSymbolFromNode(context->current, node, returnType, parameters, paramCount);
     if (funcSymbol == NULL) {
         char * tempText = extractText(node->start, node->length);
         REPORT_ERROR(ERROR_VARIABLE_REDECLARED, node, context, tempText);
         free(tempText);
         freeParamList(parameters);
         return 0;
+    }
+
+    funcSymbol->returnsPointer = (returnPointerLevel > 0);
+    funcSymbol->returnPointerLevel = returnPointerLevel;
+    if (returnPointerLevel > 0) {
+        funcSymbol->returnBaseType = returnType;
+        funcSymbol->type = TYPE_POINTER;
     }
 
     SymbolTable oldScope = context->current;
@@ -1104,14 +1242,26 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         return 0;
     }
 
+    ASTNode paramNode = paramListNode->children;
     param = parameters;
-    while (param != NULL) {
-        Symbol paramSymbol = addSymbol(context->current, param->nameStart, param->nameLength, param->type, node->line,
-                                       node->column);
+    while (param != NULL && paramNode != NULL) {
+        Symbol paramSymbol = addSymbol(context->current, param->nameStart, 
+                                        param->nameLength, param->type, 
+                                        node->line, node->column);
         if (paramSymbol != NULL) {
             paramSymbol->isInitialized = 1;
+            
+            if (paramNode->children && paramNode->children->children) {
+                int pointerLevel = 0;
+                ASTNode baseType = getBaseTypeFromPointerChain(paramNode->children->children, &pointerLevel);
+
+                paramSymbol->isPointer = (pointerLevel > 0);
+                paramSymbol->pointerLvl = pointerLevel;
+                paramSymbol->baseType = getDataTypeFromNode(baseType->nodeType); 
+            }
         }
         param = param->next;
+        paramNode = paramNode->brothers;
     }
 
     int success = 1;
@@ -1125,6 +1275,91 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
 
     return success;
 }
+
+int validateReturnStatement(ASTNode node, TypeCheckContext context) {
+    if (node == NULL || node->nodeType != RETURN_STATEMENT) {
+        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid return statement node");
+        return 0;
+    }
+
+    if (context->currentFunction == NULL) {
+        repError(ERROR_INVALID_EXPRESSION, "Return statement outside function");
+        return 0;
+    }
+
+    Symbol funcSym = context->currentFunction;
+    DataType expectedType = funcSym->type;
+
+    // Handle void return
+    if (node->children == NULL) {
+        if (expectedType != TYPE_VOID) {
+            repError(ERROR_MISSING_RETURN_VALUE, "Non-void function must return a value");
+            return 0;
+        }
+        return 1;
+    }
+
+    // Get actual return type
+    DataType returnType = getExpressionType(node->children, context);
+    if (returnType == TYPE_UNKNOWN) {
+        return 0;
+    }
+
+    // Check void mismatch
+    if (expectedType == TYPE_VOID) {
+        repError(ERROR_UNEXPECTED_RETURN_VALUE, "Void function cannot return a value");
+        return 0;
+    }
+
+    // Special handling for pointer returns
+    if (expectedType == TYPE_POINTER || returnType == TYPE_POINTER) {
+        // Both must be pointers
+        if (expectedType != TYPE_POINTER || returnType != TYPE_POINTER) {
+            repError(ERROR_RETURN_TYPE_MISMATCH, "Cannot return pointer from non-pointer function or vice versa");
+            return 0;
+        }
+        
+        // Check pointer levels and base type
+        ASTNode retExpr = node->children;
+        if (retExpr->nodeType == VARIABLE) {
+            Symbol retSym = lookupSymbol(context->current, retExpr->start, retExpr->length);
+            if (retSym && retSym->isPointer) {
+                // Check pointer levels match
+                if (funcSym->returnPointerLevel != retSym->pointerLvl) {
+                    char msg[100];
+                    snprintf(msg, sizeof(msg),
+                            "Pointer level mismatch: expected %d, got %d",
+                            funcSym->returnPointerLevel, retSym->pointerLvl);
+                    REPORT_ERROR(ERROR_RETURN_TYPE_MISMATCH, node, context, msg);
+                    return 0;
+                }
+                
+                // Check base types match
+                if (funcSym->returnBaseType != retSym->baseType) {
+                    char msg[100];
+                    snprintf(msg, sizeof(msg),
+                            "Base type mismatch: expected *%s, got *%s",
+                            getTypeName(funcSym->returnBaseType), 
+                            getTypeName(retSym->baseType));
+                    REPORT_ERROR(ERROR_RETURN_TYPE_MISMATCH, node, context, msg);
+                    return 0;
+                }
+            }
+        }
+        
+        return 1;
+    }
+    
+    // For non-pointer types, standard compatibility check
+    CompatResult compat = areCompatible(expectedType, returnType);
+    if (compat == COMPAT_ERROR) {
+        repError(ERROR_RETURN_TYPE_MISMATCH, "return");
+        return 0;
+    }
+
+    return 1;
+}
+
 
 /**
  * @brief Recursively type checks all children of an AST node.

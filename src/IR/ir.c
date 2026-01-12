@@ -145,6 +145,11 @@ IrInstruction *emitCopy(IrContext *ctx, IrOperand res, IrOperand ar1){
     return emitUnary(ctx, IR_COPY, res, ar1);
 }
 
+IrInstruction *emitStore(IrContext *ctx, IrOperand ptr, IrOperand value) {
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_STORE, none, ptr, value);
+}
+
 IrInstruction *emitLabel(IrContext *ctx, int lab){
     IrOperand label = createLabel(lab);
     IrOperand none = createNone();
@@ -347,7 +352,51 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         emitUnary(ctx, irOp, res, operandOp);
         return res;
     }
+    case MEMADDRS: {
+        // Handle &variable
+        ASTNode target = node->children;
+        if (!target) return createNone();
 
+        // Get the variable we're taking the address of
+        Symbol targetSym = lookupSymbol(typeCtx->current, target->start, target->length);
+        if (!targetSym) return createNone();
+
+        IrDataType targetType = symbolTypeToIrType(targetSym->type);
+        IrOperand targetVar = createVar(target->start, target->length, targetType);
+
+        // Create temp to hold the address
+        IrOperand result = createTemp(ctx, IR_TYPE_POINTER);
+
+        // Emit: result = &targetVar
+        emitUnary(ctx, IR_ADDROF, result, targetVar);
+
+        return result;
+    }
+
+    case POINTER: {
+        // Handle *ptr (dereference)
+        ASTNode ptrNode = node->children;
+        if (!ptrNode) return createNone();
+
+        // Generate the pointer expression
+        IrOperand ptrOp = generateExpressionIr(ctx, ptrNode, typeCtx);
+
+        // Determine the type of the dereferenced value
+        Symbol ptrSym = NULL;
+        if (ptrNode->nodeType == VARIABLE) {
+            ptrSym = lookupSymbol(typeCtx->current, ptrNode->start, ptrNode->length);
+        }
+
+        IrDataType derefType = ptrSym ? symbolTypeToIrType(ptrSym->type) : IR_TYPE_INT;
+
+        // Create temp to hold dereferenced value
+        IrOperand result = createTemp(ctx, derefType);
+
+        // Emit: result = *ptr
+        emitUnary(ctx, IR_DEREF, result, ptrOp);
+
+        return result;
+    }
     case PRE_INCREMENT:
     case PRE_DECREMENT: {
         printf("inside");
@@ -437,11 +486,20 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
         IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
         IrOperand leftOp;
-        if(node->children->nodeType == ARRAY_ACCESS){
+
+        if (node->children->nodeType == ARRAY_ACCESS) {
             leftOp = generateExpressionIr(ctx, left->children, typeCtx);
             ASTNode target = node->children->children->brothers;
             emitPointerStore(ctx, leftOp, generateExpressionIr(ctx, target, typeCtx), rightOp);
-        }else {
+        } else if (node->children->nodeType == POINTER) {
+            // Handle *ptr = value
+            ASTNode ptrNode = left->children;
+            IrOperand ptrOp = generateExpressionIr(ctx, ptrNode, typeCtx);
+
+            emitStore(ctx, ptrOp, rightOp);
+
+            return ptrOp;
+        } else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;
@@ -482,7 +540,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
                 }
 
                 emitBinary(ctx, op, temp, leftOp, rightOp);
-
                 emitCopy(ctx, leftOp, temp);
 
                 return leftOp;
@@ -494,7 +551,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         return leftOp;
     }
 
-    
     case CAST_EXPRESSION: {
         ASTNode sourceExpr = node->children;
         ASTNode targetType = sourceExpr->brothers;
@@ -718,9 +774,7 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_GT: return "GT";
         case IR_GE: return "GE";
         case IR_COPY: return "COPY";
-        case IR_LOAD: return "LOAD";
         case IR_STORE: return "STORE";
-        case IR_ADDR: return "ADDR";
         case IR_LABEL: return "LABEL";
         case IR_GOTO: return "GOTO";
         case IR_IF_TRUE: return "IF_TRUE";
@@ -736,6 +790,8 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_POINTER_LOAD: return "PTRLD";
         case IR_POINTER_STORE: return "PTRST";
         case IR_REQ_MEM: return "REQMEM";
+        case IR_DEREF: return "DEREF";
+        case IR_ADDROF: return "ADDROF";
         default: return "UNKNOWN";
     }
 }

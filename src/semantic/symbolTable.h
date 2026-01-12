@@ -36,7 +36,7 @@ typedef enum {
     TYPE_BOOL,
     TYPE_VOID,
     TYPE_STRUCT,
-    TYPE_ARRAY,
+    TYPE_POINTER,
     TYPE_UNKNOWN
 } DataType;
 
@@ -50,6 +50,8 @@ typedef struct FunctionParameter {
     const char *nameStart;
     size_t nameLength;
     DataType type;
+    int isPointer;
+    int pointerLevel;
     struct FunctionParameter *next;
 } *FunctionParameter;
 
@@ -89,6 +91,9 @@ typedef struct Symbol {
             // only for functions
             FunctionParameter parameters;
             int paramCount;
+            int returnsPointer;     
+            int returnPointerLevel;  
+            DataType returnBaseType;
         };
         struct {
             // only for vars
@@ -98,6 +103,10 @@ typedef struct Symbol {
             int staticSize;
             int constVal;
             int hasConstVal;
+            int hasConstMemRef;
+            int isPointer;
+            int pointerLvl;
+            DataType baseType;
         };
     };
     int line;

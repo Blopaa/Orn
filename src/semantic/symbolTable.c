@@ -13,6 +13,8 @@ FunctionParameter createParameter(const char *nameStart, size_t nameLen, DataTyp
     param->nameLength = nameLen;
     param->type = type;
     param->next = NULL;
+    param->isPointer = 0;
+    param->pointerLevel = 0;
     return param;
 }
 
@@ -69,44 +71,6 @@ Symbol addFunctionSymbolFromString(SymbolTable symbolTable, const char *name,
     if (!name) return NULL;
     return addFunctionSymbol(symbolTable, name, strlen(name), returnType,
                            parameters, paramCount, line, column);
-}
-
-int validateReturnStatement(ASTNode node, TypeCheckContext context) {
-    if (node == NULL || node->nodeType != RETURN_STATEMENT) {
-        repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid return statement node");
-        return 0;
-    }
-
-    if (context->currentFunction == NULL) {
-        repError(ERROR_INVALID_EXPRESSION, "Return statement outside function");
-        return 0;
-    }
-
-    DataType expectedType = context->currentFunction->type;
-
-    if (node->children == NULL) {
-        if (expectedType != TYPE_VOID) {
-            repError(ERROR_MISSING_RETURN_VALUE, "Non-void function must return a value");
-            return 0;
-        }
-    } else {
-        DataType returnType = getExpressionType(node->children, context);
-        if (returnType == TYPE_UNKNOWN) {
-            return 0;
-        }
-
-        if (expectedType == TYPE_VOID) {
-            repError(ERROR_UNEXPECTED_RETURN_VALUE, "Void function cannot return a value");
-            return 0;
-        }
-
-        if (!areCompatible(expectedType, returnType)) {
-            repError(ERROR_RETURN_TYPE_MISMATCH, "return");
-            return 0;
-        }
-    }
-
-    return 1;
 }
 
 /**
