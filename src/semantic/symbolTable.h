@@ -37,6 +37,7 @@ typedef enum {
     TYPE_VOID,
     TYPE_STRUCT,
     TYPE_POINTER,
+    TYPE_NULL,
     TYPE_UNKNOWN
 } DataType;
 

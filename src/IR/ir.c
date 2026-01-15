@@ -109,6 +109,14 @@ IrOperand createNone(){
     };
 }
 
+IrOperand createNullConst() {
+    IrOperand op = {0};
+    op.type = OPERAND_CONSTANT;
+    op.dataType = IR_TYPE_POINTER;
+    op.value.constant.intVal = 0;
+    return op;
+}
+
 void appendInstruction(IrContext *ctx, IrInstruction *inst){
     if(!ctx->instructions){
         ctx->instructions = inst;
@@ -203,6 +211,7 @@ IrDataType symbolTypeToIrType(DataType type) {
         case TYPE_BOOL: return IR_TYPE_BOOL;
         case TYPE_STRING: return IR_TYPE_STRING;
         case TYPE_VOID: return IR_TYPE_VOID;
+        case TYPE_NULL: return IR_TYPE_POINTER;
         default: return IR_TYPE_INT;
     }
 }
@@ -265,6 +274,10 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
     if(!node) return createNone();
     switch (node->nodeType){
+
+    case NULL_LIT:
+        return createNullConst();
+
     case LITERAL: {
         if (!node->children) {
             return createNone();
@@ -602,9 +615,17 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             }
             break;
         case VAR_DEFINITION: {
-            if(node->children && node->children->brothers){
-                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
-                IrDataType type  = nodeTypeToIrType(node->children->nodeType);
+            if (node->children && node->children->brothers) {
+                IrOperand val =
+                    generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+
+                ASTNode typeRefChild = node->children->children;
+                IrDataType type;
+                if (typeRefChild && typeRefChild->nodeType == POINTER) {
+                    type = IR_TYPE_POINTER;
+                } else {
+                    type = nodeTypeToIrType(typeRefChild ? typeRefChild->nodeType : REF_INT);
+                }
 
                 IrOperand var = createVar(node->start, node->length, type);
                 emitCopy(ctx, var, val);
@@ -717,10 +738,15 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 int paramIndex = 0;
                 while (param) {
                     IrDataType irType = symbolTypeToIrType(param->type);
+                    if (param->isPointer) {
+                        irType = IR_TYPE_POINTER;
+                    } else {
+                        irType = symbolTypeToIrType(param->type);
+                    }
                     IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
                     IrOperand indexOp = createIntConst(paramIndex);
 
-                    emitBinary(ctx, IR_COPY, paramVar, paramVar, indexOp);
+                    emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
 
                     param = param->next;
                     paramIndex++;
@@ -792,6 +818,7 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_REQ_MEM: return "REQMEM";
         case IR_DEREF: return "DEREF";
         case IR_ADDROF: return "ADDROF";
+        case IR_LOAD_PARAM: return "LOAD_PARAM";
         default: return "UNKNOWN";
     }
 }
@@ -805,13 +832,19 @@ static void printOperand(IrOperand op) {
             printf("%.*s", (int)op.value.var.nameLen, op.value.var.name);
             break;
         case OPERAND_CONSTANT:
-            if (op.dataType == IR_TYPE_INT || op.dataType == IR_TYPE_BOOL) {
+            if (op.dataType == IR_TYPE_POINTER) {
+                if (op.value.constant.intVal == 0) {
+                    printf("null");
+                } else {
+                    printf("0x%lx", (unsigned long)op.value.constant.intVal);
+                }
+            } else if (op.dataType == IR_TYPE_INT || op.dataType == IR_TYPE_BOOL) {
                 printf("%d", op.value.constant.intVal);
             } else if (op.dataType == IR_TYPE_STRING) {
                 printf("%.*s", (int)op.value.constant.str.len, op.value.constant.str.stringVal);
-            } else if(op.dataType == IR_TYPE_FLOAT){
+            } else if (op.dataType == IR_TYPE_FLOAT) {
                 printf("%g", op.value.constant.floatVal);
-            }else {
+            } else {
                 printf("%f", op.value.constant.doubleVal);
             }
             break;

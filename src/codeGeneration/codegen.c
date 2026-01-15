@@ -71,6 +71,11 @@ void freeCodeGenContext(CodeGenContext *ctx) {
 void loadOp(CodeGenContext *ctx, IrOperand *op, const char *reg){
     switch(op->type){
         case OPERAND_CONSTANT:
+            if (op->dataType == IR_TYPE_POINTER) {
+                const char *reg64 = getIntReg(reg, IR_TYPE_STRING);
+                emitInstruction(ctx, "movq $%ld, %s", (long)op->value.constant.intVal, reg64);
+                return;
+            }
             switch(op->dataType){
                 case IR_TYPE_STRING: {
                     int label = addStringLit(ctx, op->value.constant.str.stringVal, op->value.constant.str.len);
@@ -105,13 +110,17 @@ void loadOp(CodeGenContext *ctx, IrOperand *op, const char *reg){
                 : getTempOffset(ctx, op->value.temp.tempNum, op->dataType);
             
             switch(op->dataType){
-                case IR_TYPE_FLOAT:
-                case IR_TYPE_DOUBLE:
-                    emitInstruction(ctx, "mov%s %d(%%rbp), %s",getSSESuffix(op->dataType), off, reg);
-                    break;
-                default:
-                    emitInstruction(ctx, "mov%s %d(%%rbp), %s",getIntSuffix(op->dataType), off, getIntReg(reg, op->dataType));
-                    break;
+            case IR_TYPE_POINTER:
+                emitInstruction(ctx, "movq %d(%%rbp), %s", off, getIntReg(reg, IR_TYPE_STRING));
+                break;
+            case IR_TYPE_FLOAT:
+            case IR_TYPE_DOUBLE:
+                emitInstruction(ctx, "mov%s %d(%%rbp), %s", getSSESuffix(op->dataType), off, reg);
+                break;
+            default:
+                emitInstruction(ctx, "mov%s %d(%%rbp), %s", getIntSuffix(op->dataType), off,
+                                getIntReg(reg, op->dataType));
+                break;
             }
         break;
         
@@ -329,39 +338,87 @@ void genReqMem(CodeGenContext *ctx, IrInstruction *inst) {
     markVarAsArray(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, arraySize);
 }
 
-void genCopy(CodeGenContext *ctx, IrInstruction *inst) {
+void genLoadParam(CodeGenContext *ctx, IrInstruction *inst) {
+    IrDataType type = inst->result.dataType;
+    int paramIndex = inst->ar2.value.constant.intVal;
+    
+    addLocalVar(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, type);
+    int off = getVarOffset(ctx, inst->result.value.var.name, inst->result.value.var.nameLen);
+    
+    if (isFloatingPoint(type)) {
+        if (paramIndex < 8) {
+            emitInstruction(ctx, "mov%s %s, %d(%%rbp)", 
+                           getSSESuffix(type), 
+                           getSSEReg(paramIndex), 
+                           off);
+        }
+    } else {
+        if (paramIndex < 6) {
+            const char *reg = getParamIntReg(paramIndex, type);
+            emitInstruction(ctx, "mov%s %s, %d(%%rbp)", getIntSuffix(type), reg, off);
+        }
+    }
+}
+
+void genDeref(CodeGenContext *ctx, IrInstruction *inst) {
     IrDataType type = inst->result.dataType;
     
-    if (inst->result.type == OPERAND_VAR && 
-        inst->ar1.type == OPERAND_VAR &&
-        inst->ar2.type == OPERAND_CONSTANT &&
-        inst->result.value.var.nameLen == inst->ar1.value.var.nameLen &&
-        memcmp(inst->result.value.var.name, inst->ar1.value.var.name, inst->result.value.var.nameLen) == 0) {
-        
-        int paramIndex = inst->ar2.value.constant.intVal;
-        
-        addLocalVar(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, type);
-        int off = getVarOffset(ctx, inst->result.value.var.name, inst->result.value.var.nameLen);
-        
-        if (isFloatingPoint(type)) {
-            if (paramIndex < 8) {
-                emitInstruction(ctx, "mov%s %s, %d(%%rbp)", 
-                               getSSESuffix(type), 
-                               getSSEReg(paramIndex), 
-                               off);
-            }
-        } else {
-            if (paramIndex < 6) {
-                const char *reg = isFloatingPoint(type) ? getSSEReg(paramIndex)
-                                                        : getParamIntReg(paramIndex, type);
-                emitInstruction(ctx, "mov%s %s, %d(%%rbp)", 
-                               getIntSuffix(type), 
-                               reg, 
-                               off);
-            }
-        }
-        return;
+    // Load the pointer (always 64-bit) into rax
+    if (inst->ar1.type == OPERAND_VAR) {
+        int off = getVarOffset(ctx, inst->ar1.value.var.name, inst->ar1.value.var.nameLen);
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", off);
+    } else if (inst->ar1.type == OPERAND_TEMP) {
+        int off = getTempOffset(ctx, inst->ar1.value.temp.tempNum, IR_TYPE_POINTER);
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", off);
     }
+    
+    // Dereference: load from address in rax
+    if (isFloatingPoint(type)) {
+        emitInstruction(ctx, "mov%s (%%rax), %%xmm0", getSSESuffix(type));
+        storeOp(ctx, "%xmm0", &inst->result);
+    } else {
+        emitInstruction(ctx, "mov%s (%%rax), %s", getIntSuffix(type), getIntReg("c", type));
+        storeOp(ctx, "c", &inst->result);
+    }
+}
+
+void genStore(CodeGenContext *ctx, IrInstruction *inst) {
+    IrDataType type = inst->ar2.dataType;
+    
+    // Load the pointer (always 64-bit) into rax
+    if (inst->ar1.type == OPERAND_VAR) {
+        int off = getVarOffset(ctx, inst->ar1.value.var.name, inst->ar1.value.var.nameLen);
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", off);
+    } else if (inst->ar1.type == OPERAND_TEMP) {
+        int off = getTempOffset(ctx, inst->ar1.value.temp.tempNum, IR_TYPE_POINTER);
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", off);
+    }
+    
+    // Load the value and store through pointer
+    if (isFloatingPoint(type)) {
+        loadOp(ctx, &inst->ar2, "%xmm0");
+        emitInstruction(ctx, "mov%s %%xmm0, (%%rax)", getSSESuffix(type));
+    } else {
+        loadOp(ctx, &inst->ar2, "c");
+        emitInstruction(ctx, "mov%s %s, (%%rax)", getIntSuffix(type), getIntReg("c", type));
+    }
+}
+
+void genAddrof(CodeGenContext *ctx, IrInstruction *inst) {
+    if (inst->ar1.type == OPERAND_VAR) {
+        VarLoc *var = findVar(ctx, inst->ar1.value.var.name, inst->ar1.value.var.nameLen);
+        if (!var) {
+            addLocalVar(ctx, inst->ar1.value.var.name, inst->ar1.value.var.nameLen, inst->ar1.dataType);
+        }
+        int off = getVarOffset(ctx, inst->ar1.value.var.name, inst->ar1.value.var.nameLen);
+        
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", off);
+        storeOp(ctx, "a", &inst->result);
+    }
+}
+
+void genCopy(CodeGenContext *ctx, IrInstruction *inst) {
+    IrDataType type = inst->result.dataType;
     
     if (isFloatingPoint(type)) {
         loadOp(ctx, &inst->ar1, "%xmm0");
@@ -568,8 +625,12 @@ void genCast(CodeGenContext *ctx, IrInstruction *inst) {
 
 void genComparison(CodeGenContext *ctx, IrInstruction *inst) {
     IrDataType type = inst->ar1.dataType;
-    
-    if (isFloatingPoint(type)) {
+
+    if (type == IR_TYPE_POINTER || inst->ar2.dataType == IR_TYPE_POINTER) {
+        loadOp(ctx, &inst->ar1, "a");
+        loadOp(ctx, &inst->ar2, "c");
+        emitInstruction(ctx, "cmpq %%rcx, %%rax");
+    } else if (isFloatingPoint(type)) {
         loadOp(ctx, &inst->ar1, "%xmm0");
         loadOp(ctx, &inst->ar2, "%xmm1");
         
@@ -669,7 +730,21 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_COPY:
             genCopy(ctx, inst);
             break;
+        case IR_LOAD_PARAM:
+            genLoadParam(ctx, inst);
+            break;
             
+        case IR_DEREF:
+            genDeref(ctx, inst);
+            break;
+            
+        case IR_STORE:
+            genStore(ctx, inst);
+            break;
+            
+        case IR_ADDROF:
+            genAddrof(ctx, inst);
+            break;
         case IR_LABEL:
             emitLabelNum(ctx, inst->result.value.label.labelNum);
             break;

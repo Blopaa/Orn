@@ -91,6 +91,7 @@ typedef enum {
     REF_CUSTOM,
     POINTER,
     MEMADDRS,
+    NULL_LIT,
 
     // Variable definitions
     STRUCT_VARIABLE_DEFINITION,
@@ -270,6 +271,7 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {TERNARY_ELSE_EXPR, "TERNARY_ELSE_EXPR"},
     {POINTER, "PTR"},
     {MEMADDRS, "MEMREF"},
+    {NULL_LIT, "NULL"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 

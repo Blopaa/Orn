@@ -30,7 +30,7 @@ typedef enum {
     IR_GE,
 
     IR_COPY,
-
+    IR_LOAD_PARAM,
 
     IR_REQ_MEM,
     IR_POINTER_LOAD,

@@ -114,6 +114,10 @@ CompatResult areCompatible(DataType target, DataType source) {
     
     if (target == source) return COMPAT_OK;
 
+    if (source == TYPE_NULL && target == TYPE_POINTER) return COMPAT_OK;
+    if (target == TYPE_NULL && source == TYPE_POINTER) return COMPAT_OK;
+    if (source == TYPE_NULL && target == TYPE_NULL) return COMPAT_OK;
+
     switch (target) {
         case TYPE_STRING:
         case TYPE_BOOL:
@@ -277,7 +281,8 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
                 return TYPE_STRING;
             }
         }
-         case POINTER: { // Dereference: *ptr, **pp, *arr[i], etc.
+        case NULL_LIT: return TYPE_NULL;
+        case POINTER: { // Dereference: *ptr, **pp, *arr[i], etc.
             ASTNode ptrNode = node->children;
             if (!ptrNode) return TYPE_UNKNOWN;
 
@@ -878,10 +883,9 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
         }
     }
     
-    // Process initialization if present
+    ASTNode initNode = isArr ? node->children->brothers->brothers : node->children->brothers;
     if (node->children && node->children->brothers) {
-        ASTNode initNode = node->children->brothers;
-        int isMemRef = (initNode->children->nodeType == MEMADDRS);
+        int isMemRef = (initNode->children && initNode->children->nodeType == MEMADDRS);
         
         // Validate address-of operator if used
         if (isMemRef) {

@@ -275,25 +275,23 @@ int validateArrayCopyInit(ASTNode sourceVarNode, Symbol targetSym,
     return 1;
 }
 
-int validateArrayInitialization(Symbol newSymbol, ASTNode initNode, 
-                                       DataType varType, int isConst,
-                                       TypeCheckContext context) {
-    ASTNode valueNode = initNode->brothers;
+int validateArrayInitialization(Symbol newSymbol, ASTNode initNode, DataType varType, int isConst,
+                                TypeCheckContext context) {
+    ASTNode valueNode = initNode;
     if (!valueNode || valueNode->nodeType != VALUE || !valueNode->children) {
         return 1;
     }
-    
+
     ASTNode arrLit = valueNode->children;
-    
+
     if (arrLit->nodeType == ARRAY_LIT) {
-        if (!validateArrayLiteralInit(arrLit, varType, newSymbol->staticSize, 
-                                     isConst, context)) {
+        if (!validateArrayLiteralInit(arrLit, varType, newSymbol->staticSize, isConst, context)) {
             return 0;
         }
         newSymbol->isInitialized = 1;
         return 1;
     }
-    
+
     if (arrLit->nodeType == VARIABLE) {
         if (!validateArrayCopyInit(arrLit, newSymbol, context)) {
             return 0;
@@ -301,7 +299,7 @@ int validateArrayInitialization(Symbol newSymbol, ASTNode initNode,
         newSymbol->isInitialized = 1;
         return 1;
     }
-    
+
     return 1;
 }
 

@@ -161,7 +161,14 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 		return parseArrLit(list, pos);
 	}
 
-	if (detectLitType(token, list, pos) == VARIABLE &&
+    if (token->type == TK_NULL) {
+        ASTNode nullNode;
+        CREATE_NODE_OR_FAIL(nullNode, token, NULL_LIT, list, pos);
+        ADVANCE_TOKEN(list, pos);
+        return nullNode;
+    }
+
+        if (detectLitType(token, list, pos) == VARIABLE &&
 		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
 		Token * fnNameTok = token;
 		ADVANCE_TOKEN(list, pos);
@@ -203,7 +210,6 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 			break;
 		}
 	}
-
 	return node;
 }
 
