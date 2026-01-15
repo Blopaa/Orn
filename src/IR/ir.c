@@ -109,6 +109,14 @@ IrOperand createNone(){
     };
 }
 
+IrOperand createNullConst() {
+    IrOperand op = {0};
+    op.type = OPERAND_CONSTANT;
+    op.dataType = IR_TYPE_POINTER;
+    op.value.constant.intVal = 0;
+    return op;
+}
+
 void appendInstruction(IrContext *ctx, IrInstruction *inst){
     if(!ctx->instructions){
         ctx->instructions = inst;
@@ -143,6 +151,11 @@ IrInstruction *emitUnary(IrContext *ctx, IrOpCode op, IrOperand res, IrOperand a
 
 IrInstruction *emitCopy(IrContext *ctx, IrOperand res, IrOperand ar1){
     return emitUnary(ctx, IR_COPY, res, ar1);
+}
+
+IrInstruction *emitStore(IrContext *ctx, IrOperand ptr, IrOperand value) {
+    IrOperand none = createNone();
+    return emitBinary(ctx, IR_STORE, none, ptr, value);
 }
 
 IrInstruction *emitLabel(IrContext *ctx, int lab){
@@ -198,6 +211,7 @@ IrDataType symbolTypeToIrType(DataType type) {
         case TYPE_BOOL: return IR_TYPE_BOOL;
         case TYPE_STRING: return IR_TYPE_STRING;
         case TYPE_VOID: return IR_TYPE_VOID;
+        case TYPE_NULL: return IR_TYPE_POINTER;
         default: return IR_TYPE_INT;
     }
 }
@@ -260,6 +274,10 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
     if(!node) return createNone();
     switch (node->nodeType){
+
+    case NULL_LIT:
+        return createNullConst();
+
     case LITERAL: {
         if (!node->children) {
             return createNone();
@@ -347,10 +365,53 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         emitUnary(ctx, irOp, res, operandOp);
         return res;
     }
+    case MEMADDRS: {
+        // Handle &variable
+        ASTNode target = node->children;
+        if (!target) return createNone();
 
+        // Get the variable we're taking the address of
+        Symbol targetSym = lookupSymbol(typeCtx->current, target->start, target->length);
+        if (!targetSym) return createNone();
+
+        IrDataType targetType = symbolTypeToIrType(targetSym->type);
+        IrOperand targetVar = createVar(target->start, target->length, targetType);
+
+        // Create temp to hold the address
+        IrOperand result = createTemp(ctx, IR_TYPE_POINTER);
+
+        // Emit: result = &targetVar
+        emitUnary(ctx, IR_ADDROF, result, targetVar);
+
+        return result;
+    }
+
+    case POINTER: {
+        // Handle *ptr (dereference)
+        ASTNode ptrNode = node->children;
+        if (!ptrNode) return createNone();
+
+        // Generate the pointer expression
+        IrOperand ptrOp = generateExpressionIr(ctx, ptrNode, typeCtx);
+
+        // Determine the type of the dereferenced value
+        Symbol ptrSym = NULL;
+        if (ptrNode->nodeType == VARIABLE) {
+            ptrSym = lookupSymbol(typeCtx->current, ptrNode->start, ptrNode->length);
+        }
+
+        IrDataType derefType = ptrSym ? symbolTypeToIrType(ptrSym->type) : IR_TYPE_INT;
+
+        // Create temp to hold dereferenced value
+        IrOperand result = createTemp(ctx, derefType);
+
+        // Emit: result = *ptr
+        emitUnary(ctx, IR_DEREF, result, ptrOp);
+
+        return result;
+    }
     case PRE_INCREMENT:
     case PRE_DECREMENT: {
-        printf("inside");
         ASTNode operand = node->children;
         IrOperand var = generateExpressionIr(ctx, operand, typeCtx);
         
@@ -437,11 +498,20 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
         IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
         IrOperand leftOp;
-        if(node->children->nodeType == ARRAY_ACCESS){
+
+        if (node->children->nodeType == ARRAY_ACCESS) {
             leftOp = generateExpressionIr(ctx, left->children, typeCtx);
             ASTNode target = node->children->children->brothers;
             emitPointerStore(ctx, leftOp, generateExpressionIr(ctx, target, typeCtx), rightOp);
-        }else {
+        } else if (node->children->nodeType == POINTER) {
+            // Handle *ptr = value
+            ASTNode ptrNode = left->children;
+            IrOperand ptrOp = generateExpressionIr(ctx, ptrNode, typeCtx);
+
+            emitStore(ctx, ptrOp, rightOp);
+
+            return ptrOp;
+        } else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;
@@ -482,7 +552,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
                 }
 
                 emitBinary(ctx, op, temp, leftOp, rightOp);
-
                 emitCopy(ctx, leftOp, temp);
 
                 return leftOp;
@@ -494,7 +563,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         return leftOp;
     }
 
-    
     case CAST_EXPRESSION: {
         ASTNode sourceExpr = node->children;
         ASTNode targetType = sourceExpr->brothers;
@@ -546,9 +614,17 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             }
             break;
         case VAR_DEFINITION: {
-            if(node->children && node->children->brothers){
-                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
-                IrDataType type  = nodeTypeToIrType(node->children->nodeType);
+            if (node->children && node->children->brothers) {
+                IrOperand val =
+                    generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+
+                ASTNode typeRefChild = node->children->children;
+                IrDataType type;
+                if (typeRefChild && typeRefChild->nodeType == POINTER) {
+                    type = IR_TYPE_POINTER;
+                } else {
+                    type = nodeTypeToIrType(typeRefChild ? typeRefChild->nodeType : REF_INT);
+                }
 
                 IrOperand var = createVar(node->start, node->length, type);
                 emitCopy(ctx, var, val);
@@ -661,10 +737,13 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 int paramIndex = 0;
                 while (param) {
                     IrDataType irType = symbolTypeToIrType(param->type);
+                    if (param->isPointer) {
+                        irType = IR_TYPE_POINTER;
+                    }
                     IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
                     IrOperand indexOp = createIntConst(paramIndex);
 
-                    emitBinary(ctx, IR_COPY, paramVar, paramVar, indexOp);
+                    emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
 
                     param = param->next;
                     paramIndex++;
@@ -718,9 +797,7 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_GT: return "GT";
         case IR_GE: return "GE";
         case IR_COPY: return "COPY";
-        case IR_LOAD: return "LOAD";
         case IR_STORE: return "STORE";
-        case IR_ADDR: return "ADDR";
         case IR_LABEL: return "LABEL";
         case IR_GOTO: return "GOTO";
         case IR_IF_TRUE: return "IF_TRUE";
@@ -736,6 +813,9 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_POINTER_LOAD: return "PTRLD";
         case IR_POINTER_STORE: return "PTRST";
         case IR_REQ_MEM: return "REQMEM";
+        case IR_DEREF: return "DEREF";
+        case IR_ADDROF: return "ADDROF";
+        case IR_LOAD_PARAM: return "LOAD_PARAM";
         default: return "UNKNOWN";
     }
 }
@@ -749,13 +829,19 @@ static void printOperand(IrOperand op) {
             printf("%.*s", (int)op.value.var.nameLen, op.value.var.name);
             break;
         case OPERAND_CONSTANT:
-            if (op.dataType == IR_TYPE_INT || op.dataType == IR_TYPE_BOOL) {
+            if (op.dataType == IR_TYPE_POINTER) {
+                if (op.value.constant.intVal == 0) {
+                    printf("null");
+                } else {
+                    printf("0x%lx", (unsigned long)op.value.constant.intVal);
+                }
+            } else if (op.dataType == IR_TYPE_INT || op.dataType == IR_TYPE_BOOL) {
                 printf("%d", op.value.constant.intVal);
             } else if (op.dataType == IR_TYPE_STRING) {
                 printf("%.*s", (int)op.value.constant.str.len, op.value.constant.str.stringVal);
-            } else if(op.dataType == IR_TYPE_FLOAT){
+            } else if (op.dataType == IR_TYPE_FLOAT) {
                 printf("%g", op.value.constant.floatVal);
-            }else {
+            } else {
                 printf("%f", op.value.constant.doubleVal);
             }
             break;
