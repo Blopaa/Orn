@@ -39,52 +39,55 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 	if (len < 2) return TK_LIT;
 
 	switch (s[0]) {
-	case 'a':
-		if(len == 2 && memcmp(s, "as", 2) == 0) return TK_AS;
-		break;
-	case 'b':
-		if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
-		break;
-	case 'c':
-		if(len == 5 && memcmp(s, "const", 5) == 0) return TK_CONST;
-		break;
-	case 'd': 
-		if (len == 6 && memcmp(s, "double", 6) == 0) return TK_DOUBLE;
-		break;
-	case 'e':
-		if(len == 4 && memcmp(s, "else", 4) == 0) return TK_ELSE;
-		break;
-	case 'f':
-		if (len == 2 && s[1] == 'n') return TK_FN;
-		if (len == 5) {
-			if (memcmp(s, "float", 5) == 0) return TK_FLOAT;
-			if (memcmp(s, "false", 5) == 0) return TK_FALSE;
-		}
-		break;
-	case 'i':
-		if (len == 3 && memcmp(s, "int", 3) == 0) return TK_INT;
-		if (len == 2 && memcmp(s, "if", 2) == 0) return TK_IF;
-		break;
-	case 'l':
-		if(len == 3 && memcmp(s, "let", 3) == 0) return TK_LET;
-		break;
-	case 'r':
-		if (len == 6 && memcmp(s, "return", 6) == 0) return TK_RETURN;
-		break;
-	case 's':
-		if (len == 6 && memcmp(s, "struct", 6) == 0) return TK_STRUCT;
-		if (len == 6 && memcmp(s, "string", 6) == 0) return TK_STRING;
-		break;
-	case 't':
-		if (len == 4 && memcmp(s, "true", 4) == 0) return TK_TRUE;
-		break;
-	case 'v':
-		if (len == 4 && memcmp(s, "void", 4) == 0) return TK_VOID;
-		break;
-	case 'w':
-		if (len == 5 && memcmp(s, "while", 5) == 0) return TK_WHILE;
-		break;
-	}
+		case 'a':
+			if(len == 2 && memcmp(s, "as", 2) == 0) return TK_AS;
+			break;
+		case 'b':
+			if (len == 4 && memcmp(s, "bool", 4) == 0) return TK_BOOL;
+			break;
+		case 'c':
+			if(len == 5 && memcmp(s, "const", 5) == 0) return TK_CONST;
+			break;
+		case 'd': 
+			if (len == 6 && memcmp(s, "double", 6) == 0) return TK_DOUBLE;
+			break;
+		case 'e':
+			if(len == 4 && memcmp(s, "else", 4) == 0) return TK_ELSE;
+			break;
+		case 'f':
+			if (len == 2 && s[1] == 'n') return TK_FN;
+			if (len == 5) {
+				if (memcmp(s, "float", 5) == 0) return TK_FLOAT;
+				if (memcmp(s, "false", 5) == 0) return TK_FALSE;
+			}
+			break;
+		case 'i':
+			if (len == 3 && memcmp(s, "int", 3) == 0) return TK_INT;
+			if (len == 2 && memcmp(s, "if", 2) == 0) return TK_IF;
+			break;
+		case 'l':
+			if(len == 3 && memcmp(s, "let", 3) == 0) return TK_LET;
+			break;
+		case 'r':
+			if (len == 6 && memcmp(s, "return", 6) == 0) return TK_RETURN;
+			break;
+		case 's':
+			if (len == 6 && memcmp(s, "struct", 6) == 0) return TK_STRUCT;
+			if (len == 6 && memcmp(s, "string", 6) == 0) return TK_STRING;
+			break;
+		case 't':
+			if (len == 4 && memcmp(s, "true", 4) == 0) return TK_TRUE;
+			break;
+		case 'v':
+			if (len == 4 && memcmp(s, "void", 4) == 0) return TK_VOID;
+			break;
+		case 'w':
+			if (len == 5 && memcmp(s, "while", 5) == 0) return TK_WHILE;
+			break;
+        case 'n':
+            if (len == 4 && memcmp(s, "null", 4) == 0) return TK_NULL;
+            break;
+        }
 	return TK_LIT;
 }
 

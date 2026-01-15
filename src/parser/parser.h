@@ -89,6 +89,9 @@ typedef enum {
     REF_VOID,
     REF_DOUBLE,
     REF_CUSTOM,
+    POINTER,
+    MEMADDRS,
+    NULL_LIT,
 
     // Variable definitions
     STRUCT_VARIABLE_DEFINITION,
@@ -266,6 +269,9 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {TERNARY_CONDITIONAL, "TERNARY_CONDITIONAL"},
     {TERNARY_IF_EXPR, "TERNARY_IF_EXPR"},
     {TERNARY_ELSE_EXPR, "TERNARY_ELSE_EXPR"},
+    {POINTER, "PTR"},
+    {MEMADDRS, "MEMREF"},
+    {NULL_LIT, "NULL"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -439,7 +445,7 @@ ASTNode parseExpressionStatement(TokenList* list, size_t* pos);
 ASTNode parseStruct(TokenList* list, size_t* pos);
 ASTNode parseStructField(TokenList* list, size_t* pos);
 NodeTypes getTypeNodeFromToken(TokenType type);
-ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *tokType, Token *varName);
+ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *varName);
 ASTNode parseArrLit(TokenList *list, size_t *pos);
 ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode);
 
