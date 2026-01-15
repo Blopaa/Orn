@@ -412,7 +412,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     }
     case PRE_INCREMENT:
     case PRE_DECREMENT: {
-        printf("inside");
         ASTNode operand = node->children;
         IrOperand var = generateExpressionIr(ctx, operand, typeCtx);
         
@@ -740,8 +739,6 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                     IrDataType irType = symbolTypeToIrType(param->type);
                     if (param->isPointer) {
                         irType = IR_TYPE_POINTER;
-                    } else {
-                        irType = symbolTypeToIrType(param->type);
                     }
                     IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
                     IrOperand indexOp = createIntConst(paramIndex);

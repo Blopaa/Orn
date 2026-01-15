@@ -140,13 +140,11 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 	if (*pos >= list->count) return NULL;
 	Token *token = &list->tokens[*pos];
 	
-	// Si encuentra * o &, parsear recursivamente
 	if(token->type == TK_STAR || token->type == TK_AMPERSAND){
 		Token* opToken = token;
 		int isPointer = token->type == TK_STAR;
 		ADVANCE_TOKEN(list, pos);
 		
-		// ⭐ CLAVE: llamada recursiva para manejar ** *** etc
 		ASTNode operand = parsePrimaryExp(list, pos);
 		if(!operand) return NULL;
 		

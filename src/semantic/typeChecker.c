@@ -681,11 +681,10 @@ int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context) {
         if (argType == TYPE_UNKNOWN) {
             return 0; // Error already reported
         }
-        printf("%d == %d", argType==TYPE_POINTER, param->type == TYPE_POINTER);
         CompatResult compat = areCompatible(param->type, argType);
         if (compat == COMPAT_ERROR) {
             char * tempText = extractText(param->nameStart, param->nameLength);
-            REPORT_ERROR(variableErrorCompatibleHandling(param->type, argType), node, context, "pito");
+            REPORT_ERROR(variableErrorCompatibleHandling(param->type, argType), node, context, tempText);
             free(tempText);
             return 0;
         } else if (compat == COMPAT_WARNING) {
@@ -839,7 +838,7 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
     if (pointerLevel > 0) {
         newSymbol->baseType = varType;  
         newSymbol->type = TYPE_POINTER;
-        varType = TYPE_POINTER;         // Actualiza varType para validación posterior
+        varType = TYPE_POINTER;
     }
 
     // Handle array-specific validation
