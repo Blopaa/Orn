@@ -523,6 +523,14 @@ void genCall(CodeGenContext *ctx, IrInstruction *inst) {
                 emitInstruction(ctx, "call print_int");
                 break;
         }
+    } else if (fnLen == 4 && memcmp(fnName, "read", 4) == 0) {
+        if (inst->result.type != OPERAND_NONE) {
+            if (inst->result.dataType == IR_TYPE_INT) {
+                emitInstruction(ctx, "call read_int");
+            }
+        }
+    }else if(fnLen == 6 && memcmp(fnName, "readln", 6) == 0){
+        emitInstruction(ctx, "call read_str");
     } else {
         // Check if this is an imported function
         int found = 0;

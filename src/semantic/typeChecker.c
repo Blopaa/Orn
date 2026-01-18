@@ -538,14 +538,10 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             ASTNode targetTypeNode = node->children->brothers;
             return getDataTypeFromNode(targetTypeNode->nodeType);
         case FUNCTION_CALL: {
-            if (isBuiltinFunction(node->start, node->length)) {
-                return TYPE_VOID;
-            }
             Symbol funcSymbol = lookupSymbol(context->current, node->start, node->length);
             if (funcSymbol != NULL && funcSymbol->symbolType == SYMBOL_FUNCTION) {
                 return funcSymbol->type;
             }
-
             return TYPE_UNKNOWN;
         }
         case MEMBER_ACCESS:

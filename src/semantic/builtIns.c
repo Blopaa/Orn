@@ -41,6 +41,22 @@ static BuiltInFunction builtInFunctions[] = {
         .paramNames = NULL,
         .paramCount = 1,
         .id = BUILTIN_PRINT_BOOL
+    },
+    {
+        .name = "read",
+        .returnType = TYPE_INT,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 0,
+        .id = BUILTIN_READ_INT
+    },
+    {
+        .name = "readln",
+        .returnType = TYPE_STRING,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 0,
+        .id = BUILTIN_READ_STRING
     }
 };
 
@@ -68,6 +84,14 @@ static void initBuiltInsParams() {
     builtInFunctions[3].paramTypes[0] = TYPE_BOOL;
     builtInFunctions[3].paramNames = malloc(sizeof(char *));
     builtInFunctions[3].paramNames[0] = strdup("value");
+
+    // read() -> int (no parameters, reads from stdin)
+    builtInFunctions[4].paramTypes = NULL;
+    builtInFunctions[4].paramNames = NULL;
+
+    // scan() -> string
+    builtInFunctions[5].paramTypes = NULL;
+    builtInFunctions[5].paramNames = NULL;
 
     builtInsInit = 1;
 }
