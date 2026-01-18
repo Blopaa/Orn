@@ -3,6 +3,9 @@
 *.obj
 output.s
 program.orn
+math.orn
+a.orn
+b.orn
 
 # Compiled Dynamic libraries
 *.so

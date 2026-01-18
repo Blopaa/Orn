@@ -35,6 +35,10 @@ set(LIB_SOURCES
         src/codeGeneration/stringBuffer.c
         src/codeGeneration/variableHandling.c
         src/codeGeneration/variableHandling.h
+        src/modules/interface.c
+        src/modules/interface.h
+        src/modules/build.c
+        src/modules/build.h
 )
 
 # Create compiler library

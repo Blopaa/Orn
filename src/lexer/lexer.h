@@ -23,6 +23,11 @@ typedef enum {
 	TK_CONST,
 	TK_LET,
 
+	//modules
+	TK_EXPORT,
+	TK_FROM,
+	TK_IMPORT,
+
 	// Data types
 	TK_INT,
 	TK_STRING,

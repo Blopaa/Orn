@@ -9,6 +9,7 @@
 #include "./dataPool.h"
 #include "../IR/ir.h"
 #include "./variableHandling.h"
+#include "../modules/interface.h"
 
 typedef struct FuncInfo {
     const char *name;
@@ -37,6 +38,10 @@ typedef struct CodeGenContext {
     
     int maxTempNum;
     IrDataType lastParamType;
+
+    const char *moduleName;
+    ModuleInterface **imports;
+    int importCount;
 } CodeGenContext;
 
 CodeGenContext *createCodeGenContext(void);
@@ -62,7 +67,7 @@ void genLogical(CodeGenContext *ctx, IrInstruction *inst);
 void genCast(CodeGenContext *ctx, IrInstruction *inst);
 void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCount);
 
-char *generateAssembly(IrContext *ir);
+char *generateAssembly(IrContext *ir, const char *moduleName, ModuleInterface **imports, int importCount);
 int writeAssemblyToFile(const char *assembly, const char *filename);
 
 #endif
