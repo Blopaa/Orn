@@ -77,6 +77,9 @@ typedef enum {
     // Special nodes
     null_NODE,
     PROGRAM,
+    IMPORTDEC,
+    EXPORTDEC,
+    FROMDEC,
 
     //array types
     ARRAY_ACCESS,
@@ -272,6 +275,8 @@ static const NodeTypeMap nodeTypeMapping[] = {
     {POINTER, "PTR"},
     {MEMADDRS, "MEMREF"},
     {NULL_LIT, "NULL"},
+    {IMPORTDEC, "IMPORT"},
+    {EXPORTDEC, "EXPORT"},
     {null_NODE, NULL} // Sentinel - must be last
 };
 
@@ -448,6 +453,8 @@ NodeTypes getTypeNodeFromToken(TokenType type);
 ASTNode parseArrayDec(TokenList *list, size_t *pos, Token *varName);
 ASTNode parseArrLit(TokenList *list, size_t *pos);
 ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode);
+ASTNode parseImport(TokenList *list, size_t *pos);
+ASTNode parseExportFunction(TokenList* list, size_t* pos);
 
 // Public function prototypes
 ASTContext * ASTGenerator(TokenList* tokenList);

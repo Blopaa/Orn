@@ -1693,8 +1693,13 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
-TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
-    TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename, TypeCheckContext ref) {
+    TypeCheckContext context;
+    if(ref){
+        context = ref;
+    }else {
+        context = createTypeCheckContext(sourceCode, filename);
+    }
     if (context == NULL) {
         repError(ERROR_CONTEXT_CREATION_FAILED, "Failed to create type check context");
         return 0;

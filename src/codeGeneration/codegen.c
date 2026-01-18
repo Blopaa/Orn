@@ -498,9 +498,10 @@ void genParam(CodeGenContext *ctx, IrInstruction *inst, int paramIndex) {
 }
 
 void genCall(CodeGenContext *ctx, IrInstruction *inst) {
-        const char *fnName = inst->ar1.value.fn.name;
+    const char *fnName = inst->ar1.value.fn.name;
     size_t fnLen = inst->ar1.value.fn.nameLen;
     
+    // Handle built-in print
     if (fnLen == 5 && memcmp(fnName, "print", 5) == 0) {
         switch (ctx->lastParamType) {
             case IR_TYPE_STRING:
@@ -522,10 +523,29 @@ void genCall(CodeGenContext *ctx, IrInstruction *inst) {
                 emitInstruction(ctx, "call print_int");
                 break;
         }
-    }else{
-        emitInstruction(ctx, "call %.*s",
-                   (int)fnLen,
-                   fnName);
+    } else {
+        // Check if this is an imported function
+        int found = 0;
+        for (int i = 0; i < ctx->importCount; i++) {
+            ModuleInterface *iface = ctx->imports[i];
+            ExportedFunction *func = iface->functions;
+            while (func) {
+                size_t funcNameLen = strlen(func->name);
+                if (funcNameLen == fnLen && memcmp(func->name, fnName, fnLen) == 0) {
+                    // Found imported function - use mangled name
+                    emitInstruction(ctx, "call _Orn_%s__%s", iface->moduleName, func->name);
+                    found = 1;
+                    break;
+                }
+                func = func->next;
+            }
+            if (found) break;
+        }
+        
+        if (!found) {
+            // Local function call
+            emitInstruction(ctx, "call %.*s", (int)fnLen, fnName);
+        }
     }
     
     if (inst->result.type != OPERAND_NONE) {
@@ -543,14 +563,33 @@ void genFuncBegin(CodeGenContext *ctx, IrInstruction *inst) {
     func->name = inst->result.value.fn.name;
     func->nameLen = inst->result.value.fn.nameLen;
     func->stackSize = 0;
-    
+
     ctx->currentFn = func;
     ctx->inFn = 1;
-    
-    sbAppendf(&ctx->text, "\n    .globl %.*s\n", (int)func->nameLen, func->name);
-    sbAppendf(&ctx->text, "    .type %.*s, @function\n", (int)func->nameLen, func->name);
-    sbAppendf(&ctx->text, "%.*s:\n", (int)func->nameLen, func->name);
-    
+
+    int isExported = (inst->ar1.type == OPERAND_CONSTANT && inst->ar1.value.constant.intVal == 1);
+
+    // Special case: main must always be global for the linker
+    int isMain = (func->nameLen == 4 && memcmp(func->name, "main", 4) == 0);
+
+    if (isMain) {
+        // main: always global, never mangled
+        sbAppendf(&ctx->text, "\n    .globl main\n");
+        sbAppendf(&ctx->text, "    .type main, @function\n");
+        sbAppendf(&ctx->text, "main:\n");
+    } else if (isExported && ctx->moduleName) {
+        // Exported: mangled global + local alias
+        sbAppendf(&ctx->text, "\n    .globl _Orn_%s__%.*s\n", ctx->moduleName, (int)func->nameLen,
+                  func->name);
+        sbAppendf(&ctx->text, "    .type _Orn_%s__%.*s, @function\n", ctx->moduleName,
+                  (int)func->nameLen, func->name);
+        sbAppendf(&ctx->text, "_Orn_%s__%.*s:\n", ctx->moduleName, (int)func->nameLen, func->name);
+        sbAppendf(&ctx->text, "%.*s:\n", (int)func->nameLen, func->name);
+    } else {
+        // Local function
+        sbAppendf(&ctx->text, "\n%.*s:\n", (int)func->nameLen, func->name);
+    }
+
     emitInstruction(ctx, "pushq %%rbp");
     emitInstruction(ctx, "movq %%rsp, %%rbp");
     emitInstruction(ctx, "subq $256, %%rsp");
@@ -804,11 +843,15 @@ static void generateMainEpilogue(CodeGenContext *ctx) {
     emitInstruction(ctx, "ret");
 }
 
-char *generateAssembly(IrContext *ir) {
+char *generateAssembly(IrContext *ir, const char *moduleName, ModuleInterface **imports, int importCount) {
     if (!ir) return NULL;
     
     CodeGenContext *ctx = createCodeGenContext();
     if (!ctx) return NULL;
+
+    ctx->imports =imports;
+    ctx->importCount = importCount;
+    ctx->moduleName = moduleName;
     
     sbAppend(&ctx->data, "    .section .rodata\n");
     

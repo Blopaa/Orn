@@ -53,9 +53,11 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 			break;
 		case 'e':
 			if(len == 4 && memcmp(s, "else", 4) == 0) return TK_ELSE;
+			if(len == 6 && memcmp(s, "export", 6) == 0) return TK_EXPORT;
 			break;
 		case 'f':
 			if (len == 2 && s[1] == 'n') return TK_FN;
+			if(len == 4 && memcmp(s, "from", 4) == 0) return TK_FROM;
 			if (len == 5) {
 				if (memcmp(s, "float", 5) == 0) return TK_FLOAT;
 				if (memcmp(s, "false", 5) == 0) return TK_FALSE;
@@ -64,6 +66,7 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 		case 'i':
 			if (len == 3 && memcmp(s, "int", 3) == 0) return TK_INT;
 			if (len == 2 && memcmp(s, "if", 2) == 0) return TK_IF;
+			if(len == 6 && memcmp(s, "import", 6) == 0) return TK_IMPORT;
 			break;
 		case 'l':
 			if(len == 3 && memcmp(s, "let", 3) == 0) return TK_LET;
