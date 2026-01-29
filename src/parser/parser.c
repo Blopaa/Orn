@@ -48,19 +48,23 @@ ASTNode parseType(TokenList* list, size_t* pos) {
             break;
         }
     }
-    
+
     Token* typeToken = &list->tokens[*pos];
-    if (!isTypeToken(typeToken->type)) {
+	ASTNode typeNode; 
+
+	if(isTypeToken(typeToken->type)){
+		NodeTypes baseType = getTypeNodeFromToken(typeToken->type);
+		CREATE_NODE_OR_FAIL(typeNode, typeToken, baseType, list, pos);
+		ADVANCE_TOKEN(list, pos);
+	}else if(detectLitType(typeToken, list, pos) == VARIABLE){
+		CREATE_NODE_OR_FAIL(typeNode, typeToken, REF_CUSTOM, list, pos);
+		ADVANCE_TOKEN(list, pos);
+	}else{
         reportError(ERROR_EXPECTED_TYPE, 
                    createErrorContextFromParser(list, pos),
                    "Expected type");
         return NULL;
-    }
-    
-    ASTNode typeNode;
-    NodeTypes baseType = getTypeNodeFromToken(typeToken->type);
-    CREATE_NODE_OR_FAIL(typeNode, typeToken, baseType, list, pos);
-    ADVANCE_TOKEN(list, pos);
+    }      
     
     // Wrap in pointer nodes (innermost to outermost)
     for (int i = 0; i < pointerCount; i++) {
@@ -719,7 +723,7 @@ NodeTypes getTypeNodeFromToken(TokenType type) {
 ASTNode parseStructField(TokenList * list, size_t* pos) {
 	Token * name = &list->tokens[*pos];
 	if (detectLitType(name, list, pos) != VARIABLE) {
-		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected field name");
+	reportError(ERROR_EXPECTED_FIELD_NAME, createErrorContextFromParser(list, pos), "Expected field name");
 		return NULL;
 	}
 	ASTNode fieldNode, typeNode;
@@ -727,7 +731,7 @@ ASTNode parseStructField(TokenList * list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after field name");
 	if (!isTypeToken(list->tokens[*pos].type)) {
-		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected type after ':'");
+		reportError(ERROR_EXPECTED_FIELD_TYPE, createErrorContextFromParser(list, pos), "Expected type after ':'");
 		freeAST(fieldNode);
 		return NULL;
 	}
@@ -739,11 +743,11 @@ ASTNode parseStructField(TokenList * list, size_t* pos) {
 }
 
 ASTNode parseStruct(TokenList *list, size_t *pos) {
-	EXPECT_TOKEN(list, pos, TK_STRUCT, ERROR_INVALID_EXPRESSION, "expected struct");
+	EXPECT_TOKEN(list, pos, TK_STRUCT, ERROR_EXPECTED_STRUCT, "expected struct");
 	ADVANCE_TOKEN(list, pos);
 	Token * name = &list->tokens[*pos];
 	if (detectLitType(name, list, pos) != VARIABLE) {
-		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), "Expected name for struct");
+		reportError(ERROR_EXPECTED_STRUCT_NAME, createErrorContextFromParser(list, pos), "Expected name for struct");
 		return NULL;
 	}
 	ASTNode structNode;
@@ -926,13 +930,11 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 
 	Token *varName = &list->tokens[*pos];
 	if(detectLitType(varName, list, pos) != VARIABLE){
-		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos), 
-                   "Expected identifier after const/let");
+		reportError(ERROR_EXPECTED_IDENTIFIER, createErrorContextFromParser(list, pos), "Expected identifier after const/let");
         return NULL;
 	}
 	ADVANCE_TOKEN(list, pos);
-	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, 
-	                  "Expected ':' after identifier");
+	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after identifier");
 
 	// Check if this is an array declaration (before parsing type)
 	int isArray = 0;
@@ -942,9 +944,10 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 	while (*pos < list->count && list->tokens[*pos].type == TK_STAR) {
 		ADVANCE_TOKEN(list, pos);
 	}
-	if (*pos < list->count && isTypeToken(list->tokens[*pos].type)) {
+	Token *lookAheadToken = &list->tokens[*pos];
+	if((*pos < list->count && isTypeToken(lookAheadToken->type) )|| detectLitType(lookAheadToken, list, pos) == VARIABLE) {
 		ADVANCE_TOKEN(list, pos);
-		if (*pos < list->count && list->tokens[*pos].type == TK_LBRACKET) {
+		if(*pos < list->count && list->tokens[*pos].type == TK_LBRACKET) {
 			isArray = 1;
 		}
 	}
@@ -964,17 +967,18 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 			return NULL;
 		}
 	} else {
-		// Regular variable definition
-		CREATE_NODE_OR_FAIL(varDefNode, varName, VAR_DEFINITION, list, pos);
-		
 		// Parse the complete type (handles *, &, base types)
 		ASTNode typeNode = parseType(list, pos);
 		if (!typeNode) {
 			freeAST(mutWrapNode);
-			freeAST(varDefNode);
 			return NULL;
 		}
-		
+		ASTNode baseType = typeNode;
+		while(baseType && baseType->nodeType == POINTER){
+			baseType = baseType->children;
+		}
+	
+		CREATE_NODE_OR_FAIL(varDefNode, varName, VAR_DEFINITION, list, pos);
 		ASTNode typeRefWrapNode;
 		CREATE_NODE_OR_FAIL(typeRefWrapNode, NULL, TYPE_REF, list, pos);
 		typeRefWrapNode->children = typeNode;
@@ -1027,7 +1031,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 			valueWrap->children = memNode;
 		}
 	} else if (isConst) {
-		reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+		reportError(ERROR_CONST_MUST_BE_INITIALIZED, createErrorContextFromParser(list, pos),
 		            "const declarations must have an initializer");
 		freeAST(mutWrapNode);
 		return NULL;
@@ -1142,7 +1146,7 @@ ASTContext * ASTGenerator(TokenList* tokenList) {
 	while (pos < tokenList->count) {
 		if (pos == lastPos) {
 			// Parser is stuck - skip token and continue
-			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(tokenList, &pos), "Parser stuck - skipping token");
+			reportError(ERROR_PARSER_STUCK,createErrorContextFromParser(tokenList, &pos), "Parser stuck - skipping token");
 			pos++;
 			continue;
 		}

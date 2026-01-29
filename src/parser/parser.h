@@ -438,7 +438,6 @@ ASTNode parseLoop(TokenList* list, size_t* pos);
 ASTNode parseBlock(TokenList* list, size_t* pos);
 ASTNode parseIf(TokenList *list, size_t* pos);
 ASTNode parseBlockExpression(TokenList* list, size_t* pos);
-ASTNode parseConditional(TokenList* list, size_t* pos);
 ASTNode parseParameter(TokenList* list, size_t* pos);
 ASTNode parseArg(TokenList* list, size_t* pos);
 ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listType,
