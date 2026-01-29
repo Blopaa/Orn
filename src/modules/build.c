@@ -292,7 +292,7 @@ int *topoSortModules(BuildContext *ctx, int *outCount) {
 }
 
 static int compileModule(BuildContext *ctx, Module *mod, int optLevel, 
-                         int verbose, int showAST, int showIR) {
+                        int verbose, int showAST, int showIR) {
     if (verbose) {
         printf("  Compiling %s...\n", mod->name);
     }

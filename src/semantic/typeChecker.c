@@ -1700,6 +1700,11 @@ TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *f
         repError(ERROR_CONTEXT_CREATION_FAILED, "Failed to create type check context");
         return 0;
     }
+    if (ast && ast->nodeType == PROGRAM && ast->children == NULL) {
+        repError(ERROR_NO_ENTRY_POINT, "Empty program");
+        freeTypeCheckContext(context);
+        return NULL;
+    }
     int success = typeCheckNode(ast, context);
     if (!success) {
         freeTypeCheckContext(context);

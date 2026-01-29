@@ -57,7 +57,15 @@ static BuiltInFunction builtInFunctions[] = {
         .paramNames = NULL,
         .paramCount = 0,
         .id = BUILTIN_READ_STRING
-    }
+    },
+    {
+        .name = "print",
+        .returnType = TYPE_VOID,
+        .paramTypes = NULL,
+        .paramNames = NULL,
+        .paramCount = 1,
+        .id = BUILTIN_PRINT_DOUBLE
+    },
 };
 
 static int builtInFnCount = sizeof(builtInFunctions) / sizeof(BuiltInFunction);
@@ -92,6 +100,11 @@ static void initBuiltInsParams() {
     // scan() -> string
     builtInFunctions[5].paramTypes = NULL;
     builtInFunctions[5].paramNames = NULL;
+
+    builtInFunctions[6].paramTypes = malloc(sizeof(DataType));
+    builtInFunctions[6].paramTypes[0] = TYPE_DOUBLE;
+    builtInFunctions[6].paramNames = malloc(sizeof(char *));
+    builtInFunctions[6].paramNames[0] = strdup("value");
 
     builtInsInit = 1;
 }
