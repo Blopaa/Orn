@@ -538,14 +538,10 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             ASTNode targetTypeNode = node->children->brothers;
             return getDataTypeFromNode(targetTypeNode->nodeType);
         case FUNCTION_CALL: {
-            if (isBuiltinFunction(node->start, node->length)) {
-                return TYPE_VOID;
-            }
             Symbol funcSymbol = lookupSymbol(context->current, node->start, node->length);
             if (funcSymbol != NULL && funcSymbol->symbolType == SYMBOL_FUNCTION) {
                 return funcSymbol->type;
             }
-
             return TYPE_UNKNOWN;
         }
         case MEMBER_ACCESS:
@@ -1693,11 +1689,21 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
-TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
-    TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename, TypeCheckContext ref) {
+    TypeCheckContext context;
+    if(ref){
+        context = ref;
+    }else {
+        context = createTypeCheckContext(sourceCode, filename);
+    }
     if (context == NULL) {
         repError(ERROR_CONTEXT_CREATION_FAILED, "Failed to create type check context");
         return 0;
+    }
+    if (ast && ast->nodeType == PROGRAM && ast->children == NULL) {
+        repError(ERROR_NO_ENTRY_POINT, "Empty program");
+        freeTypeCheckContext(context);
+        return NULL;
     }
     int success = typeCheckNode(ast, context);
     if (!success) {

@@ -112,6 +112,8 @@ ErrorContext *createErrorContextFromParser(TokenList *list, size_t * pos) {
 }
 
 const StatementHandler statementHandlers[] = {
+	{TK_IMPORT, parseImport},
+    {TK_EXPORT, parseExportFunction},
 	{TK_FN, parseFunction},
 	{TK_RETURN, parseReturnStatement},
 	{TK_WHILE, parseLoop},
@@ -139,7 +141,7 @@ const StatementHandler statementHandlers[] = {
 ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 	if (*pos >= list->count) return NULL;
 	Token *token = &list->tokens[*pos];
-	
+
 	if(token->type == TK_STAR || token->type == TK_AMPERSAND){
 		Token* opToken = token;
 		int isPointer = token->type == TK_STAR;
@@ -166,7 +168,16 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
         return nullNode;
     }
 
-        if (detectLitType(token, list, pos) == VARIABLE &&
+	if (token->type == TK_LPAREN) {
+		ADVANCE_TOKEN(list, pos);
+		ASTNode expr = parseExpression(list, pos, PREC_NONE);
+		if (!expr) return NULL;
+		
+		EXPECT_AND_ADVANCE(list, pos, TK_RPAREN, ERROR_EXPECTED_CLOSING_PAREN, "Expected ')' after expression");
+		return expr;
+	}
+
+    if (detectLitType(token, list, pos) == VARIABLE &&
 		(*pos + 1 < list->count) && list->tokens[*pos + 1].type == TK_LPAREN) {
 		Token * fnNameTok = token;
 		ADVANCE_TOKEN(list, pos);
@@ -618,6 +629,45 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
 
 	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after return statement");
 	return returnNode;
+}
+
+ASTNode parseImport(TokenList *list, size_t *pos) {
+    EXPECT_TOKEN(list, pos, TK_IMPORT, ERROR_INVALID_EXPRESSION, "Expected 'import'");
+    ADVANCE_TOKEN(list, pos);
+
+    // Expect string literal for module path
+    EXPECT_TOKEN(list, pos, TK_STR, ERROR_INVALID_EXPRESSION,
+                "Expected module path string after 'import'");
+    Token *pathTok = &list->tokens[*pos];
+
+    ASTNode importNode;
+    CREATE_NODE_OR_FAIL(importNode, pathTok, IMPORTDEC, list, pos);
+    ADVANCE_TOKEN(list, pos);
+
+    EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after import");
+
+    return importNode;
+}
+
+ASTNode parseExportFunction(TokenList* list, size_t* pos) {
+    EXPECT_TOKEN(list, pos, TK_EXPORT, ERROR_INVALID_EXPRESSION, "Expected 'export'");
+    Token* exportTok = &list->tokens[*pos];
+    ADVANCE_TOKEN(list, pos);
+    
+    // Must be followed by 'fn' atleast for now
+    EXPECT_TOKEN(list, pos, TK_FN, ERROR_INVALID_EXPRESSION, 
+                 "Expected 'fn' after 'export'");
+    
+    // Parse the function
+    ASTNode funcNode;
+    PARSE_OR_FAIL(funcNode, parseFunction(list, pos));
+    
+    // Wrap in export node
+    ASTNode exportNode;
+    CREATE_NODE_OR_FAIL(exportNode, exportTok, EXPORTDEC, list, pos);
+    exportNode->children = funcNode;
+    
+    return exportNode;
 }
 
 /**

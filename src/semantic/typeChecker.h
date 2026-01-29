@@ -37,7 +37,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context);
 int validateVariableUsage(ASTNode node, TypeCheckContext context);
 int typeCheckNode(ASTNode node, TypeCheckContext context);
 int typeCheckChildren(ASTNode node, TypeCheckContext context);
-TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename);
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename, TypeCheckContext ref);
 int validateFunctionDef(ASTNode node, TypeCheckContext context);
 int validateFunctionCall(ASTNode node, TypeCheckContext context);
 int validateReturnStatement(ASTNode node, TypeCheckContext context);

@@ -361,6 +361,14 @@ const ErrorInfo errorDatabase[] = {
         "check which operations are valid for this data type"
     },
     {
+        ERROR_NO_ENTRY_POINT,
+        ERROR,
+        "no entry point found",
+        "program must have a 'main' function or top-level code",
+        "missing main function",
+        "add a main function: fn main() -> int { ... }"
+    },
+    {
         ERROR_INCOMPATIBLE_OPERAND_TYPES,
         ERROR,
         "incompatible operand types",

@@ -271,6 +271,45 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
     }
 }
 
+static void generateFunctionIr(IrContext *ctx, ASTNode node, 
+                                TypeCheckContext typeCtx, int isExported) {
+    ASTNode paramList = node->children;
+    ASTNode returnType = paramList->brothers;
+    ASTNode body = returnType->brothers;
+
+    Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+    Symbol oldFunction = typeCtx->currentFunction;
+    typeCtx->currentFunction = fnSymbol;
+    
+    IrOperand funcName = createFn(node->start, node->length);
+    IrOperand exportFlag = createIntConst(isExported);
+    IrOperand none = createNone();
+    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, none);
+
+    if (fnSymbol && fnSymbol->parameters) {
+        FunctionParameter param = fnSymbol->parameters;
+        int paramIndex = 0;
+        while (param) {
+            IrDataType irType = symbolTypeToIrType(param->type);
+            if (param->isPointer) {
+                irType = IR_TYPE_POINTER;
+            }
+            IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
+            IrOperand indexOp = createIntConst(paramIndex);
+
+            emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
+
+            param = param->next;
+            paramIndex++;
+        }
+    }
+
+    generateStatementIr(ctx, body, typeCtx);
+    
+    emitBinary(ctx, IR_FUNC_END, funcName, none, none);
+    typeCtx->currentFunction = oldFunction;
+}
+
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
     if(!node) return createNone();
     switch (node->nodeType){
@@ -719,41 +758,15 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         }
 
-        case FUNCTION_DEFINITION: {
-            ASTNode paramList = node->children;
-            ASTNode returnType = paramList->brothers;
-            ASTNode body = returnType->brothers;
-
-            Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
-            Symbol oldFunction = typeCtx->currentFunction;
-            typeCtx->currentFunction = fnSymbol;
-            
-            IrOperand funcName = createFn(node->start, node->length);
-            IrOperand none = createNone();
-            emitBinary(ctx, IR_FUNC_BEGIN, funcName, none, none);
-
-            if (fnSymbol && fnSymbol->parameters) {
-                FunctionParameter param = fnSymbol->parameters;
-                int paramIndex = 0;
-                while (param) {
-                    IrDataType irType = symbolTypeToIrType(param->type);
-                    if (param->isPointer) {
-                        irType = IR_TYPE_POINTER;
-                    }
-                    IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
-                    IrOperand indexOp = createIntConst(paramIndex);
-
-                    emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
-
-                    param = param->next;
-                    paramIndex++;
-                }
+        case EXPORTDEC: {
+            if (node->children && node->children->nodeType == FUNCTION_DEFINITION) {
+                generateFunctionIr(ctx, node->children, typeCtx, 1);
             }
+            break;
+        }
 
-            generateStatementIr(ctx, body, typeCtx);
-            
-            emitBinary(ctx, IR_FUNC_END, funcName, none, none);
-            typeCtx->currentFunction = oldFunction;
+        case FUNCTION_DEFINITION: {
+            generateFunctionIr(ctx, node, typeCtx, 0);
             break;
         }
 
