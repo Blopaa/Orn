@@ -788,7 +788,13 @@ static ASTNode getBaseTypeFromPointerChain(ASTNode typeRefNode, int* outPointerL
     return current;
 }
 
-//checks if a variable declaration is correctly written
+/** 
+ * @brief Validates if a declaration is properly formed and adds it to the symbol table.
+ * @param node AST node representing the variable declaration
+ * @param context Type checking context for symbol resolution
+ * @param isConst Flag indicating if the variable is declared as const
+ * @return 1 if the declaration is valid and added, 0 otherwise
+*/
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst) {
     // Basic validation
     if (node == NULL || node->start == NULL) {

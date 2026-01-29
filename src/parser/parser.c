@@ -51,7 +51,7 @@ ASTNode parseType(TokenList* list, size_t* pos) {
     
     Token* typeToken = &list->tokens[*pos];
     if (!isTypeToken(typeToken->type)) {
-        reportError(ERROR_INVALID_EXPRESSION, 
+        reportError(ERROR_EXPECTED_TYPE, 
                    createErrorContextFromParser(list, pos),
                    "Expected type");
         return NULL;
@@ -195,7 +195,7 @@ ASTNode parsePrimaryExp(TokenList * list, size_t *pos) {
 			ADVANCE_TOKEN(list, pos);
 
 			if (detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
-				reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+				reportError(ERROR_EXPECTED_MEMBER_NAME, createErrorContextFromParser(list, pos),
 						   "Expected member name after '.'");
 				freeAST(node);
 				return NULL;
@@ -491,7 +491,7 @@ ASTNode parseParameter(TokenList *list, size_t *pos) {
     Token *token = &list->tokens[*pos];
 
     if (detectLitType(token, list, pos) != VARIABLE) {
-        reportError(ERROR_INVALID_EXPRESSION, createErrorContextFromParser(list, pos),
+        reportError(ERROR_EXPECTED_PARAMETER_NAME, createErrorContextFromParser(list, pos),
                     "Expected parameter name");
         return NULL;
     }
@@ -555,7 +555,7 @@ ASTNode parseCommaSeparatedLists(TokenList* list, size_t* pos, NodeTypes listTyp
 		if (*pos < list->count && list->tokens[*pos].type == TK_COMMA) {
 			ADVANCE_TOKEN(list, pos);
 		} else if (list->tokens[*pos].type != TK_RPAREN) {
-			reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected ',' or ')'");
+			reportError(ERROR_EXPECTED_COMMA_OR_PAREN,createErrorContextFromParser(list, pos), "Expected ',' or ')'");
 			freeAST(listNode);
 			return NULL;
 		}
@@ -632,11 +632,11 @@ ASTNode parseReturnStatement(TokenList* list, size_t* pos) {
 }
 
 ASTNode parseImport(TokenList *list, size_t *pos) {
-    EXPECT_TOKEN(list, pos, TK_IMPORT, ERROR_INVALID_EXPRESSION, "Expected 'import'");
+    EXPECT_TOKEN(list, pos, TK_IMPORT, ERROR_EXPECTED_IMPORT, "Expected 'import'");
     ADVANCE_TOKEN(list, pos);
 
     // Expect string literal for module path
-    EXPECT_TOKEN(list, pos, TK_STR, ERROR_INVALID_EXPRESSION,
+    EXPECT_TOKEN(list, pos, TK_STR, ERROR_EXPECTED_MODULE_PATH,
                 "Expected module path string after 'import'");
     Token *pathTok = &list->tokens[*pos];
 
@@ -650,12 +650,12 @@ ASTNode parseImport(TokenList *list, size_t *pos) {
 }
 
 ASTNode parseExportFunction(TokenList* list, size_t* pos) {
-    EXPECT_TOKEN(list, pos, TK_EXPORT, ERROR_INVALID_EXPRESSION, "Expected 'export'");
+    EXPECT_TOKEN(list, pos, TK_EXPORT, ERROR_EXPECTED_EXPORT, "Expected 'export'");
     Token* exportTok = &list->tokens[*pos];
     ADVANCE_TOKEN(list, pos);
     
     // Must be followed by 'fn' atleast for now
-    EXPECT_TOKEN(list, pos, TK_FN, ERROR_INVALID_EXPRESSION, 
+    EXPECT_TOKEN(list, pos, TK_FN, ERROR_EXPECTED_FN_AFTER_EXPORT, 
                  "Expected 'fn' after 'export'");
     
     // Parse the function
@@ -682,7 +682,7 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	if (*pos >= list->count || detectLitType(&list->tokens[*pos], list, pos) != VARIABLE) {
-		reportError(ERROR_INVALID_EXPRESSION,createErrorContextFromParser(list, pos), "Expected function name after 'fn'");
+		reportError(ERROR_EXPECTED_FUNCTION_NAME,createErrorContextFromParser(list, pos), "Expected function name after 'fn'");
 		return NULL;
 	}
 	Token * name = &list->tokens[*pos];
