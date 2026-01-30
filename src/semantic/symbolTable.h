@@ -86,8 +86,8 @@ typedef struct Symbol {
     uint16_t nameLength;
     SymbolType symbolType;
     DataType type;
+    StructType structType; // only for structs
     union {
-        StructType structType; // only for structs
         struct {
             // only for functions
             FunctionParameter parameters;

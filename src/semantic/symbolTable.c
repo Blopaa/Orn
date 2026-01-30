@@ -227,6 +227,9 @@ DataType getDataTypeFromNode(NodeTypes nodeType) {
             return TYPE_BOOL;
         case REF_DOUBLE:
             return TYPE_DOUBLE;
+        // now works bcs structs are the only user custom types
+        case REF_CUSTOM:
+            return TYPE_STRUCT;
         default:
             return TYPE_UNKNOWN;
     }

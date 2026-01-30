@@ -202,15 +202,18 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
             if (left == TYPE_BOOL && right == TYPE_BOOL) return TYPE_BOOL;
             return TYPE_UNKNOWN;
         default: return TYPE_UNKNOWN;
-    }
+    } 
 }
 
+/**
+ * @brief Validates and gets the type of member access expressions.
+ * @todo should be two funcitons, one for getting type, other for validating
+ */
 DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
     if (!node || node->nodeType != MEMBER_ACCESS) return TYPE_UNKNOWN;
 
     ASTNode objectNode = node->children;
     ASTNode fieldNode = objectNode ? objectNode->brothers : NULL;
-
     if (!objectNode || !fieldNode) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid member access structure");
         return TYPE_UNKNOWN;
@@ -545,6 +548,7 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             return TYPE_UNKNOWN;
         }
         case MEMBER_ACCESS:
+            //should be another function the one who handles this
             return validateMemberAccess(node, context);
         case TERNARY_CONDITIONAL: {
             if (!node->children || !node->children->brothers) return TYPE_UNKNOWN;
@@ -813,10 +817,17 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
     int pointerLevel = 0;
     ASTNode typeref = getBaseTypeFromPointerChain(node->children->children, &pointerLevel);
     DataType varType = getDataTypeFromNode(typeref->nodeType);
-    
+    Symbol structSymbol = NULL;
     if (varType == TYPE_UNKNOWN) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Unknown variable type in declaration");
         return 0;
+        //checks if the custom type aka struct currently exists
+    }else if(varType == TYPE_STRUCT){
+        structSymbol = lookupSymbol(context->current, typeref->start, typeref->length);
+        if(structSymbol == NULL || structSymbol->symbolType != SYMBOL_TYPE){
+            REPORT_ERROR(ERROR_UNDEFINED_SYMBOL, typeref, context, "Undefined struct type in variable declaration");
+            return 0;
+        }
     }
     
     // Check for redeclaration
@@ -831,6 +842,10 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
     if (!newSymbol) {
         repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to add symbol");
         return 0;
+    }
+
+    if(varType == TYPE_STRUCT && structSymbol){
+        newSymbol->structType = structSymbol->structType;
     }
     
     newSymbol->isPointer = (pointerLevel > 0);
@@ -974,7 +989,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
                     "Left side must be a variable or member access");
         return 0;
     }
-    
+
     // Handle variable assignment
     if (left->nodeType == VARIABLE) {
         Symbol sym = lookupSymbolOrError(context, left);
@@ -1031,7 +1046,6 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
             }
         }
     }
-    
     // Type compatibility checking
     DataType leftType = getExpressionType(leftForType, context);
     if (leftType == TYPE_UNKNOWN) {
@@ -1091,7 +1105,6 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
             }
         }
     }
-    
     return 1;
 }
 
@@ -1465,7 +1478,10 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
         return 0;
     }
     StructType structType = createStructType(node, context);
-    if (!structType) return 0;
+    if (!structType) {
+        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, "Failed to create struct type");
+        return 0;
+    };
     Symbol structSymbol = addSymbolFromNode(context->current, node, TYPE_STRUCT);
     if (!structSymbol) {
         free(structType);
@@ -1473,7 +1489,6 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
     }
     structSymbol->structType = structType;
     structSymbol->symbolType = SYMBOL_TYPE;
-
     return 1;
 }
 

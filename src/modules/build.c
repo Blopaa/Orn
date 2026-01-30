@@ -346,7 +346,6 @@ static int compileModule(BuildContext *ctx, Module *mod, int optLevel,
             addImportsToSymbolTable(typeCtx->global, imported->interface);
         }
     }
-    
     // Type check
     typeCheckAST(ast->root, source, mod->path, typeCtx);
     
