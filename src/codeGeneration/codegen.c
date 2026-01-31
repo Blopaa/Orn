@@ -249,7 +249,7 @@ void genBinaryOp(CodeGenContext *ctx, IrInstruction *inst){
             default: break;
         }
 
-        storeOp(ctx, "xmm0", &inst->result);
+        storeOp(ctx, "%xmm0", &inst->result);
     }else {
         loadOp(ctx, &inst->ar1, "a");
         loadOp(ctx, &inst->ar2, "c");
@@ -494,6 +494,87 @@ void genParam(CodeGenContext *ctx, IrInstruction *inst, int paramIndex) {
             loadOp(ctx, &inst->ar1, "a");
             emitInstruction(ctx, "pushq %%rax");
         }
+    }
+}
+
+void genAllocStruct(CodeGenContext *ctx, IrInstruction *inst) {
+    if (inst->result.type != OPERAND_VAR || inst->ar1.type != OPERAND_CONSTANT) {
+        return;
+    }
+    
+    const char *name = inst->result.value.var.name;
+    size_t nameLen = inst->result.value.var.nameLen;
+    int32_t structSize = inst->ar1.value.constant.intVal;
+    
+    int32_t alignedSize = (structSize + 7) & ~7;
+    
+    addLocalVar(ctx, name, nameLen, IR_TYPE_POINTER);
+    
+    if (ctx->inFn && ctx->currentFn) {
+        ctx->currentFn->stackSize += alignedSize;
+        int32_t structBaseOffset = -ctx->currentFn->stackSize;
+        
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+        int32_t varOff = getVarOffset(ctx, name, nameLen);
+        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    } else {
+        ctx->globalStackOff -= alignedSize;
+        int32_t structBaseOffset = ctx->globalStackOff;
+        
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+        int32_t varOff = getVarOffset(ctx, name, nameLen);
+        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    }
+}
+
+void genMemberLoad(CodeGenContext *ctx, IrInstruction *inst) {
+    IrOperand *dest = &inst->result;
+    IrOperand *structVar = &inst->ar1;
+    IrOperand *offsetOp = &inst->ar2;
+    
+    if (structVar->type != OPERAND_VAR || offsetOp->type != OPERAND_CONSTANT) {
+        return;
+    }
+    
+    int32_t memberOffset = offsetOp->value.constant.intVal;
+    IrDataType type = dest->dataType;
+    
+    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+    
+    if (isFloatingPoint(type)) {
+        emitInstruction(ctx, "mov%s %d(%%rax), %%xmm0", getSSESuffix(type), memberOffset);
+        storeOp(ctx, "%xmm0", dest);
+    } else if (type == IR_TYPE_POINTER || type == IR_TYPE_STRING) {
+        emitInstruction(ctx, "movq %d(%%rax), %%rcx", memberOffset);
+        storeOp(ctx, "c", dest);
+    } else {
+        emitInstruction(ctx, "mov%s %d(%%rax), %s", getIntSuffix(type), memberOffset, getIntReg("c", type));
+        storeOp(ctx, "c", dest);
+    }
+}
+
+void genMemberStore(CodeGenContext *ctx, IrInstruction *inst){
+    IrOperand *structVar = &inst->result;
+    IrOperand *offsetOp = &inst->ar1;
+    IrOperand *valueOp = &inst->ar2;
+
+    int32_t memOff = offsetOp->value.constant.intVal;
+    IrDataType type = valueOp->dataType;
+
+    if(isFloatingPoint(type)){
+        loadOp(ctx, valueOp, "%xmm0");
+    }else{
+        loadOp(ctx, valueOp, "c");
+    }
+
+    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+
+    if(isFloatingPoint(type)){
+        emitInstruction(ctx, "mov%s %%xmm0, %d(%%rax)", getSSESuffix(type), memOff);
+    } else{
+        emitInstruction(ctx, "mov%s %s, %d(%%rax)", getIntSuffix(type), getIntReg("c", type), memOff);
     }
 }
 
@@ -829,7 +910,17 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_CAST:
             genCast(ctx, inst);
             break;
+        case IR_ALLOC_STRUCT:
+            genAllocStruct(ctx, inst);
+            break;
             
+        case IR_MEMBER_LOAD:
+            genMemberLoad(ctx, inst);
+            break;
+            
+        case IR_MEMBER_STORE:
+            genMemberStore(ctx, inst);
+            break;    
         default:
             emitComment(ctx, "Unknown instruction");
             break;

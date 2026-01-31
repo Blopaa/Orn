@@ -1409,6 +1409,10 @@ int typeCheckChildren(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
+static size_t alignTo(size_t offset, size_t alignment) {
+    return (offset + alignment - 1) & ~(alignment - 1);
+}
+
 StructType createStructType(ASTNode node, TypeCheckContext context) {
     if (!node || node->nodeType != STRUCT_DEFINITION) return NULL;
     StructType structType = malloc(sizeof(struct StructType));
@@ -1431,6 +1435,7 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
             if (field->nodeType == STRUCT_FIELD && field->children) {
                 StructField structField = malloc(sizeof(struct StructField));
                 if (!structField) {
+                    // has to free previously allocated fields
                     free(structType);
                     free(structField);
                     return NULL;
@@ -1439,8 +1444,14 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                 structField->nameStart = field->start;
                 structField->nameLength = field->length;
                 structField->type = getDataTypeFromNode(field->children->nodeType);
-                structField->offset = structType->size;
                 structField->next = NULL;
+
+                size_t fieldSize = getStackSize(structField->type);
+                size_t alignment = getStackSize(structField->type);
+                structType->size = alignTo(structType->size, alignment);
+                structField->offset = structType->size;
+
+                structType->size += fieldSize;
 
                 StructField check = structType->fields;
                 while (check) {
@@ -1451,18 +1462,24 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                     }
                     check = check->next;
                 }
-                size_t fieldSize = getStackSize(structField->type);
-                structType->size += fieldSize;
                 structType->fieldCount++;
-                if (!structType->fields) {
+                if(!structType->fields){
                     structType->fields = structField;
                 }else {
                     last->next = structField;
-                }
+                }    
                 last = structField;
             }
             field = field->brothers;
         }
+        size_t maxAlignment = 1;
+        StructField f = structType->fields;
+        while (f) {
+            size_t align = getStackSize(f->type);
+            if (align > maxAlignment) maxAlignment = align;
+            f = f->next;
+        }
+        structType->size = alignTo(structType->size, maxAlignment);
     }
     return structType;
 }
