@@ -196,11 +196,53 @@ IrInstruction *emitCall(IrContext *ctx, IrOperand res, const char *fnName,
         .type = OPERAND_FUNCTION,
         .value.fn.name = fnName,
         .value.fn.nameLen = nameLen
-    };
+    };  
     
     IrOperand paramCount = createIntConst(params);
     
     return emitBinary(ctx, IR_CALL, res, func, paramCount);
+}
+
+IrInstruction *emitMemberStore(IrContext *ctx, IrOperand structVar, int offset, IrOperand val){
+    IrInstruction *inst = malloc(sizeof(struct IrInstruction));
+    if(!inst) return NULL;
+    inst->op = IR_MEMBER_STORE;
+    inst->result = structVar;
+    inst->ar1 = createIntConst(offset);
+    inst->ar2 = val;
+    inst->next = NULL;
+    inst->prev = NULL;
+
+    appendInstruction(ctx, inst);
+    return inst;
+}
+
+IrInstruction *emitMemberLoad(IrContext *ctx, IrOperand dest, IrOperand structVar, int offset){
+    IrInstruction *inst = malloc(sizeof(struct IrInstruction));
+    if(!inst) return NULL;
+    inst->op = IR_MEMBER_LOAD;
+    inst->result = dest;
+    inst->ar1 = structVar;
+    inst->ar2 = createIntConst(offset);
+    inst->next = NULL;
+    inst->prev = NULL;
+
+    appendInstruction(ctx, inst);
+    return inst;
+}
+
+IrInstruction *emitAllocStruct(IrContext *ctx, IrOperand dest, int size){
+    IrInstruction *inst = malloc(sizeof(struct IrInstruction));
+    if(!inst) return NULL;
+    inst->op = IR_ALLOC_STRUCT;
+    inst->result = dest;
+    inst->ar1 = createIntConst(size);
+    inst->ar2 = createNone();
+    inst->next = NULL;
+    inst->prev = NULL;
+
+    appendInstruction(ctx, inst);
+    return inst;
 }
 
 IrDataType symbolTypeToIrType(DataType type) {
@@ -211,6 +253,8 @@ IrDataType symbolTypeToIrType(DataType type) {
         case TYPE_BOOL: return IR_TYPE_BOOL;
         case TYPE_STRING: return IR_TYPE_STRING;
         case TYPE_VOID: return IR_TYPE_VOID;
+        case TYPE_POINTER: return IR_TYPE_POINTER;
+        case TYPE_STRUCT: return IR_TYPE_POINTER;
         case TYPE_NULL: return IR_TYPE_POINTER;
         default: return IR_TYPE_INT;
     }
@@ -247,28 +291,123 @@ IrDataType nodeTypeToIrType(NodeTypes nodeType) {
 
 IrOpCode astOpToIrOp(NodeTypes nodeType) {
     switch (nodeType) {
-        case ADD_OP: return IR_ADD;
-        case SUB_OP: return IR_SUB;
-        case MUL_OP: return IR_MUL;
-        case DIV_OP: return IR_DIV;
-        case MOD_OP: return IR_MOD;
-        case BITWISE_AND: return IR_BIT_AND;
-        case BITWISE_OR: return IR_BIT_OR;
-        case BITWISE_XOR: return IR_BIT_XOR;
-        case BITWISE_LSHIFT: return IR_SHL;
-        case BITWISE_RSHIFT: return IR_SHR;
-        case EQUAL_OP: return IR_EQ;
-        case NOT_EQUAL_OP: return IR_NE;
-        case LESS_THAN_OP: return IR_LT;
-        case LESS_EQUAL_OP: return IR_LE;
-        case GREATER_THAN_OP: return IR_GT;
-        case GREATER_EQUAL_OP: return IR_GE;
-        case LOGIC_AND: return IR_AND;
-        case LOGIC_OR: return IR_OR;
-        case LOGIC_NOT: return IR_NOT;
-        case UNARY_MINUS_OP: return IR_NEG;
-        default: return IR_NOP;
+        case ADD_OP:
+        case COMPOUND_ADD_ASSIGN:
+            return IR_ADD;
+            
+        case SUB_OP:
+        case COMPOUND_SUB_ASSIGN:
+            return IR_SUB;
+            
+        case MUL_OP:
+        case COMPOUND_MUL_ASSIGN:
+            return IR_MUL;
+            
+        case DIV_OP:
+        case COMPOUND_DIV_ASSIGN:
+            return IR_DIV;
+            
+        case MOD_OP:
+            return IR_MOD;
+            
+        case BITWISE_AND:
+        case COMPOUND_AND_ASSIGN:
+            return IR_BIT_AND;
+            
+        case BITWISE_OR:
+        case COMPOUND_OR_ASSIGN:
+            return IR_BIT_OR;
+            
+        case BITWISE_XOR:
+        case COMPOUND_XOR_ASSIGN:
+            return IR_BIT_XOR;
+            
+        case BITWISE_LSHIFT:
+        case COMPOUND_LSHIFT_ASSIGN:
+            return IR_SHL;
+            
+        case BITWISE_RSHIFT:
+        case COMPOUND_RSHIFT_ASSIGN:
+            return IR_SHR;
+            
+        case EQUAL_OP:
+            return IR_EQ;
+            
+        case NOT_EQUAL_OP:
+            return IR_NE;
+            
+        case LESS_THAN_OP:
+            return IR_LT;
+            
+        case LESS_EQUAL_OP:
+            return IR_LE;
+            
+        case GREATER_THAN_OP:
+            return IR_GT;
+            
+        case GREATER_EQUAL_OP:
+            return IR_GE;
+            
+        case LOGIC_AND:
+            return IR_AND;
+            
+        case LOGIC_OR:
+            return IR_OR;
+            
+        case LOGIC_NOT:
+            return IR_NOT;
+            
+        case UNARY_MINUS_OP:
+            return IR_NEG;
+            
+        default:
+            return IR_NOP;
     }
+}
+
+static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx, int isExported) {
+    ASTNode paramList = node->children;
+    ASTNode returnType = paramList->brothers;
+    ASTNode body = returnType->brothers;
+
+    Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+    if (!fnSymbol) return;
+    
+    Symbol oldFunction = typeCtx->currentFunction;
+    SymbolTable oldScope = typeCtx->current;
+    
+    typeCtx->currentFunction = fnSymbol;
+    if (fnSymbol->functionScope) {
+        typeCtx->current = fnSymbol->functionScope;
+    }
+    
+    IrOperand funcName = createFn(node->start, node->length);
+    IrOperand exportFlag = createIntConst(isExported);
+    IrOperand none = createNone();
+    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, none);
+
+    if (fnSymbol && fnSymbol->parameters) {
+        FunctionParameter param = fnSymbol->parameters;
+        int paramIndex = 0;
+        while (param) {
+            IrDataType irType = symbolTypeToIrType(param->type);
+            if (param->isPointer) {
+                irType = IR_TYPE_POINTER;
+            }
+            IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
+            IrOperand indexOp = createIntConst(paramIndex);
+
+            emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
+
+            param = param->next;
+            paramIndex++;
+        }
+    }
+    generateStatementIr(ctx, body, typeCtx);
+    
+    emitBinary(ctx, IR_FUNC_END, funcName, none, none);
+    typeCtx->currentFunction = oldFunction;
+    typeCtx->current = oldScope;
 }
 
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
@@ -305,19 +444,17 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
     case VARIABLE: {
         Symbol sym = lookupSymbol(typeCtx->current, node->start, node->length);
-        if(!sym && typeCtx->currentFunction){
-            FunctionParameter param = typeCtx->currentFunction->parameters;
-            while (param) {
-                if(bufferEqual(node->start, node->length, param->nameStart, param->nameLength)){
-                    IrDataType type = symbolTypeToIrType(param->type);
-                    return createVar(node->start, node->length, type);
-                }
-                param = param->next;
-            }
-        }
         if(!sym) return createNone();
-
-        IrDataType type = symbolTypeToIrType(sym->type);
+        
+        IrDataType type;
+        if (sym->isPointer || sym->type == TYPE_POINTER) {
+            type = IR_TYPE_POINTER;
+        } else if (sym->type == TYPE_STRUCT) {
+            type = IR_TYPE_POINTER;
+        } else {
+            type = symbolTypeToIrType(sym->type);
+        }
+        
         return createVar(node->start, node->length, type);
     }
 
@@ -364,6 +501,28 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         IrOpCode irOp = astOpToIrOp(node->nodeType);
         emitUnary(ctx, irOp, res, operandOp);
         return res;
+    }
+    case MEMBER_ACCESS: {
+        ASTNode structNode = node->children;
+        ASTNode memberNode = structNode->brothers;
+        Symbol structSym = lookupSymbol(typeCtx->current, structNode->start, structNode->length);
+        
+        if (!structSym || !structSym->structType) {
+            return createNone();
+        }
+        
+        StructField field = structSym->structType->fields;
+        while(field){
+            if(bufferEqual(memberNode->start, memberNode->length, field->nameStart, field->nameLength)){
+                break;
+            }
+            field = field->next;
+        }
+        IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
+        IrOperand structVar = createVar(structNode->start, structNode->length, IR_TYPE_POINTER);
+        emitMemberLoad(ctx, temp, structVar, field->offset);
+
+        return temp;
     }
     case MEMADDRS: {
         // Handle &variable
@@ -499,11 +658,11 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         IrOperand rightOp = generateExpressionIr(ctx, right, typeCtx);
         IrOperand leftOp;
 
-        if (node->children->nodeType == ARRAY_ACCESS) {
+        if (left->nodeType == ARRAY_ACCESS) {
             leftOp = generateExpressionIr(ctx, left->children, typeCtx);
-            ASTNode target = node->children->children->brothers;
+            ASTNode target = left->children->brothers;
             emitPointerStore(ctx, leftOp, generateExpressionIr(ctx, target, typeCtx), rightOp);
-        } else if (node->children->nodeType == POINTER) {
+        } else if (left->nodeType == POINTER) {
             // Handle *ptr = value
             ASTNode ptrNode = left->children;
             IrOperand ptrOp = generateExpressionIr(ctx, ptrNode, typeCtx);
@@ -511,45 +670,40 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
             emitStore(ctx, ptrOp, rightOp);
 
             return ptrOp;
-        } else {
+        } else if(left->nodeType == MEMBER_ACCESS){
+            ASTNode structNode = left->children;
+            ASTNode memberNode = structNode->brothers;
+            Symbol structSym = lookupSymbol(typeCtx->current, structNode->start, structNode->length);
+            if(!structSym || !structSym->structType){
+                return createNone();
+            }
+            StructField field = structSym->structType->fields;
+            while(field){
+                if(bufferEqual(memberNode->start, memberNode->length, field->nameStart, field->nameLength)){
+                    break;
+                }
+                field = field->next;
+            }
+            IrOperand structVar = createVar(structNode->start, structNode->length, IR_TYPE_POINTER);
+            int offset = field->offset;
+
+            if(node->nodeType != ASSIGNMENT){
+                IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(field->type));
+                emitMemberLoad(ctx, temp1, structVar, offset);
+                IrOperand t2 = createTemp(ctx, temp1.dataType);
+                IrOpCode op = astOpToIrOp(node->nodeType);
+                emitBinary(ctx, op, t2, temp1, rightOp);
+                emitMemberStore(ctx, structVar, offset, t2);
+            }else{
+                emitMemberStore(ctx, structVar, offset, rightOp);
+            }
+        }else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;
                 IrOperand temp = createTemp(ctx, resultType);
 
-                IrOpCode op;
-                switch (node->nodeType) {
-                case COMPOUND_ADD_ASSIGN:
-                    op = IR_ADD;
-                    break;
-                case COMPOUND_SUB_ASSIGN:
-                    op = IR_SUB;
-                    break;
-                case COMPOUND_MUL_ASSIGN:
-                    op = IR_MUL;
-                    break;
-                case COMPOUND_DIV_ASSIGN:
-                    op = IR_DIV;
-                    break;
-                case COMPOUND_AND_ASSIGN:
-                    op = IR_BIT_AND;
-                    break;
-                case COMPOUND_OR_ASSIGN:
-                    op = IR_BIT_OR;
-                    break;
-                case COMPOUND_XOR_ASSIGN:
-                    op = IR_BIT_XOR;
-                    break;
-                case COMPOUND_LSHIFT_ASSIGN:
-                    op = IR_SHL;
-                    break;
-                case COMPOUND_RSHIFT_ASSIGN:
-                    op = IR_SHR;
-                    break;
-                default:
-                    op = IR_NOP;
-                    break;
-                }
+                IrOpCode op = astOpToIrOp(node->nodeType);
 
                 emitBinary(ctx, op, temp, leftOp, rightOp);
                 emitCopy(ctx, leftOp, temp);
@@ -610,7 +764,15 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         case LET_DEC:
         case CONST_DEC:
             if (node->children) {
-                generateStatementIr(ctx, node->children, typeCtx);
+                ASTNode varDef = node->children;
+                Symbol sym = lookupSymbol(typeCtx->current, varDef->start, varDef->length);
+                if(sym->type == TYPE_STRUCT){
+                    IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
+                    int totalSize = sym->structType->size;
+                    emitAllocStruct(ctx, var, totalSize);
+                }else{
+                    generateStatementIr(ctx, node->children, typeCtx);
+                }
             }
             break;
         case VAR_DEFINITION: {
@@ -710,6 +872,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
 
         case RETURN_STATEMENT: {
             if (node->children) {
+                printf("is a member access ? %d\n", node->children->nodeType == MEMBER_ACCESS);
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {
@@ -719,41 +882,15 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         }
 
-        case FUNCTION_DEFINITION: {
-            ASTNode paramList = node->children;
-            ASTNode returnType = paramList->brothers;
-            ASTNode body = returnType->brothers;
-
-            Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
-            Symbol oldFunction = typeCtx->currentFunction;
-            typeCtx->currentFunction = fnSymbol;
-            
-            IrOperand funcName = createFn(node->start, node->length);
-            IrOperand none = createNone();
-            emitBinary(ctx, IR_FUNC_BEGIN, funcName, none, none);
-
-            if (fnSymbol && fnSymbol->parameters) {
-                FunctionParameter param = fnSymbol->parameters;
-                int paramIndex = 0;
-                while (param) {
-                    IrDataType irType = symbolTypeToIrType(param->type);
-                    if (param->isPointer) {
-                        irType = IR_TYPE_POINTER;
-                    }
-                    IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
-                    IrOperand indexOp = createIntConst(paramIndex);
-
-                    emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
-
-                    param = param->next;
-                    paramIndex++;
-                }
+        case EXPORTDEC: {
+            if (node->children && node->children->nodeType == FUNCTION_DEFINITION) {
+                generateFunctionIr(ctx, node->children, typeCtx, 1);
             }
+            break;
+        }
 
-            generateStatementIr(ctx, body, typeCtx);
-            
-            emitBinary(ctx, IR_FUNC_END, funcName, none, none);
-            typeCtx->currentFunction = oldFunction;
+        case FUNCTION_DEFINITION: {
+            generateFunctionIr(ctx, node, typeCtx, 0);
             break;
         }
 
@@ -816,6 +953,9 @@ static const char *opCodeToString(IrOpCode op) {
         case IR_DEREF: return "DEREF";
         case IR_ADDROF: return "ADDROF";
         case IR_LOAD_PARAM: return "LOAD_PARAM";
+        case IR_MEMBER_LOAD: return "MEM_LOAD";
+        case IR_MEMBER_STORE: return "MEM_STORE";
+        case IR_ALLOC_STRUCT: return "ALLOC_STRUCT";
         default: return "UNKNOWN";
     }
 }

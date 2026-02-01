@@ -202,15 +202,18 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
             if (left == TYPE_BOOL && right == TYPE_BOOL) return TYPE_BOOL;
             return TYPE_UNKNOWN;
         default: return TYPE_UNKNOWN;
-    }
+    } 
 }
 
+/**
+ * @brief Validates and gets the type of member access expressions.
+ * @todo should be two funcitons, one for getting type, other for validating
+ */
 DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
     if (!node || node->nodeType != MEMBER_ACCESS) return TYPE_UNKNOWN;
 
     ASTNode objectNode = node->children;
     ASTNode fieldNode = objectNode ? objectNode->brothers : NULL;
-
     if (!objectNode || !fieldNode) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid member access structure");
         return TYPE_UNKNOWN;
@@ -538,17 +541,14 @@ DataType getExpressionType(ASTNode node, TypeCheckContext context) {
             ASTNode targetTypeNode = node->children->brothers;
             return getDataTypeFromNode(targetTypeNode->nodeType);
         case FUNCTION_CALL: {
-            if (isBuiltinFunction(node->start, node->length)) {
-                return TYPE_VOID;
-            }
             Symbol funcSymbol = lookupSymbol(context->current, node->start, node->length);
             if (funcSymbol != NULL && funcSymbol->symbolType == SYMBOL_FUNCTION) {
                 return funcSymbol->type;
             }
-
             return TYPE_UNKNOWN;
         }
         case MEMBER_ACCESS:
+            //should be another function the one who handles this
             return validateMemberAccess(node, context);
         case TERNARY_CONDITIONAL: {
             if (!node->children || !node->children->brothers) return TYPE_UNKNOWN;
@@ -792,7 +792,13 @@ static ASTNode getBaseTypeFromPointerChain(ASTNode typeRefNode, int* outPointerL
     return current;
 }
 
-//checks if a variable declaration is correctly written
+/** 
+ * @brief Validates if a declaration is properly formed and adds it to the symbol table.
+ * @param node AST node representing the variable declaration
+ * @param context Type checking context for symbol resolution
+ * @param isConst Flag indicating if the variable is declared as const
+ * @return 1 if the declaration is valid and added, 0 otherwise
+*/
 int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isConst) {
     // Basic validation
     if (node == NULL || node->start == NULL) {
@@ -811,10 +817,17 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
     int pointerLevel = 0;
     ASTNode typeref = getBaseTypeFromPointerChain(node->children->children, &pointerLevel);
     DataType varType = getDataTypeFromNode(typeref->nodeType);
-    
+    Symbol structSymbol = NULL;
     if (varType == TYPE_UNKNOWN) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Unknown variable type in declaration");
         return 0;
+        //checks if the custom type aka struct currently exists
+    }else if(varType == TYPE_STRUCT){
+        structSymbol = lookupSymbol(context->current, typeref->start, typeref->length);
+        if(structSymbol == NULL || structSymbol->symbolType != SYMBOL_TYPE){
+            REPORT_ERROR(ERROR_UNDEFINED_SYMBOL, typeref, context, "Undefined struct type in variable declaration");
+            return 0;
+        }
     }
     
     // Check for redeclaration
@@ -829,6 +842,10 @@ int validateVariableDeclaration(ASTNode node, TypeCheckContext context, int isCo
     if (!newSymbol) {
         repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to add symbol");
         return 0;
+    }
+
+    if(varType == TYPE_STRUCT && structSymbol){
+        newSymbol->structType = structSymbol->structType;
     }
     
     newSymbol->isPointer = (pointerLevel > 0);
@@ -972,7 +989,7 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
                     "Left side must be a variable or member access");
         return 0;
     }
-    
+
     // Handle variable assignment
     if (left->nodeType == VARIABLE) {
         Symbol sym = lookupSymbolOrError(context, left);
@@ -1029,7 +1046,6 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
             }
         }
     }
-    
     // Type compatibility checking
     DataType leftType = getExpressionType(leftForType, context);
     if (leftType == TYPE_UNKNOWN) {
@@ -1089,7 +1105,6 @@ int validateAssignment(ASTNode node, TypeCheckContext context) {
             }
         }
     }
-    
     return 1;
 }
 
@@ -1235,7 +1250,13 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     SymbolTable oldScope = context->current;
     Symbol oldFunction = context->currentFunction;
 
-    context->current = createSymbolTable(oldScope);
+    SymbolTable funcScope = createSymbolTable(oldScope);
+    if (funcScope == NULL) {
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create function scope");
+        return 0;
+    }
+    funcSymbol->functionScope = funcScope;
+    context->current = funcScope;
     context->currentFunction = funcSymbol;
 
     if (context->current == NULL) {
@@ -1261,6 +1282,13 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
                 paramSymbol->isPointer = (pointerLevel > 0);
                 paramSymbol->pointerLvl = pointerLevel;
                 paramSymbol->baseType = getDataTypeFromNode(baseType->nodeType); 
+
+                if (paramSymbol->baseType == TYPE_STRUCT || paramSymbol->type == TYPE_STRUCT) {
+                    Symbol structTypeSymbol = lookupSymbol(context->current, baseType->start, baseType->length);
+                    if (structTypeSymbol && structTypeSymbol->symbolType == SYMBOL_TYPE) {
+                        paramSymbol->structType = structTypeSymbol->structType;
+                    }
+                }
             }
         }
         param = param->next;
@@ -1272,7 +1300,6 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         success = typeCheckNode(bodyNode, context);
     }
 
-    freeSymbolTable(context->current);
     context->current = oldScope;
     context->currentFunction = oldFunction;
 
@@ -1301,6 +1328,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         }
         return 1;
     }
+
+    printf("is a memberaccess? %d\n", node->children->nodeType == MEMBER_ACCESS);
 
     // Get actual return type
     DataType returnType = getExpressionType(node->children, context);
@@ -1352,6 +1381,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         
         return 1;
     }
+
+    printf("got here\n");
     
     // For non-pointer types, standard compatibility check
     CompatResult compat = areCompatible(expectedType, returnType);
@@ -1359,6 +1390,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         repError(ERROR_RETURN_TYPE_MISMATCH, "return");
         return 0;
     }
+
+    printf("return type is %s, expected %s\n", getTypeName(returnType), getTypeName(expectedType));
 
     return 1;
 }
@@ -1394,6 +1427,10 @@ int typeCheckChildren(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
+static size_t alignTo(size_t offset, size_t alignment) {
+    return (offset + alignment - 1) & ~(alignment - 1);
+}
+
 StructType createStructType(ASTNode node, TypeCheckContext context) {
     if (!node || node->nodeType != STRUCT_DEFINITION) return NULL;
     StructType structType = malloc(sizeof(struct StructType));
@@ -1416,6 +1453,7 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
             if (field->nodeType == STRUCT_FIELD && field->children) {
                 StructField structField = malloc(sizeof(struct StructField));
                 if (!structField) {
+                    // has to free previously allocated fields
                     free(structType);
                     free(structField);
                     return NULL;
@@ -1424,8 +1462,14 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                 structField->nameStart = field->start;
                 structField->nameLength = field->length;
                 structField->type = getDataTypeFromNode(field->children->nodeType);
-                structField->offset = structType->size;
                 structField->next = NULL;
+
+                size_t fieldSize = getStackSize(structField->type);
+                size_t alignment = getStackSize(structField->type);
+                structType->size = alignTo(structType->size, alignment);
+                structField->offset = structType->size;
+
+                structType->size += fieldSize;
 
                 StructField check = structType->fields;
                 while (check) {
@@ -1436,18 +1480,24 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                     }
                     check = check->next;
                 }
-                size_t fieldSize = getStackSize(structField->type);
-                structType->size += fieldSize;
                 structType->fieldCount++;
-                if (!structType->fields) {
+                if(!structType->fields){
                     structType->fields = structField;
                 }else {
                     last->next = structField;
-                }
+                }    
                 last = structField;
             }
             field = field->brothers;
         }
+        size_t maxAlignment = 1;
+        StructField f = structType->fields;
+        while (f) {
+            size_t align = getStackSize(f->type);
+            if (align > maxAlignment) maxAlignment = align;
+            f = f->next;
+        }
+        structType->size = alignTo(structType->size, maxAlignment);
     }
     return structType;
 }
@@ -1463,7 +1513,10 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
         return 0;
     }
     StructType structType = createStructType(node, context);
-    if (!structType) return 0;
+    if (!structType) {
+        REPORT_ERROR(ERROR_INVALID_EXPRESSION, node, context, "Failed to create struct type");
+        return 0;
+    };
     Symbol structSymbol = addSymbolFromNode(context->current, node, TYPE_STRUCT);
     if (!structSymbol) {
         free(structType);
@@ -1471,7 +1524,6 @@ int validateStructDef(ASTNode node, TypeCheckContext context) {
     }
     structSymbol->structType = structType;
     structSymbol->symbolType = SYMBOL_TYPE;
-
     return 1;
 }
 
@@ -1693,11 +1745,21 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
     return success;
 }
 
-TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename) {
-    TypeCheckContext context = createTypeCheckContext(sourceCode, filename);
+TypeCheckContext typeCheckAST(ASTNode ast, const char *sourceCode, const char *filename, TypeCheckContext ref) {
+    TypeCheckContext context;
+    if(ref){
+        context = ref;
+    }else {
+        context = createTypeCheckContext(sourceCode, filename);
+    }
     if (context == NULL) {
         repError(ERROR_CONTEXT_CREATION_FAILED, "Failed to create type check context");
         return 0;
+    }
+    if (ast && ast->nodeType == PROGRAM && ast->children == NULL) {
+        repError(ERROR_NO_ENTRY_POINT, "Empty program");
+        freeTypeCheckContext(context);
+        return NULL;
     }
     int success = typeCheckNode(ast, context);
     if (!success) {

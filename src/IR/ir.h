@@ -39,6 +39,7 @@ typedef enum {
     IR_DEREF,
     IR_STORE,
 
+    IR_ALLOC_STRUCT,
     IR_MEMBER_LOAD,
     IR_MEMBER_STORE,
 

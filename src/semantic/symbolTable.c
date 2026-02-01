@@ -48,6 +48,7 @@ Symbol addFunctionSymbol(SymbolTable symbolTable, const char *nameStart, size_t 
     newSymbol->isInitialized = 1;
     newSymbol->parameters = parameters;
     newSymbol->paramCount = paramCount;
+    newSymbol->functionScope = NULL;
 
     newSymbol->next = symbolTable->symbols;
     symbolTable->symbols = newSymbol;
@@ -227,6 +228,9 @@ DataType getDataTypeFromNode(NodeTypes nodeType) {
             return TYPE_BOOL;
         case REF_DOUBLE:
             return TYPE_DOUBLE;
+        // now works bcs structs are the only user custom types
+        case REF_CUSTOM:
+            return TYPE_STRUCT;
         default:
             return TYPE_UNKNOWN;
     }

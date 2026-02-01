@@ -249,7 +249,7 @@ void genBinaryOp(CodeGenContext *ctx, IrInstruction *inst){
             default: break;
         }
 
-        storeOp(ctx, "xmm0", &inst->result);
+        storeOp(ctx, "%xmm0", &inst->result);
     }else {
         loadOp(ctx, &inst->ar1, "a");
         loadOp(ctx, &inst->ar2, "c");
@@ -466,10 +466,7 @@ void genReturn(CodeGenContext *ctx, IrInstruction *inst) {
             loadOp(ctx, &inst->ar1, "a");
         }
     }
-    
-    emitInstruction(ctx, "movq %%rbp, %%rsp");
-    emitInstruction(ctx, "popq %%rbp");
-    emitInstruction(ctx, "ret");
+    emitInstruction(ctx, "jmp .Lret_%.*s", (int)ctx->currentFn->nameLen, ctx->currentFn->name);
 }
 
 void genParam(CodeGenContext *ctx, IrInstruction *inst, int paramIndex) {
@@ -497,10 +494,92 @@ void genParam(CodeGenContext *ctx, IrInstruction *inst, int paramIndex) {
     }
 }
 
+void genAllocStruct(CodeGenContext *ctx, IrInstruction *inst) {
+    if (inst->result.type != OPERAND_VAR || inst->ar1.type != OPERAND_CONSTANT) {
+        return;
+    }
+    
+    const char *name = inst->result.value.var.name;
+    size_t nameLen = inst->result.value.var.nameLen;
+    int32_t structSize = inst->ar1.value.constant.intVal;
+    
+    int32_t alignedSize = (structSize + 7) & ~7;
+    
+    addLocalVar(ctx, name, nameLen, IR_TYPE_POINTER);
+    
+    if (ctx->inFn && ctx->currentFn) {
+        ctx->currentFn->stackSize += alignedSize;
+        int32_t structBaseOffset = -ctx->currentFn->stackSize;
+        
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+        int32_t varOff = getVarOffset(ctx, name, nameLen);
+        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    } else {
+        ctx->globalStackOff -= alignedSize;
+        int32_t structBaseOffset = ctx->globalStackOff;
+        
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+        int32_t varOff = getVarOffset(ctx, name, nameLen);
+        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    }
+}
+
+void genMemberLoad(CodeGenContext *ctx, IrInstruction *inst) {
+    IrOperand *dest = &inst->result;
+    IrOperand *structVar = &inst->ar1;
+    IrOperand *offsetOp = &inst->ar2;
+    
+    if (structVar->type != OPERAND_VAR || offsetOp->type != OPERAND_CONSTANT) {
+        return;
+    }
+    
+    int32_t memberOffset = offsetOp->value.constant.intVal;
+    IrDataType type = dest->dataType;
+    
+    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+    
+    if (isFloatingPoint(type)) {
+        emitInstruction(ctx, "mov%s %d(%%rax), %%xmm0", getSSESuffix(type), memberOffset);
+        storeOp(ctx, "%xmm0", dest);
+    } else if (type == IR_TYPE_POINTER || type == IR_TYPE_STRING) {
+        emitInstruction(ctx, "movq %d(%%rax), %%rcx", memberOffset);
+        storeOp(ctx, "c", dest);
+    } else {
+        emitInstruction(ctx, "mov%s %d(%%rax), %s", getIntSuffix(type), memberOffset, getIntReg("c", type));
+        storeOp(ctx, "c", dest);
+    }
+}
+
+void genMemberStore(CodeGenContext *ctx, IrInstruction *inst){
+    IrOperand *structVar = &inst->result;
+    IrOperand *offsetOp = &inst->ar1;
+    IrOperand *valueOp = &inst->ar2;
+
+    int32_t memOff = offsetOp->value.constant.intVal;
+    IrDataType type = valueOp->dataType;
+
+    if(isFloatingPoint(type)){
+        loadOp(ctx, valueOp, "%xmm0");
+    }else{
+        loadOp(ctx, valueOp, "c");
+    }
+
+    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+
+    if(isFloatingPoint(type)){
+        emitInstruction(ctx, "mov%s %%xmm0, %d(%%rax)", getSSESuffix(type), memOff);
+    } else{
+        emitInstruction(ctx, "mov%s %s, %d(%%rax)", getIntSuffix(type), getIntReg("c", type), memOff);
+    }
+}
+
 void genCall(CodeGenContext *ctx, IrInstruction *inst) {
-        const char *fnName = inst->ar1.value.fn.name;
+    const char *fnName = inst->ar1.value.fn.name;
     size_t fnLen = inst->ar1.value.fn.nameLen;
     
+    // Handle built-in print
     if (fnLen == 5 && memcmp(fnName, "print", 5) == 0) {
         switch (ctx->lastParamType) {
             case IR_TYPE_STRING:
@@ -522,10 +601,37 @@ void genCall(CodeGenContext *ctx, IrInstruction *inst) {
                 emitInstruction(ctx, "call print_int");
                 break;
         }
-    }else{
-        emitInstruction(ctx, "call %.*s",
-                   (int)fnLen,
-                   fnName);
+    } else if (fnLen == 4 && memcmp(fnName, "read", 4) == 0) {
+        if (inst->result.type != OPERAND_NONE) {
+            if (inst->result.dataType == IR_TYPE_INT) {
+                emitInstruction(ctx, "call read_int");
+            }
+        }
+    }else if(fnLen == 6 && memcmp(fnName, "readln", 6) == 0){
+        emitInstruction(ctx, "call read_str");
+    } else {
+        // Check if this is an imported function
+        int found = 0;
+        for (int i = 0; i < ctx->importCount; i++) {
+            ModuleInterface *iface = ctx->imports[i];
+            ExportedFunction *func = iface->functions;
+            while (func) {
+                size_t funcNameLen = strlen(func->name);
+                if (funcNameLen == fnLen && memcmp(func->name, fnName, fnLen) == 0) {
+                    // Found imported function - use mangled name
+                    emitInstruction(ctx, "call _Orn_%s__%s", iface->moduleName, func->name);
+                    found = 1;
+                    break;
+                }
+                func = func->next;
+            }
+            if (found) break;
+        }
+        
+        if (!found) {
+            // Local function call
+            emitInstruction(ctx, "call %.*s", (int)fnLen, fnName);
+        }
     }
     
     if (inst->result.type != OPERAND_NONE) {
@@ -543,14 +649,33 @@ void genFuncBegin(CodeGenContext *ctx, IrInstruction *inst) {
     func->name = inst->result.value.fn.name;
     func->nameLen = inst->result.value.fn.nameLen;
     func->stackSize = 0;
-    
+
     ctx->currentFn = func;
     ctx->inFn = 1;
-    
-    sbAppendf(&ctx->text, "\n    .globl %.*s\n", (int)func->nameLen, func->name);
-    sbAppendf(&ctx->text, "    .type %.*s, @function\n", (int)func->nameLen, func->name);
-    sbAppendf(&ctx->text, "%.*s:\n", (int)func->nameLen, func->name);
-    
+
+    int isExported = (inst->ar1.type == OPERAND_CONSTANT && inst->ar1.value.constant.intVal == 1);
+
+    // Special case: main must always be global for the linker
+    int isMain = (func->nameLen == 4 && memcmp(func->name, "main", 4) == 0);
+
+    if (isMain) {
+        // main: always global, never mangled
+        sbAppendf(&ctx->text, "\n    .globl main\n");
+        sbAppendf(&ctx->text, "    .type main, @function\n");
+        sbAppendf(&ctx->text, "main:\n");
+    } else if (isExported && ctx->moduleName) {
+        // Exported: mangled global + local alias
+        sbAppendf(&ctx->text, "\n    .globl _Orn_%s__%.*s\n", ctx->moduleName, (int)func->nameLen,
+                  func->name);
+        sbAppendf(&ctx->text, "    .type _Orn_%s__%.*s, @function\n", ctx->moduleName,
+                  (int)func->nameLen, func->name);
+        sbAppendf(&ctx->text, "_Orn_%s__%.*s:\n", ctx->moduleName, (int)func->nameLen, func->name);
+        sbAppendf(&ctx->text, "%.*s:\n", (int)func->nameLen, func->name);
+    } else {
+        // Local function
+        sbAppendf(&ctx->text, "\n%.*s:\n", (int)func->nameLen, func->name);
+    }
+
     emitInstruction(ctx, "pushq %%rbp");
     emitInstruction(ctx, "movq %%rsp, %%rbp");
     emitInstruction(ctx, "subq $256, %%rsp");
@@ -558,6 +683,9 @@ void genFuncBegin(CodeGenContext *ctx, IrInstruction *inst) {
 
 void genFuncEnd(CodeGenContext *ctx, IrInstruction *inst) {
     (void)inst;
+    
+    sbAppendf(&ctx->text, ".Lret_%.*s:\n", 
+              (int)ctx->currentFn->nameLen, ctx->currentFn->name);
     
     emitInstruction(ctx, "movq %%rbp, %%rsp");
     emitInstruction(ctx, "popq %%rbp");
@@ -782,7 +910,17 @@ void generateInstruction(CodeGenContext *ctx, IrInstruction *inst, int *paramCou
         case IR_CAST:
             genCast(ctx, inst);
             break;
+        case IR_ALLOC_STRUCT:
+            genAllocStruct(ctx, inst);
+            break;
             
+        case IR_MEMBER_LOAD:
+            genMemberLoad(ctx, inst);
+            break;
+            
+        case IR_MEMBER_STORE:
+            genMemberStore(ctx, inst);
+            break;    
         default:
             emitComment(ctx, "Unknown instruction");
             break;
@@ -804,55 +942,76 @@ static void generateMainEpilogue(CodeGenContext *ctx) {
     emitInstruction(ctx, "ret");
 }
 
-char *generateAssembly(IrContext *ir) {
+char *generateAssembly(IrContext *ir, const char *moduleName, ModuleInterface **imports, int importCount) {
     if (!ir) return NULL;
     
     CodeGenContext *ctx = createCodeGenContext();
     if (!ctx) return NULL;
+
+    ctx->imports = imports;
+    ctx->importCount = importCount;
+    ctx->moduleName = moduleName;
     
     sbAppend(&ctx->data, "    .section .rodata\n");
-    
     sbAppend(&ctx->text, "    .text\n");
+    
+    StringBuffer funcText = sbCreate(8192);
     
     int paramCount = 0;
     int inUserFunction = 0;
     int mainStarted = 0;
     
+    StringBuffer mainText = ctx->text;
+    
     IrInstruction *inst = ir->instructions;
     while (inst) {
         if (inst->op == IR_FUNC_BEGIN) {
-            if (mainStarted && !inUserFunction) {
-            }
             inUserFunction = 1;
+            ctx->text = funcText;
             generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
         } 
         else if (inst->op == IR_FUNC_END) {
+            ctx->text = funcText;
             generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
             inUserFunction = 0;
         }
-        else if (!inUserFunction) {
+        else if (inUserFunction) {
+            ctx->text = funcText;
+            generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
+        }
+        else {
+            ctx->text = mainText;
+            
             if (!mainStarted) {
                 generateMainWrapper(ctx);
                 emitInstruction(ctx, "subq $256, %%rsp");
                 mainStarted = 1;
             }
             generateInstruction(ctx, inst, &paramCount);
-        }
-        else {
-            generateInstruction(ctx, inst, &paramCount);
+            mainText = ctx->text;
         }
         
         inst = inst->next;
     }
     
+    ctx->text = mainText;
     if (mainStarted) {
         generateMainEpilogue(ctx);
+        mainText = ctx->text;
     }
     
-    StringBuffer result = sbCreate(ctx->data.len + ctx->text.len + 100);
+    StringBuffer result = sbCreate(ctx->data.len + mainText.len + funcText.len + 100);
     sbAppend(&result, ctx->data.data);
     sbAppend(&result, "\n");
-    sbAppend(&result, ctx->text.data);
+    sbAppend(&result, mainText.data);
+    sbAppend(&result, "\n");
+    sbAppend(&result, funcText.data);
+    
+    sbFree(&funcText);
+    ctx->text = mainText;
     
     char *assembly = result.data;
     result.data = NULL;
