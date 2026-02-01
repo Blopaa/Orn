@@ -658,18 +658,24 @@ ASTNode parseExportFunction(TokenList* list, size_t* pos) {
     Token* exportTok = &list->tokens[*pos];
     ADVANCE_TOKEN(list, pos);
     
-    // Must be followed by 'fn' atleast for now
-    EXPECT_TOKEN(list, pos, TK_FN, ERROR_EXPECTED_FN_AFTER_EXPORT, 
-                 "Expected 'fn' after 'export'");
+    ASTNode childNode;
     
-    // Parse the function
-    ASTNode funcNode;
-    PARSE_OR_FAIL(funcNode, parseFunction(list, pos));
+    // Check what follows: fn or struct
+    if (list->tokens[*pos].type == TK_FN) {
+        PARSE_OR_FAIL(childNode, parseFunction(list, pos));
+    } 
+    else if (list->tokens[*pos].type == TK_STRUCT) {
+        PARSE_OR_FAIL(childNode, parseStruct(list, pos));
+    }
+    else {
+        reportError(ERROR_EXPECTED_FN_AFTER_EXPORT, createErrorContextFromParser(list, pos), "Expected 'fn' or 'struct' after 'export'");
+        return NULL;
+    }
     
     // Wrap in export node
     ASTNode exportNode;
     CREATE_NODE_OR_FAIL(exportNode, exportTok, EXPORTDEC, list, pos);
-    exportNode->children = funcNode;
+    exportNode->children = childNode;
     
     return exportNode;
 }

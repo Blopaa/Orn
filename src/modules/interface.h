@@ -12,10 +12,29 @@ typedef struct ExportedFunction {
     struct ExportedFunction *next;
 } ExportedFunction;
 
+typedef struct ExportedField {
+    char *name;
+    char *type;
+    int offset;
+    int isPointer;
+    int pointerLevel;
+    struct ExportedField *next;
+} ExportedField;
+
+typedef struct ExportedStruct {
+    char *name;
+    ExportedField *fields;
+    int fieldCount;
+    int size;
+    struct ExportedStruct *next;
+} ExportedStruct;
+
 typedef struct ModuleInterface {
     char *moduleName;
     ExportedFunction *functions;
     int functionCount;
+    ExportedStruct *structs;
+    int structCount;
 } ModuleInterface;
 
 ModuleInterface *extractExportsWithContext(ASTNode ast, const char *moduleName,
