@@ -365,6 +365,54 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
     }
 }
 
+static MemberAccessInfo resolveMemberAccessChain(ASTNode node, TypeCheckContext typeCtx) {
+    MemberAccessInfo info = { NULL, 0, 0, NULL, TYPE_UNKNOWN };
+    
+    if (!node || node->nodeType != MEMBER_ACCESS) return info;
+    
+    ASTNode objectNode = node->children;
+    ASTNode fieldNode = objectNode->brothers;
+    
+    if (objectNode->nodeType == MEMBER_ACCESS) {
+        info = resolveMemberAccessChain(objectNode, typeCtx);
+        if (!info.baseName || !info.finalStructType) return info;
+        
+        StructField field = info.finalStructType->fields;
+        while (field) {
+            if (bufferEqual(fieldNode->start, fieldNode->length, field->nameStart, field->nameLength)) {
+                info.totalOffset += field->offset;
+                info.finalStructType = field->structType;
+                info.fieldType = field->type;
+                return info;
+            }
+            field = field->next;
+        }
+        info.baseName = NULL;
+        return info;
+        
+    } else if (objectNode->nodeType == VARIABLE) {
+        Symbol structSym = lookupSymbol(typeCtx->current, 
+                                        objectNode->start, objectNode->length);
+        if (!structSym || !structSym->structType) return info;
+        
+        info.baseName = objectNode->start;
+        info.baseNameLen = objectNode->length;
+        
+        StructField field = structSym->structType->fields;
+        while (field) {
+            if (bufferEqual(fieldNode->start, fieldNode->length, field->nameStart, field->nameLength)) {
+                info.totalOffset = field->offset;
+                info.finalStructType = field->structType;
+                info.fieldType = field->type;
+                return info;
+            }
+            field = field->next;
+        }
+    }
+    
+    return info;
+}
+
 static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx, int isExported) {
     ASTNode paramList = node->children;
     ASTNode returnType = paramList->brothers;
@@ -503,25 +551,16 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         return res;
     }
     case MEMBER_ACCESS: {
-        ASTNode structNode = node->children;
-        ASTNode memberNode = structNode->brothers;
-        Symbol structSym = lookupSymbol(typeCtx->current, structNode->start, structNode->length);
+        MemberAccessInfo info = resolveMemberAccessChain(node, typeCtx);
         
-        if (!structSym || !structSym->structType) {
+        if (!info.baseName) {
             return createNone();
         }
         
-        StructField field = structSym->structType->fields;
-        while(field){
-            if(bufferEqual(memberNode->start, memberNode->length, field->nameStart, field->nameLength)){
-                break;
-            }
-            field = field->next;
-        }
-        IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
-        IrOperand structVar = createVar(structNode->start, structNode->length, IR_TYPE_POINTER);
-        emitMemberLoad(ctx, temp, structVar, field->offset);
-
+        IrOperand temp = createTemp(ctx, symbolTypeToIrType(info.fieldType));
+        IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
+        emitMemberLoad(ctx, temp, structVar, info.totalOffset);
+        
         return temp;
     }
     case MEMADDRS: {
@@ -670,34 +709,27 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
             emitStore(ctx, ptrOp, rightOp);
 
             return ptrOp;
-        } else if(left->nodeType == MEMBER_ACCESS){
-            ASTNode structNode = left->children;
-            ASTNode memberNode = structNode->brothers;
-            Symbol structSym = lookupSymbol(typeCtx->current, structNode->start, structNode->length);
-            if(!structSym || !structSym->structType){
-                return createNone();
-            }
-            StructField field = structSym->structType->fields;
-            while(field){
-                if(bufferEqual(memberNode->start, memberNode->length, field->nameStart, field->nameLength)){
-                    break;
-                }
-                field = field->next;
-            }
-            IrOperand structVar = createVar(structNode->start, structNode->length, IR_TYPE_POINTER);
-            int offset = field->offset;
-
-            if(node->nodeType != ASSIGNMENT){
-                IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(field->type));
-                emitMemberLoad(ctx, temp1, structVar, offset);
-                IrOperand t2 = createTemp(ctx, temp1.dataType);
-                IrOpCode op = astOpToIrOp(node->nodeType);
-                emitBinary(ctx, op, t2, temp1, rightOp);
-                emitMemberStore(ctx, structVar, offset, t2);
-            }else{
-                emitMemberStore(ctx, structVar, offset, rightOp);
-            }
-        }else {
+        }else if (left->nodeType == MEMBER_ACCESS) {
+        MemberAccessInfo info = resolveMemberAccessChain(left, typeCtx);
+        
+        if (!info.baseName) {
+            return createNone();
+        }
+        
+        IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
+        
+        if (node->nodeType != ASSIGNMENT) {
+            // Compound assignment
+            IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(info.fieldType));
+            emitMemberLoad(ctx, temp1, structVar, info.totalOffset);
+            IrOperand t2 = createTemp(ctx, temp1.dataType);
+            IrOpCode op = astOpToIrOp(node->nodeType);
+            emitBinary(ctx, op, t2, temp1, rightOp);
+            emitMemberStore(ctx, structVar, info.totalOffset, t2);
+        } else {
+            emitMemberStore(ctx, structVar, info.totalOffset, rightOp);
+        }
+    }else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;

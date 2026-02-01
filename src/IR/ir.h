@@ -60,6 +60,14 @@ typedef enum {
     IR_CAST
 } IrOpCode;
 
+typedef struct {
+    const char *baseName;
+    size_t baseNameLen;
+    int totalOffset;
+    StructType finalStructType;
+    DataType fieldType;
+} MemberAccessInfo;
+
 typedef enum {
     OPERAND_NONE,
     OPERAND_TEMP,

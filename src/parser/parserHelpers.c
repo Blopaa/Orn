@@ -222,6 +222,7 @@ int isTypeToken(TokenType type) {
             type == TK_FLOAT ||
             type == TK_BOOL ||
 			type == TK_DOUBLE ||
+			type == TK_LIT ||
             type == TK_VOID);
 }
 

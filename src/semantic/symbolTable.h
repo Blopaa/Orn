@@ -25,6 +25,9 @@ typedef struct TypeCheckContext *TypeCheckContext;
 struct SymbolTable;
 typedef struct SymbolTable *SymbolTable;
 
+struct StructType;
+typedef struct StructType *StructType;
+
 /**
  * @brief Data type enumeration for type checking and validation.
  *
@@ -50,10 +53,16 @@ typedef enum {
     SYMBOL_TYPE,
 } SymbolType;
 
+typedef struct {
+    DataType type;
+    StructType structType;
+} ResolvedType;
+
 typedef struct StructField {
     const char *nameStart;
     size_t nameLength;
     DataType type;
+    StructType structType; // only if type == TYPE_STRUCT
     size_t offset;
     struct StructField *next;
 } * StructField;

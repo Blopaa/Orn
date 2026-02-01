@@ -206,45 +206,73 @@ DataType getOperationResultType(DataType left, DataType right, NodeTypes op) {
 }
 
 /**
- * @brief Validates and gets the type of member access expressions.
- * @todo should be two funcitons, one for getting type, other for validating
+ * @brief Resolves the type of a member access expression recursively.
  */
-DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
-    if (!node || node->nodeType != MEMBER_ACCESS) return TYPE_UNKNOWN;
+ResolvedType resolveMemberAccessType(ASTNode node, TypeCheckContext context) {
+    ResolvedType result = { TYPE_UNKNOWN, NULL };
+    
+    if (!node || node->nodeType != MEMBER_ACCESS) return result;
 
     ASTNode objectNode = node->children;
     ASTNode fieldNode = objectNode ? objectNode->brothers : NULL;
+    
     if (!objectNode || !fieldNode) {
         repError(ERROR_INTERNAL_PARSER_ERROR, "Invalid member access structure");
-        return TYPE_UNKNOWN;
+        return result;
     }
 
-    if (objectNode->nodeType != VARIABLE) {
-        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,"Member access requires a variable");
-        return TYPE_UNKNOWN;
+    StructType structType = NULL;
+
+    if (objectNode->nodeType == MEMBER_ACCESS) {
+        ResolvedType objResolved = resolveMemberAccessType(objectNode, context);
+        if (objResolved.type != TYPE_STRUCT || !objResolved.structType) {
+            REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context, 
+                        "Member access on non-struct type");
+            return result;
+        }
+        structType = objResolved.structType;
+        
+    } else if (objectNode->nodeType == VARIABLE) {
+        Symbol objectSymbol = lookupSymbol(context->current, objectNode->start, objectNode->length);
+        if (!objectSymbol) {
+            REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, objectNode, context,
+                        "Undefined variable in member access");
+            return result;
+        }
+        if (objectSymbol->type != TYPE_STRUCT || !objectSymbol->structType) {
+            REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context, 
+                        "Member access on non-struct type");
+            return result;
+        }
+        structType = objectSymbol->structType;
+    } else {
+        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context,
+                    "Member access requires a variable or nested access");
+        return result;
     }
 
-    Symbol objectSymbol = lookupSymbol(context->current, objectNode->start, objectNode->length);
-    if (!objectSymbol) {
-        REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context,"Undefined variable in member access");
-        return TYPE_UNKNOWN;
-    }
-
-    if (objectSymbol->type != TYPE_STRUCT) {
-        REPORT_ERROR(ERROR_INVALID_OPERATION_FOR_TYPE, node, context, "Member access on non-struct type");
-        return TYPE_UNKNOWN;
-    }
-
-    StructField field = objectSymbol->structType->fields;
+    StructField field = structType->fields;
     while (field) {
-        if (field->nameLength == fieldNode->length &&
+        if (field->nameLength == fieldNode->length && 
             memcmp(field->nameStart, fieldNode->start, fieldNode->length) == 0) {
-            return field->type;
-            }
+            result.type = field->type;
+            result.structType = field->structType;  
+            return result;
+        }
         field = field->next;
     }
-    REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, node, context, "Struct has no such field");
-    return TYPE_UNKNOWN;
+    
+    REPORT_ERROR(ERROR_UNDEFINED_VARIABLE, fieldNode, context, 
+                "Struct '%.*s' has no field '%.*s'");
+    return result;
+}
+
+/**
+ * @brief Validates member access and returns its DataType.
+ */
+DataType validateMemberAccess(ASTNode node, TypeCheckContext context) {
+    ResolvedType resolved = resolveMemberAccessType(node, context);
+    return resolved.type;
 }
 
 /**
@@ -1461,7 +1489,18 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
 
                 structField->nameStart = field->start;
                 structField->nameLength = field->length;
-                structField->type = getDataTypeFromNode(field->children->nodeType);
+                DataType type =  getDataTypeFromNode(field->children->nodeType);
+                structField->type = type;
+                if(type == TYPE_STRUCT) {
+                    Symbol structSymbol = lookupSymbol(context->current, field->children->start, field->children->length);
+                    if(!structSymbol || structSymbol->symbolType != SYMBOL_TYPE){
+                        REPORT_ERROR(ERROR_UNDEFINED_SYMBOL, field->children, context, "Undefined struct type in field declaration");
+                        free(structField);
+                        free(structType);
+                        return NULL;
+                    }
+                    structField->structType = structSymbol->structType;
+                }
                 structField->next = NULL;
 
                 size_t fieldSize = getStackSize(structField->type);

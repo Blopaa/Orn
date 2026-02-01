@@ -716,6 +716,7 @@ NodeTypes getTypeNodeFromToken(TokenType type) {
 		case TK_BOOL: return REF_BOOL;
 		case TK_VOID: return REF_VOID;
 		case TK_DOUBLE: return REF_DOUBLE;
+		case TK_LIT: return REF_CUSTOM;
 		default: return null_NODE; 
 	}
 }
@@ -1057,28 +1058,6 @@ ASTNode parseExpressionStatement(TokenList* list, size_t* pos) {
 	return expressionNode;
 }
 
-ASTNode parseStructVarDec(TokenList* list, size_t* pos) {
-	Token * type = &list->tokens[*pos];
-	ADVANCE_TOKEN(list, pos);
-	Token * varTok = &list->tokens[*pos];
-	ADVANCE_TOKEN(list, pos);
-
-	ASTNode structVarNode;
-	CREATE_NODE_OR_FAIL(structVarNode, varTok, STRUCT_VARIABLE_DEFINITION, list, pos);
-	ASTNode typeRefNode;
-	CREATE_NODE_OR_FAIL(typeRefNode, type, REF_CUSTOM, list, pos);
-	structVarNode->children = typeRefNode;
-	if (*pos < list->count && list->tokens[*pos].type == TK_ASSIGN) {
-		ADVANCE_TOKEN(list, pos);
-		ASTNode initExpr;
-		PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), structVarNode);
-		typeRefNode->brothers = initExpr;
-	}
-
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';'");
-	return structVarNode;
-}
-
 /**
  * @brief Parses individual statements.
  *
@@ -1110,10 +1089,6 @@ ASTNode parseStatement(TokenList* list, size_t* pos) {
         return parseDeclaration(list, pos);
     }
 
-	// if (currentToken->type == TK_LIT && list->tokens[*pos+1].type == TK_LIT) {
-	// 	return parseStructVarDec(list, pos);
-	// }
-	// Default to expression statement
 	return parseExpressionStatement(list, pos);
 }
 
