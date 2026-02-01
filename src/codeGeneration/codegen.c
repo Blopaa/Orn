@@ -466,10 +466,7 @@ void genReturn(CodeGenContext *ctx, IrInstruction *inst) {
             loadOp(ctx, &inst->ar1, "a");
         }
     }
-    
-    emitInstruction(ctx, "movq %%rbp, %%rsp");
-    emitInstruction(ctx, "popq %%rbp");
-    emitInstruction(ctx, "ret");
+    emitInstruction(ctx, "jmp .Lret_%.*s", (int)ctx->currentFn->nameLen, ctx->currentFn->name);
 }
 
 void genParam(CodeGenContext *ctx, IrInstruction *inst, int paramIndex) {
@@ -686,6 +683,9 @@ void genFuncBegin(CodeGenContext *ctx, IrInstruction *inst) {
 
 void genFuncEnd(CodeGenContext *ctx, IrInstruction *inst) {
     (void)inst;
+    
+    sbAppendf(&ctx->text, ".Lret_%.*s:\n", 
+              (int)ctx->currentFn->nameLen, ctx->currentFn->name);
     
     emitInstruction(ctx, "movq %%rbp, %%rsp");
     emitInstruction(ctx, "popq %%rbp");
@@ -948,53 +948,70 @@ char *generateAssembly(IrContext *ir, const char *moduleName, ModuleInterface **
     CodeGenContext *ctx = createCodeGenContext();
     if (!ctx) return NULL;
 
-    ctx->imports =imports;
+    ctx->imports = imports;
     ctx->importCount = importCount;
     ctx->moduleName = moduleName;
     
     sbAppend(&ctx->data, "    .section .rodata\n");
-    
     sbAppend(&ctx->text, "    .text\n");
+    
+    StringBuffer funcText = sbCreate(8192);
     
     int paramCount = 0;
     int inUserFunction = 0;
     int mainStarted = 0;
     
+    StringBuffer mainText = ctx->text;
+    
     IrInstruction *inst = ir->instructions;
     while (inst) {
         if (inst->op == IR_FUNC_BEGIN) {
-            if (mainStarted && !inUserFunction) {
-            }
             inUserFunction = 1;
+            ctx->text = funcText;
             generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
         } 
         else if (inst->op == IR_FUNC_END) {
+            ctx->text = funcText;
             generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
             inUserFunction = 0;
         }
-        else if (!inUserFunction) {
+        else if (inUserFunction) {
+            ctx->text = funcText;
+            generateInstruction(ctx, inst, &paramCount);
+            funcText = ctx->text;
+        }
+        else {
+            ctx->text = mainText;
+            
             if (!mainStarted) {
                 generateMainWrapper(ctx);
                 emitInstruction(ctx, "subq $256, %%rsp");
                 mainStarted = 1;
             }
             generateInstruction(ctx, inst, &paramCount);
-        }
-        else {
-            generateInstruction(ctx, inst, &paramCount);
+            mainText = ctx->text;
         }
         
         inst = inst->next;
     }
     
+    ctx->text = mainText;
     if (mainStarted) {
         generateMainEpilogue(ctx);
+        mainText = ctx->text;
     }
     
-    StringBuffer result = sbCreate(ctx->data.len + ctx->text.len + 100);
+    StringBuffer result = sbCreate(ctx->data.len + mainText.len + funcText.len + 100);
     sbAppend(&result, ctx->data.data);
     sbAppend(&result, "\n");
-    sbAppend(&result, ctx->text.data);
+    sbAppend(&result, mainText.data);
+    sbAppend(&result, "\n");
+    sbAppend(&result, funcText.data);
+    
+    sbFree(&funcText);
+    ctx->text = mainText;
     
     char *assembly = result.data;
     result.data = NULL;

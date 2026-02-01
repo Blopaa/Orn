@@ -253,6 +253,8 @@ IrDataType symbolTypeToIrType(DataType type) {
         case TYPE_BOOL: return IR_TYPE_BOOL;
         case TYPE_STRING: return IR_TYPE_STRING;
         case TYPE_VOID: return IR_TYPE_VOID;
+        case TYPE_POINTER: return IR_TYPE_POINTER;
+        case TYPE_STRUCT: return IR_TYPE_POINTER;
         case TYPE_NULL: return IR_TYPE_POINTER;
         default: return IR_TYPE_INT;
     }
@@ -363,15 +365,21 @@ IrOpCode astOpToIrOp(NodeTypes nodeType) {
     }
 }
 
-static void generateFunctionIr(IrContext *ctx, ASTNode node, 
-                                TypeCheckContext typeCtx, int isExported) {
+static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx, int isExported) {
     ASTNode paramList = node->children;
     ASTNode returnType = paramList->brothers;
     ASTNode body = returnType->brothers;
 
     Symbol fnSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+    if (!fnSymbol) return;
+    
     Symbol oldFunction = typeCtx->currentFunction;
+    SymbolTable oldScope = typeCtx->current;
+    
     typeCtx->currentFunction = fnSymbol;
+    if (fnSymbol->functionScope) {
+        typeCtx->current = fnSymbol->functionScope;
+    }
     
     IrOperand funcName = createFn(node->start, node->length);
     IrOperand exportFlag = createIntConst(isExported);
@@ -395,11 +403,11 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node,
             paramIndex++;
         }
     }
-
     generateStatementIr(ctx, body, typeCtx);
     
     emitBinary(ctx, IR_FUNC_END, funcName, none, none);
     typeCtx->currentFunction = oldFunction;
+    typeCtx->current = oldScope;
 }
 
 IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
@@ -436,19 +444,17 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
     case VARIABLE: {
         Symbol sym = lookupSymbol(typeCtx->current, node->start, node->length);
-        if(!sym && typeCtx->currentFunction){
-            FunctionParameter param = typeCtx->currentFunction->parameters;
-            while (param) {
-                if(bufferEqual(node->start, node->length, param->nameStart, param->nameLength)){
-                    IrDataType type = symbolTypeToIrType(param->type);
-                    return createVar(node->start, node->length, type);
-                }
-                param = param->next;
-            }
-        }
         if(!sym) return createNone();
-
-        IrDataType type = symbolTypeToIrType(sym->type);
+        
+        IrDataType type;
+        if (sym->isPointer || sym->type == TYPE_POINTER) {
+            type = IR_TYPE_POINTER;
+        } else if (sym->type == TYPE_STRUCT) {
+            type = IR_TYPE_POINTER;
+        } else {
+            type = symbolTypeToIrType(sym->type);
+        }
+        
         return createVar(node->start, node->length, type);
     }
 
@@ -500,9 +506,11 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         ASTNode structNode = node->children;
         ASTNode memberNode = structNode->brothers;
         Symbol structSym = lookupSymbol(typeCtx->current, structNode->start, structNode->length);
-        if(!structSym || !structSym->structType){
+        
+        if (!structSym || !structSym->structType) {
             return createNone();
         }
+        
         StructField field = structSym->structType->fields;
         while(field){
             if(bufferEqual(memberNode->start, memberNode->length, field->nameStart, field->nameLength)){
@@ -864,6 +872,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
 
         case RETURN_STATEMENT: {
             if (node->children) {
+                printf("is a member access ? %d\n", node->children->nodeType == MEMBER_ACCESS);
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {

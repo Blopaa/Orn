@@ -48,6 +48,7 @@ Symbol addFunctionSymbol(SymbolTable symbolTable, const char *nameStart, size_t 
     newSymbol->isInitialized = 1;
     newSymbol->parameters = parameters;
     newSymbol->paramCount = paramCount;
+    newSymbol->functionScope = NULL;
 
     newSymbol->next = symbolTable->symbols;
     symbolTable->symbols = newSymbol;

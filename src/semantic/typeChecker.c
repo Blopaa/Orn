@@ -1250,7 +1250,13 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     SymbolTable oldScope = context->current;
     Symbol oldFunction = context->currentFunction;
 
-    context->current = createSymbolTable(oldScope);
+    SymbolTable funcScope = createSymbolTable(oldScope);
+    if (funcScope == NULL) {
+        repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create function scope");
+        return 0;
+    }
+    funcSymbol->functionScope = funcScope;
+    context->current = funcScope;
     context->currentFunction = funcSymbol;
 
     if (context->current == NULL) {
@@ -1276,6 +1282,13 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
                 paramSymbol->isPointer = (pointerLevel > 0);
                 paramSymbol->pointerLvl = pointerLevel;
                 paramSymbol->baseType = getDataTypeFromNode(baseType->nodeType); 
+
+                if (paramSymbol->baseType == TYPE_STRUCT || paramSymbol->type == TYPE_STRUCT) {
+                    Symbol structTypeSymbol = lookupSymbol(context->current, baseType->start, baseType->length);
+                    if (structTypeSymbol && structTypeSymbol->symbolType == SYMBOL_TYPE) {
+                        paramSymbol->structType = structTypeSymbol->structType;
+                    }
+                }
             }
         }
         param = param->next;
@@ -1287,7 +1300,6 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         success = typeCheckNode(bodyNode, context);
     }
 
-    freeSymbolTable(context->current);
     context->current = oldScope;
     context->currentFunction = oldFunction;
 
@@ -1316,6 +1328,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         }
         return 1;
     }
+
+    printf("is a memberaccess? %d\n", node->children->nodeType == MEMBER_ACCESS);
 
     // Get actual return type
     DataType returnType = getExpressionType(node->children, context);
@@ -1367,6 +1381,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         
         return 1;
     }
+
+    printf("got here\n");
     
     // For non-pointer types, standard compatibility check
     CompatResult compat = areCompatible(expectedType, returnType);
@@ -1374,6 +1390,8 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         repError(ERROR_RETURN_TYPE_MISMATCH, "return");
         return 0;
     }
+
+    printf("return type is %s, expected %s\n", getTypeName(returnType), getTypeName(expectedType));
 
     return 1;
 }

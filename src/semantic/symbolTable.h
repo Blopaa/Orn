@@ -22,6 +22,9 @@
 struct TypeCheckContext;
 typedef struct TypeCheckContext *TypeCheckContext;
 
+struct SymbolTable;
+typedef struct SymbolTable *SymbolTable;
+
 /**
  * @brief Data type enumeration for type checking and validation.
  *
@@ -47,15 +50,6 @@ typedef enum {
     SYMBOL_TYPE,
 } SymbolType;
 
-typedef struct FunctionParameter {
-    const char *nameStart;
-    size_t nameLength;
-    DataType type;
-    int isPointer;
-    int pointerLevel;
-    struct FunctionParameter *next;
-} *FunctionParameter;
-
 typedef struct StructField {
     const char *nameStart;
     size_t nameLength;
@@ -71,6 +65,15 @@ typedef struct StructType {
     size_t size;
     int fieldCount;
 } *StructType;
+
+typedef struct FunctionParameter {
+    const char *nameStart;
+    size_t nameLength;
+    DataType type;
+    int isPointer;
+    int pointerLevel;
+    struct FunctionParameter *next;
+} *FunctionParameter;
 
 // gotta redo this with unions
 
@@ -94,6 +97,7 @@ typedef struct Symbol {
             int paramCount;
             int returnsPointer;     
             int returnPointerLevel;  
+            SymbolTable functionScope;
             DataType returnBaseType;
         };
         struct {
@@ -130,16 +134,11 @@ typedef struct SymbolTable {
     int symbolCount;
 } *SymbolTable;
 
-Symbol createSymbol(ASTNode node, DataType type);
-
 void freeSymbol(Symbol symbol);
 
 SymbolTable createSymbolTable(SymbolTable parent);
 
 void freeSymbolTable(SymbolTable symbolTable);
-
-Symbol addSymbolFromString(SymbolTable table, const char *name, DataType type,
-                          int line, int column);
 
 Symbol addSymbolFromNode(SymbolTable table, ASTNode node, DataType type) ;
 
