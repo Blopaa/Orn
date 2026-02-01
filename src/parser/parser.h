@@ -454,6 +454,7 @@ ASTNode parseArrLit(TokenList *list, size_t *pos);
 ASTNode parseArrayAccess(TokenList *list, size_t *pos, ASTNode arrNode);
 ASTNode parseImport(TokenList *list, size_t *pos);
 ASTNode parseExportFunction(TokenList* list, size_t* pos);
+ASTNode parseForLoop(TokenList *list, size_t *pos);
 
 // Public function prototypes
 ASTContext * ASTGenerator(TokenList* tokenList);

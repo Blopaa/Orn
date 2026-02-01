@@ -66,6 +66,8 @@ TypeCheckContext createTypeCheckContext(const char *sourceCode, const char *file
     context->currentFunction = NULL;
     context->sourceFile = sourceCode;
     context->filename = filename;
+    context->blockScopesHead = NULL;
+    context->blockScopesTail = NULL;
 
     initBuiltIns(context->global);
 
@@ -88,6 +90,12 @@ TypeCheckContext createTypeCheckContext(const char *sourceCode, const char *file
 void freeTypeCheckContext(TypeCheckContext context) {
     if (context == NULL) return;
     if (context->global != NULL) freeSymbolTable(context->global);
+    BlockScopeNode node = context->blockScopesHead;
+    while (node) {
+        BlockScopeNode next = node->next;
+        free(node);
+        node = next;
+    }
     free(context);
 }
 
@@ -1424,6 +1432,46 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
     return 1;
 }
 
+/**
+ * @brief Enqueues a block scope for later use by IR generation.
+ */
+void enqueueBlockScope(TypeCheckContext context, SymbolTable scope) {
+    if (!context || !scope) return;
+    
+    BlockScopeNode node = malloc(sizeof(struct BlockScopeNode));
+    if (!node) return;
+    
+    node->scope = scope;
+    node->next = NULL;
+    
+    if (context->blockScopesTail) {
+        context->blockScopesTail->next = node;
+    } else {
+        context->blockScopesHead = node;
+    }
+    context->blockScopesTail = node;
+}
+
+/**
+ * @brief Dequeues the next block scope for IR generation.
+ * 
+ * @return The next scope, or NULL if queue is empty.
+ */
+SymbolTable dequeueBlockScope(TypeCheckContext context) {
+    if (!context || !context->blockScopesHead) return NULL;
+    
+    BlockScopeNode node = context->blockScopesHead;
+    SymbolTable scope = node->scope;
+    
+    context->blockScopesHead = node->next;
+    if (!context->blockScopesHead) {
+        context->blockScopesTail = NULL;
+    }
+    
+    free(node);
+    return scope;
+}
+
 
 /**
  * @brief Recursively type checks all children of an AST node.
@@ -1668,6 +1716,7 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             break;
         case LET_DEC:
         case CONST_DEC :
+            printf("got here\n");
             ASTNode varDef = node->children;
             if(!varDef){
                 repError(ERROR_INTERNAL_PARSER_ERROR, "Declaration wrapper has no child");
@@ -1696,17 +1745,21 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
         case BLOCK_STATEMENT:
         case BLOCK_EXPRESSION: {
             SymbolTable oldScope = context->current;
-            context->current = createSymbolTable(oldScope);
+            SymbolTable blockScope = createSymbolTable(oldScope);
 
-            if (context->current == NULL) {
+            if (blockScope == NULL) {
                 repError(ERROR_SYMBOL_TABLE_CREATION_FAILED, "Failed to create new scope for block");
                 success = 0;
                 break;
             }
 
-            success = typeCheckChildren(node, context);
+            context->current = blockScope;
+            
+            // Enqueue the scope for IR generation to use later
+            enqueueBlockScope(context, blockScope);
 
-            freeSymbolTable(context->current);
+            success = typeCheckChildren(node, context);
+            
             context->current = oldScope;
             break;
         }

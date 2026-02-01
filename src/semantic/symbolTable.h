@@ -139,6 +139,8 @@ typedef struct Symbol {
 typedef struct SymbolTable {
     Symbol symbols;
     struct SymbolTable *parent;
+    struct SymbolTable *child;
+    struct SymbolTable *brother;
     int scope;
     int symbolCount;
 } *SymbolTable;

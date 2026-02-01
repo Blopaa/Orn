@@ -124,6 +124,7 @@ const StatementHandler statementHandlers[] = {
 	{TK_LBRACE, parseBlock},
 	{TK_STRUCT, parseStruct},
 	{TK_IF, parseIf},
+	{TK_FOR, parseForLoop},
 	{TK_NULL, NULL}
 };
 
@@ -483,6 +484,45 @@ ASTNode parseLoop(TokenList* list, size_t* pos) {
 	return loopNode;
 }
 
+ASTNode parseForLoop(TokenList *list, size_t *pos) {
+    if (*pos >= list->count) return NULL;
+    Token* forToken = &list->tokens[*pos];
+    ADVANCE_TOKEN(list, pos);
+
+    ASTNode init = NULL, condition = NULL, increment = NULL, loopBody = NULL;
+    ASTNode loopNode = NULL, blockNode = NULL;
+
+    EXPECT_AND_ADVANCE(list, pos, TK_LPAREN, ERROR_EXPECTED_OPENING_PAREN, "Expected '(' after 'for'");
+    PARSE_OR_FAIL(init, parseStatement(list, pos));
+    PARSE_OR_FAIL(condition, parseExpression(list, pos, PREC_NONE));
+    EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after loop condition");
+    PARSE_OR_FAIL(increment, parseExpression(list, pos, PREC_NONE));
+    EXPECT_AND_ADVANCE(list, pos, TK_RPAREN, ERROR_EXPECTED_CLOSING_PAREN, "Expected ')' after for clauses");
+    EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' after for clauses");
+    PARSE_OR_FAIL(loopBody, parseBlock(list, pos));
+
+    if (loopBody->children == NULL) {
+        loopBody->children = increment;
+    } else {
+        ASTNode lastChild = loopBody->children;
+        while (lastChild->brothers) {
+            lastChild = lastChild->brothers;
+        }
+        lastChild->brothers = increment;
+    }
+
+    CREATE_NODE_OR_FAIL(loopNode, forToken, LOOP_STATEMENT, list, pos);
+    loopNode->children = condition;
+    condition->brothers = loopBody;
+
+    CREATE_NODE_OR_FAIL(blockNode, NULL, BLOCK_STATEMENT, list, pos);
+    blockNode->children = init;
+    init->brothers = loopNode;
+
+    return blockNode;
+}
+
+
 /**
  * @brief Parses a single parameter in a function declaration.
  *
@@ -701,8 +741,7 @@ ASTNode parseFunction(TokenList* list, size_t* pos) {
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode paramList, returnType, body;
-	PARSE_OR_CLEANUP(paramList, parseCommaSeparatedLists(list, pos, PARAMETER_LIST, parseParameter),
-					 functionNode);
+	PARSE_OR_CLEANUP(paramList, parseCommaSeparatedLists(list, pos, PARAMETER_LIST, parseParameter), functionNode);
 	PARSE_OR_CLEANUP(returnType, parseReturnType(list, pos), functionNode, paramList);
 	EXPECT_TOKEN(list, pos, TK_LBRACE, ERROR_EXPECTED_OPENING_BRACE, "Expected '{' for function body");
 	PARSE_OR_CLEANUP(body, parseBlock(list, pos), functionNode, paramList, returnType);

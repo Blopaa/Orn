@@ -5,6 +5,12 @@
 #define CINTERPRETER_TYPECHECKER_H
 #include "symbolTable.h"
 #include "../errorHandling/errorHandling.h"
+
+typedef struct BlockScopeNode {
+    SymbolTable scope;
+    struct BlockScopeNode *next;
+} *BlockScopeNode;
+
 /**
  * @brief Type checking context for managing symbol tables and scope.
  *
@@ -18,6 +24,10 @@ typedef struct TypeCheckContext {
     Symbol currentFunction;
     const char *sourceFile;
     const char *filename;
+
+    // Block scope tracking for IR generation
+    BlockScopeNode blockScopesHead;  // Queue head (for dequeue during IR)
+    BlockScopeNode blockScopesTail;  // Queue tail (for enqueue during type checking)
 } *TypeCheckContext;
 
 typedef enum {
@@ -45,4 +55,8 @@ FunctionParameter extractParameters(ASTNode paramListNode);
 DataType getReturnTypeFromNode(ASTNode returnTypeNode, int *outPointerLevel);
 int validateBuiltinFunctionCall(ASTNode node, TypeCheckContext context);
 int validateUserDefinedFunctionCall(ASTNode node, TypeCheckContext context);
+
+void enqueueBlockScope(TypeCheckContext context, SymbolTable scope);
+SymbolTable dequeueBlockScope(TypeCheckContext context);
+
 #endif //CINTERPRETER_TYPECHECKER_H

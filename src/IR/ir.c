@@ -783,9 +783,8 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
 void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx){
     switch(node->nodeType){
-        case PROGRAM:
-        case BLOCK_STATEMENT:
-        case BLOCK_EXPRESSION: {
+        case PROGRAM: {
+            printf("Generating IR for program\n");
             ASTNode child = node->children;
             while(child){
                 generateStatementIr(ctx, child, typeCtx);
@@ -793,19 +792,48 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             }
             break;
         }
+        case BLOCK_STATEMENT:
+        case BLOCK_EXPRESSION: {
+            // IMPORTANT: Dequeue the block scope that was created during type checking
+            // This ensures symbol lookups work correctly for block-local variables
+            printf("Generating IR for block - entering block scope\n");
+            
+            SymbolTable oldScope = typeCtx->current;
+            SymbolTable blockScope = dequeueBlockScope(typeCtx);
+            
+            if (blockScope) {
+                typeCtx->current = blockScope;
+            } else {
+                printf("Warning: No block scope found in queue!\n");
+            }
+            
+            ASTNode child = node->children;
+            while(child){
+                generateStatementIr(ctx, child, typeCtx);
+                child = child->brothers;
+            }
+            
+            // Restore the previous scope
+            typeCtx->current = oldScope;
+            break;
+        }
         case LET_DEC:
         case CONST_DEC:
+            printf("Generating IR for variable definition\n");
             if (node->children) {
                 ASTNode varDef = node->children;
                 Symbol sym = lookupSymbol(typeCtx->current, varDef->start, varDef->length);
+                printf("does symbol exist ? %d\n", sym != NULL);
                 if(sym->type == TYPE_STRUCT){
                     IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
                     int totalSize = sym->structType->size;
                     emitAllocStruct(ctx, var, totalSize);
                 }else{
+                    printf("boom\n");
                     generateStatementIr(ctx, node->children, typeCtx);
                 }
             }
+            printf("reached break\n");
             break;
         case VAR_DEFINITION: {
             if (node->children && node->children->brothers) {
@@ -885,6 +913,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         }
 
         case LOOP_STATEMENT: {
+            printf("Generating IR for loop statement\n");
             ASTNode cond = node->children;
             ASTNode body = cond->brothers;
 

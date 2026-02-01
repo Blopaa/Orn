@@ -57,6 +57,7 @@ static TokenType lookUpKeyword(const char * s, size_t len) {
 			break;
 		case 'f':
 			if (len == 2 && s[1] == 'n') return TK_FN;
+			if(len == 3 && memcmp(s, "for", 3) == 0) return TK_FOR;
 			if(len == 4 && memcmp(s, "from", 4) == 0) return TK_FROM;
 			if (len == 5) {
 				if (memcmp(s, "float", 5) == 0) return TK_FLOAT;

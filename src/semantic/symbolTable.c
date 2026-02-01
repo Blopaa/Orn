@@ -96,9 +96,19 @@ void freeSymbol(Symbol symbol) {
 SymbolTable createSymbolTable(SymbolTable parent) {
     SymbolTable table = malloc(sizeof(struct SymbolTable));
     if (table == NULL) return NULL;
+    
     table->symbols = NULL;
     table->parent = parent;
+    table->child = NULL;
+    table->brother = NULL;
     table->scope = (parent == NULL) ? 0 : parent->scope + 1;
+    table->symbolCount = 0;
+
+    // Register as child of parent
+    if (parent != NULL) {
+        table->brother = parent->child;
+        parent->child = table;
+    }
 
     return table;
 }
@@ -111,6 +121,15 @@ SymbolTable createSymbolTable(SymbolTable parent) {
 void freeSymbolTable(SymbolTable table) {
     if (table == NULL) return;
 
+    // Free all child scopes first
+    SymbolTable child = table->child;
+    while (child != NULL) {
+        SymbolTable nextChild = child->brother;
+        freeSymbolTable(child);
+        child = nextChild;
+    }
+
+    // Free symbols in this scope
     Symbol current = table->symbols;
     while (current != NULL) {
         Symbol next = current->next;
