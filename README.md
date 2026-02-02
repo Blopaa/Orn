@@ -101,7 +101,7 @@ Executable
 ### Build
 
 ```bash
-git clone https://github.com/Blopaa/Orn.git
+git clone https://github.com/pabloosabaterr/Orn.git
 cd Orn
 mkdir build && cd build
 cmake ..
@@ -165,8 +165,8 @@ error [E1001]: mismatched types (x)
 
 We welcome contributors and feedback!
 
-* Visit the [GitHub repository](https://github.com/Blopaa/Orn)
-* Report issues on the [issue tracker](https://github.com/Blopaa/Orn/issues)
+* Visit the [GitHub repository](https://github.com/pabloosabaterr/Orn)
+* Report issues on the [issue tracker](https://github.com/pabloosabaterr/Orn/issues)
 * Join our [Discord](https://discord.gg/E8qqVC9jcf)
 
 ---
