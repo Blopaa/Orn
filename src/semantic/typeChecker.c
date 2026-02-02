@@ -1417,8 +1417,6 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         
         return 1;
     }
-
-    printf("got here\n");
     
     // For non-pointer types, standard compatibility check
     CompatResult compat = areCompatible(expectedType, returnType);
@@ -1716,7 +1714,6 @@ int typeCheckNode(ASTNode node, TypeCheckContext context) {
             break;
         case LET_DEC:
         case CONST_DEC :
-            printf("got here\n");
             ASTNode varDef = node->children;
             if(!varDef){
                 repError(ERROR_INTERNAL_PARSER_ERROR, "Declaration wrapper has no child");

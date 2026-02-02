@@ -430,7 +430,7 @@ ASTNode parseTernary(TokenList* list, size_t* pos) {
 }
 
 ASTNode parseIf(TokenList *list, size_t* pos){
-	Token *ifToken = &list->tokens[*pos];
+	Token *ifToken = &list->tokens[*pos]; 
 	ADVANCE_TOKEN(list, pos);
 
 	ASTNode falseBranch = NULL;
@@ -441,7 +441,11 @@ ASTNode parseIf(TokenList *list, size_t* pos){
 
 	if(list->tokens[*pos].type == TK_ELSE){
 		ADVANCE_TOKEN(list, pos);
-		PARSE_OR_CLEANUP(falseBranch, parseBlock(list, pos), condition, trueBranch);
+		if(list->tokens[*pos].type == TK_IF){
+			falseBranch = parseIf(list, pos);
+		}else {
+			PARSE_OR_CLEANUP(falseBranch, parseBlock(list, pos), condition, trueBranch);
+		}
 	}
 
 	CREATE_NODE_OR_FAIL(conditionalNode, ifToken, IF_CONDITIONAL, list, pos);
