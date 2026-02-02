@@ -63,6 +63,8 @@ typedef struct StructField {
     size_t nameLength;
     DataType type;
     StructType structType; // only if type == TYPE_STRUCT
+    int isPointer;
+    int pointerLevel;
     size_t offset;
     struct StructField *next;
 } * StructField;

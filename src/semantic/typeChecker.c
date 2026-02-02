@@ -1532,11 +1532,13 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                     free(structField);
                     return NULL;
                 }
-
+                int pointerLevel = 0;
+                ASTNode baseTypeNode = getBaseTypeFromPointerChain(field->children->children, &pointerLevel);
+                DataType type =  getDataTypeFromNode(baseTypeNode->nodeType);
                 structField->nameStart = field->start;
-                structField->nameLength = field->length;
-                DataType type =  getDataTypeFromNode(field->children->nodeType);
+                structField->nameLength = field->length;       
                 structField->type = type;
+                // @todo: this can be extracted to a createStructField
                 if(type == TYPE_STRUCT) {
                     Symbol structSymbol = lookupSymbol(context->current, field->children->start, field->children->length);
                     if(!structSymbol || structSymbol->symbolType != SYMBOL_TYPE){
@@ -1546,6 +1548,11 @@ StructType createStructType(ASTNode node, TypeCheckContext context) {
                         return NULL;
                     }
                     structField->structType = structSymbol->structType;
+                }
+                structField->isPointer = (pointerLevel > 0);
+                structField->pointerLevel = pointerLevel;
+                if (pointerLevel > 0) {
+                    structField->type = TYPE_POINTER;
                 }
                 structField->next = NULL;
 

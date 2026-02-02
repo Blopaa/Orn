@@ -776,19 +776,20 @@ ASTNode parseStructField(TokenList * list, size_t* pos) {
 	reportError(ERROR_EXPECTED_FIELD_NAME, createErrorContextFromParser(list, pos), "Expected field name");
 		return NULL;
 	}
-	ASTNode fieldNode, typeNode;
+	ASTNode fieldNode;
 	CREATE_NODE_OR_FAIL(fieldNode, name, STRUCT_FIELD, list, pos);
 	ADVANCE_TOKEN(list, pos);
 	EXPECT_AND_ADVANCE(list, pos, TK_COLON, ERROR_EXPECTED_COLON, "Expected ':' after field name");
-	if (!isTypeToken(list->tokens[*pos].type)) {
-		reportError(ERROR_EXPECTED_FIELD_TYPE, createErrorContextFromParser(list, pos), "Expected type after ':'");
-		freeAST(fieldNode);
+	ASTNode typeNode = parseType(list, pos);
+	if(!typeNode){
+		// Error already reported in parseType
 		return NULL;
 	}
-	Token * typeTok = &list->tokens[*pos];
-	ADVANCE_TOKEN(list, pos);
-	CREATE_NODE_OR_FAIL(typeNode, typeTok, getTypeNodeFromToken(typeTok->type), list, pos);
-	fieldNode->children = typeNode;
+
+	ASTNode typeRefWrap;
+	CREATE_NODE_OR_FAIL(typeRefWrap, NULL, TYPE_REF, list, pos);
+	typeRefWrap->children = typeNode;
+	fieldNode->children = typeRefWrap;
 	return fieldNode;
 }
 
