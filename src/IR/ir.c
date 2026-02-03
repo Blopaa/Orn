@@ -721,26 +721,26 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
             return ptrOp;
         }else if (left->nodeType == MEMBER_ACCESS) {
-        MemberAccessInfo info = resolveMemberAccessChain(left, typeCtx);
-        
-        if (!info.baseName) {
-            return createNone();
-        }
-        
-        IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
-        
-        if (node->nodeType != ASSIGNMENT) {
-            // Compound assignment
-            IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(info.fieldType));
-            emitMemberLoad(ctx, temp1, structVar, info.totalOffset);
-            IrOperand t2 = createTemp(ctx, temp1.dataType);
-            IrOpCode op = astOpToIrOp(node->nodeType);
-            emitBinary(ctx, op, t2, temp1, rightOp);
-            emitMemberStore(ctx, structVar, info.totalOffset, t2);
-        } else {
-            emitMemberStore(ctx, structVar, info.totalOffset, rightOp);
-        }
-    }else {
+            MemberAccessInfo info = resolveMemberAccessChain(left, typeCtx);
+            
+            if (!info.baseName) {
+                return createNone();
+            }
+            
+            IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
+            
+            if (node->nodeType != ASSIGNMENT) {
+                // Compound assignment
+                IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(info.fieldType));
+                emitMemberLoad(ctx, temp1, structVar, info.totalOffset);
+                IrOperand t2 = createTemp(ctx, temp1.dataType);
+                IrOpCode op = astOpToIrOp(node->nodeType);
+                emitBinary(ctx, op, t2, temp1, rightOp);
+                emitMemberStore(ctx, structVar, info.totalOffset, t2);
+            } else {
+                emitMemberStore(ctx, structVar, info.totalOffset, rightOp);
+            }
+        }else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;
@@ -833,6 +833,19 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                     IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
                     int totalSize = sym->structType->size;
                     emitAllocStruct(ctx, var, totalSize);
+                    
+                    if (varDef->children && varDef->children->brothers) {
+                        ASTNode initValue = varDef->children->brothers->children;
+                        IrOperand srcOp = generateExpressionIr(ctx, initValue, typeCtx);
+                        
+                        StructField field = sym->structType->fields;
+                        while (field) {
+                            IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
+                            emitMemberLoad(ctx, temp, srcOp, field->offset);
+                            emitMemberStore(ctx, var, field->offset, temp);
+                            field = field->next;
+                        }
+                    }
                 }else{
                     generateStatementIr(ctx, node->children, typeCtx);
                 }
