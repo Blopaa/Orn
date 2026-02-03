@@ -413,6 +413,10 @@ static MemberAccessInfo resolveMemberAccessChain(ASTNode node, TypeCheckContext 
     return info;
 }
 
+/**
+ * @brief Generated Ir instructtions for a function
+ * @details ar1 is the function name, ar2 is 1 if exported, 0 otherwise and ar3 it is used to indicate if the function returns a data container (struct)
+ */
 static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx, int isExported) {
     ASTNode paramList = node->children;
     ASTNode returnType = paramList->brothers;
@@ -431,8 +435,15 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     
     IrOperand funcName = createFn(node->start, node->length);
     IrOperand exportFlag = createIntConst(isExported);
+    int returnsDataContainerFlag = fnSymbol->type == TYPE_STRUCT;
+    IrOperand returnsDataContainer = createIntConst(returnsDataContainerFlag);
     IrOperand none = createNone();
-    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, none);
+    if(returnsDataContainerFlag){
+        IrOperand temp = createTemp(ctx, IR_TYPE_POINTER);
+        printf("size is null? %d\n", fnSymbol->structType == NULL);
+        emitAllocStruct(ctx, temp, fnSymbol->structType->size);
+    }
+    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, returnsDataContainer);
 
     if (fnSymbol && fnSymbol->parameters) {
         FunctionParameter param = fnSymbol->parameters;
@@ -925,7 +936,6 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
 
         case RETURN_STATEMENT: {
             if (node->children) {
-                printf("is a member access ? %d\n", node->children->nodeType == MEMBER_ACCESS);
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {

@@ -823,7 +823,9 @@ ASTNode parseStruct(TokenList *list, size_t *pos) {
 	}
 
 	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, ERROR_EXPECTED_CLOSING_BRACE, "Expected '}' to close struct");
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after struct definition");
+	if(list->tokens[*pos].type == TK_SEMI){
+		ADVANCE_TOKEN(list, pos);
+	}
 	structNode->children = fieldList;
 	return structNode;
 }

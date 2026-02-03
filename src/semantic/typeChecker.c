@@ -808,6 +808,9 @@ const char* getTypeName(DataType type) {
         case TYPE_STRING: return "string";
         case TYPE_BOOL: return "bool";
         case TYPE_VOID: return "void";
+        case TYPE_POINTER: return "pointer";
+        case TYPE_STRUCT: return "struct";
+        case TYPE_NULL: return "null";
         default: return "unknown";
     }
 }
@@ -1234,6 +1237,7 @@ DataType getReturnTypeFromNode(ASTNode returnTypeNode, int *outPointerLevel) {
     if (returnTypeNode->children != NULL) {
         ASTNode typeRef = getBaseTypeFromPointerChain(
             returnTypeNode->children, outPointerLevel);
+        printf("is struct ? %d\n", typeRef->nodeType == REF_CUSTOM);
         return getDataTypeFromNode(typeRef->nodeType);
     }
 
@@ -1259,6 +1263,7 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
     FunctionParameter parameters = extractParameters(paramListNode);
     int returnPointerLevel = 0;
     DataType returnType = getReturnTypeFromNode(returnTypeNode, &returnPointerLevel);
+    printf("return type is struct? %d\n", returnType == TYPE_STRUCT);
 
     int paramCount = 0;
     FunctionParameter param = parameters;
@@ -1275,7 +1280,9 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         freeParamList(parameters);
         return 0;
     }
-
+    if(returnType == TYPE_STRUCT) {
+        funcSymbol->structType = lookupSymbol(context->current, returnTypeNode->children->start, returnTypeNode->children->length)->structType;
+    }
     funcSymbol->returnsPointer = (returnPointerLevel > 0);
     funcSymbol->returnPointerLevel = returnPointerLevel;
     if (returnPointerLevel > 0) {
@@ -1364,8 +1371,6 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         }
         return 1;
     }
-
-    printf("is a memberaccess? %d\n", node->children->nodeType == MEMBER_ACCESS);
 
     // Get actual return type
     DataType returnType = getExpressionType(node->children, context);
