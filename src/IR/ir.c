@@ -438,16 +438,15 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     int returnsDataContainerFlag = fnSymbol->type == TYPE_STRUCT;
     IrOperand returnsDataContainer = createIntConst(returnsDataContainerFlag);
     IrOperand none = createNone();
-    if(returnsDataContainerFlag){
-        IrOperand temp = createTemp(ctx, IR_TYPE_POINTER);
-        printf("size is null? %d\n", fnSymbol->structType == NULL);
-        emitAllocStruct(ctx, temp, fnSymbol->structType->size);
-    }
     emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, returnsDataContainer);
 
     if (fnSymbol && fnSymbol->parameters) {
         FunctionParameter param = fnSymbol->parameters;
-        int paramIndex = 0;
+        int paramIndex = returnsDataContainerFlag ? 1 : 0; // Adjust for hidden struct return param
+        if(returnsDataContainerFlag){
+            IrOperand hiddenPtr = createVar("__hidden_ptr", 13, IR_TYPE_POINTER);
+            emitBinary(ctx, IR_LOAD_PARAM, hiddenPtr, createNone(), createIntConst(0));
+        }
         while (param) {
             IrDataType irType = symbolTypeToIrType(param->type);
             if (param->isPointer) {
@@ -456,7 +455,7 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
             IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
             IrOperand indexOp = createIntConst(paramIndex);
 
-            emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
+            emitBinary(ctx, IR_LOAD_PARAM, paramVar, createNone(), indexOp);
 
             param = param->next;
             paramIndex++;
@@ -832,7 +831,19 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 if(sym->type == TYPE_STRUCT){
                     IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
                     int totalSize = sym->structType->size;
-                    emitAllocStruct(ctx, var, totalSize);
+                    printf("checking var %.*s of struct type, size %d\n", (int)varDef->length, varDef->start, totalSize);
+                    printf("blah %d", typeCtx->currentFunction != NULL);
+                    printf("blah2 %d \n", typeCtx->currentFunction && typeCtx->currentFunction->functionScope == typeCtx->current);
+                    if(typeCtx->currentFunction && typeCtx->currentFunction->functionScope == typeCtx->current){
+                        // this struct is inside a function, check if it needs a hidden pointer bcs it is returned
+                        // check if this struct declaration is the returned one
+                        printf("HERE\n");
+                        if(typeCtx->currentFunction->returnedVar == sym){
+                            emitCopy(ctx, var, createVar("__hidden_ptr", 13, IR_TYPE_POINTER));
+                        }
+                    }else{
+                        emitAllocStruct(ctx, var, totalSize);
+                    }
                     
                     if (varDef->children && varDef->children->brothers) {
                         ASTNode initValue = varDef->children->brothers->children;

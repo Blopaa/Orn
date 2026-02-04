@@ -28,6 +28,9 @@ typedef struct SymbolTable *SymbolTable;
 struct StructType;
 typedef struct StructType *StructType;
 
+struct Symbol;
+typedef struct Symbol *Symbol;
+
 /**
  * @brief Data type enumeration for type checking and validation.
  *
@@ -105,6 +108,7 @@ typedef struct Symbol {
         struct {
             // only for functions
             FunctionParameter parameters;
+            Symbol returnedVar;
             int paramCount;
             int returnsPointer;     
             int returnPointerLevel;  

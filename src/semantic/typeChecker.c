@@ -1419,8 +1419,6 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
                 }
             }
         }
-        
-        return 1;
     }
     
     // For non-pointer types, standard compatibility check
@@ -1430,6 +1428,7 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         return 0;
     }
 
+    funcSym->returnedVar = lookupSymbol(context->current, node->children->start, node->children->length);
     printf("return type is %s, expected %s\n", getTypeName(returnType), getTypeName(expectedType));
 
     return 1;
