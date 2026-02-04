@@ -668,7 +668,12 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     }
 
     case FUNCTION_CALL: {
+        Symbol funcSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
         int paramCount = 0;
+        if(funcSymbol && funcSymbol->returnedVar->type == TYPE_STRUCT){
+            ++paramCount;
+            emitBinary(ctx, IR_PARAM, createVar("__hidden_ptr", 13, IR_TYPE_POINTER), createNone(), createIntConst(0));
+        }
         ASTNode argList = node->children;
         if (argList && argList->nodeType == ARGUMENT_LIST) {
             ASTNode arg = argList->children;
@@ -680,8 +685,7 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
                 arg = arg->brothers;
             }
         }
-        
-        Symbol funcSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
+
         IrDataType retType = funcSymbol ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
         
         IrOperand result = (retType == IR_TYPE_VOID) ? createNone() : createTemp(ctx, retType);
@@ -831,18 +835,13 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 if(sym->type == TYPE_STRUCT){
                     IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
                     int totalSize = sym->structType->size;
-                    printf("checking var %.*s of struct type, size %d\n", (int)varDef->length, varDef->start, totalSize);
-                    printf("blah %d", typeCtx->currentFunction != NULL);
-                    printf("blah2 %d \n", typeCtx->currentFunction && typeCtx->currentFunction->functionScope == typeCtx->current);
-                    if(typeCtx->currentFunction && typeCtx->currentFunction->functionScope == typeCtx->current){
-                        // this struct is inside a function, check if it needs a hidden pointer bcs it is returned
-                        // check if this struct declaration is the returned one
-                        printf("HERE\n");
-                        if(typeCtx->currentFunction->returnedVar == sym){
-                            emitCopy(ctx, var, createVar("__hidden_ptr", 13, IR_TYPE_POINTER));
-                        }
+                    if(typeCtx->currentFunction && typeCtx->currentFunction->returnedVar == sym){
+                        emitCopy(ctx, var, createVar("__hidden_ptr", 13, IR_TYPE_POINTER));
                     }else{
                         emitAllocStruct(ctx, var, totalSize);
+                        if(varDef->children->brothers->children->nodeType == FUNCTION_CALL){
+                            emitUnary(ctx, IR_ADDROF, createTemp(ctx, IR_TYPE_POINTER), var);
+                        }
                     }
                     
                     if (varDef->children && varDef->children->brothers) {
@@ -864,8 +863,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         case VAR_DEFINITION: {
             if (node->children && node->children->brothers) {
-                IrOperand val =
-                    generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
 
                 ASTNode typeRefChild = node->children->children;
                 IrDataType type;
@@ -959,7 +957,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         }
 
         case RETURN_STATEMENT: {
-            if (node->children) {
+            if (node->children && !typeCtx->currentFunction->type == TYPE_STRUCT) {
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {
