@@ -335,7 +335,7 @@ void genReqMem(CodeGenContext *ctx, IrInstruction *inst) {
                 inst->result.dataType);
 
     int arraySize = inst->ar1.value.constant.intVal;
-    markVarAsArray(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, arraySize);
+    markVarAsAddresable(ctx, inst->result.value.var.name, inst->result.value.var.nameLen, arraySize);
 }
 
 void genLoadParam(CodeGenContext *ctx, IrInstruction *inst) {
@@ -503,25 +503,9 @@ void genAllocStruct(CodeGenContext *ctx, IrInstruction *inst) {
     size_t nameLen = inst->result.value.var.nameLen;
     int32_t structSize = inst->ar1.value.constant.intVal;
     
-    int32_t alignedSize = (structSize + 7) & ~7;
-    
     addLocalVar(ctx, name, nameLen, IR_TYPE_POINTER);
     
-    if (ctx->inFn && ctx->currentFn) {
-        ctx->currentFn->stackSize += alignedSize;
-        int32_t structBaseOffset = -ctx->currentFn->stackSize;
-        
-        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
-        int32_t varOff = getVarOffset(ctx, name, nameLen);
-        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
-    } else {
-        ctx->globalStackOff -= alignedSize;
-        int32_t structBaseOffset = ctx->globalStackOff;
-        
-        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
-        int32_t varOff = getVarOffset(ctx, name, nameLen);
-        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
-    }
+    markVarAsAddresable(ctx, name, nameLen, structSize);
 }
 
 void genMemberLoad(CodeGenContext *ctx, IrInstruction *inst) {
@@ -536,8 +520,17 @@ void genMemberLoad(CodeGenContext *ctx, IrInstruction *inst) {
     int32_t memberOffset = offsetOp->value.constant.intVal;
     IrDataType type = dest->dataType;
     
-    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
-    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+    // Find the variable to check if it's an array/direct struct
+    VarLoc *v = findVar(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    if (!v) return;
+
+    if (v->isAddresable) {
+        // It is a local struct: Load the address of the stack slot
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", v->stackOffset);
+    } else {
+        // It is a pointer: Load the address stored in the stack slot
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", v->stackOffset);
+    }
     
     if (isFloatingPoint(type)) {
         emitInstruction(ctx, "mov%s %d(%%rax), %%xmm0", getSSESuffix(type), memberOffset);
@@ -565,8 +558,17 @@ void genMemberStore(CodeGenContext *ctx, IrInstruction *inst){
         loadOp(ctx, valueOp, "c");
     }
 
-    int32_t structOff = getVarOffset(ctx, structVar->value.var.name, structVar->value.var.nameLen);
-    emitInstruction(ctx, "movq %d(%%rbp), %%rax", structOff);
+    // Find variable to check type
+    VarLoc *v = findVar(ctx, structVar->value.var.name, structVar->value.var.nameLen);
+    if (!v) return;
+
+    if (v->isAddresable) {
+        // Local struct -> Load address of stack slot
+        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", v->stackOffset);
+    } else {
+        // Pointer -> Load stored address
+        emitInstruction(ctx, "movq %d(%%rbp), %%rax", v->stackOffset);
+    }
 
     if(isFloatingPoint(type)){
         emitInstruction(ctx, "mov%s %%xmm0, %d(%%rax)", getSSESuffix(type), memOff);

@@ -413,6 +413,10 @@ static MemberAccessInfo resolveMemberAccessChain(ASTNode node, TypeCheckContext 
     return info;
 }
 
+/**
+ * @brief Generated Ir instructtions for a function
+ * @details ar1 is the function name, ar2 is 1 if exported, 0 otherwise and ar3 it is used to indicate if the function returns a data container (struct)
+ */
 static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx, int isExported) {
     ASTNode paramList = node->children;
     ASTNode returnType = paramList->brothers;
@@ -431,12 +435,18 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     
     IrOperand funcName = createFn(node->start, node->length);
     IrOperand exportFlag = createIntConst(isExported);
+    int returnsDataContainerFlag = fnSymbol->type == TYPE_STRUCT;
+    IrOperand returnsDataContainer = createIntConst(returnsDataContainerFlag);
     IrOperand none = createNone();
-    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, none);
+    emitBinary(ctx, IR_FUNC_BEGIN, funcName, exportFlag, returnsDataContainer);
 
     if (fnSymbol && fnSymbol->parameters) {
         FunctionParameter param = fnSymbol->parameters;
-        int paramIndex = 0;
+        int paramIndex = returnsDataContainerFlag ? 1 : 0; // Adjust for hidden struct return param
+        if(returnsDataContainerFlag){
+            IrOperand hiddenPtr = createVar("__hidden_ptr", 13, IR_TYPE_POINTER);
+            emitBinary(ctx, IR_LOAD_PARAM, hiddenPtr, createNone(), createIntConst(0));
+        }
         while (param) {
             IrDataType irType = symbolTypeToIrType(param->type);
             if (param->isPointer) {
@@ -445,7 +455,7 @@ static void generateFunctionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
             IrOperand paramVar = createVar(param->nameStart, param->nameLength, irType);
             IrOperand indexOp = createIntConst(paramIndex);
 
-            emitBinary(ctx, IR_LOAD_PARAM, paramVar, paramVar, indexOp);
+            emitBinary(ctx, IR_LOAD_PARAM, paramVar, createNone(), indexOp);
 
             param = param->next;
             paramIndex++;
@@ -658,7 +668,11 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
     }
 
     case FUNCTION_CALL: {
+        Symbol funcSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
         int paramCount = 0;
+        if(funcSymbol && funcSymbol->returnedVar->type == TYPE_STRUCT){
+            ++paramCount;
+        }
         ASTNode argList = node->children;
         if (argList && argList->nodeType == ARGUMENT_LIST) {
             ASTNode arg = argList->children;
@@ -670,9 +684,8 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
                 arg = arg->brothers;
             }
         }
-        
-        Symbol funcSymbol = lookupSymbol(typeCtx->current, node->start, node->length);
-        IrDataType retType = funcSymbol ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
+
+        IrDataType retType = funcSymbol && funcSymbol->type != TYPE_STRUCT ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
         
         IrOperand result = (retType == IR_TYPE_VOID) ? createNone() : createTemp(ctx, retType);
         emitCall(ctx, result, node->start, node->length, paramCount);
@@ -710,26 +723,26 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
 
             return ptrOp;
         }else if (left->nodeType == MEMBER_ACCESS) {
-        MemberAccessInfo info = resolveMemberAccessChain(left, typeCtx);
-        
-        if (!info.baseName) {
-            return createNone();
-        }
-        
-        IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
-        
-        if (node->nodeType != ASSIGNMENT) {
-            // Compound assignment
-            IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(info.fieldType));
-            emitMemberLoad(ctx, temp1, structVar, info.totalOffset);
-            IrOperand t2 = createTemp(ctx, temp1.dataType);
-            IrOpCode op = astOpToIrOp(node->nodeType);
-            emitBinary(ctx, op, t2, temp1, rightOp);
-            emitMemberStore(ctx, structVar, info.totalOffset, t2);
-        } else {
-            emitMemberStore(ctx, structVar, info.totalOffset, rightOp);
-        }
-    }else {
+            MemberAccessInfo info = resolveMemberAccessChain(left, typeCtx);
+            
+            if (!info.baseName) {
+                return createNone();
+            }
+            
+            IrOperand structVar = createVar(info.baseName, info.baseNameLen, IR_TYPE_POINTER);
+            
+            if (node->nodeType != ASSIGNMENT) {
+                // Compound assignment
+                IrOperand temp1 = createTemp(ctx, symbolTypeToIrType(info.fieldType));
+                emitMemberLoad(ctx, temp1, structVar, info.totalOffset);
+                IrOperand t2 = createTemp(ctx, temp1.dataType);
+                IrOpCode op = astOpToIrOp(node->nodeType);
+                emitBinary(ctx, op, t2, temp1, rightOp);
+                emitMemberStore(ctx, structVar, info.totalOffset, t2);
+            } else {
+                emitMemberStore(ctx, structVar, info.totalOffset, rightOp);
+            }
+        }else {
             leftOp = generateExpressionIr(ctx, left, typeCtx);
             if (node->nodeType != ASSIGNMENT) {
                 IrDataType resultType = leftOp.dataType;
@@ -821,7 +834,31 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                 if(sym->type == TYPE_STRUCT){
                     IrOperand var = createVar(varDef->start, varDef->length, IR_TYPE_POINTER);
                     int totalSize = sym->structType->size;
-                    emitAllocStruct(ctx, var, totalSize);
+                    if(typeCtx->currentFunction && typeCtx->currentFunction->returnedVar == sym){
+                        emitCopy(ctx, var, createVar("__hidden_ptr", 13, IR_TYPE_POINTER));
+                    }else{
+                        emitAllocStruct(ctx, var, totalSize);
+                        if(varDef->children->brothers->children->nodeType == FUNCTION_CALL){
+                            IrOperand temp = createTemp(ctx, IR_TYPE_POINTER);
+                            emitUnary(ctx, IR_ADDROF, temp, var);
+                            emitBinary(ctx, IR_PARAM, createNone(), temp, createNone());
+                        }
+                    }
+                    
+                    if (varDef->children && varDef->children->brothers) {
+                        ASTNode initValue = varDef->children->brothers->children;
+                        IrOperand srcOp = generateExpressionIr(ctx, initValue, typeCtx);
+                        
+                        if(varDef->children->brothers->children->nodeType != FUNCTION_CALL){
+                            StructField field = sym->structType->fields;
+                            while (field) {
+                                IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
+                                emitMemberLoad(ctx, temp, srcOp, field->offset);
+                                emitMemberStore(ctx, var, field->offset, temp);
+                                field = field->next;
+                            }
+                        }
+                    }
                 }else{
                     generateStatementIr(ctx, node->children, typeCtx);
                 }
@@ -829,8 +866,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
             break;
         case VAR_DEFINITION: {
             if (node->children && node->children->brothers) {
-                IrOperand val =
-                    generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
+                IrOperand val = generateExpressionIr(ctx, node->children->brothers->children, typeCtx);
 
                 ASTNode typeRefChild = node->children->children;
                 IrDataType type;
@@ -924,8 +960,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         }
 
         case RETURN_STATEMENT: {
-            if (node->children) {
-                printf("is a member access ? %d\n", node->children->nodeType == MEMBER_ACCESS);
+            if (node->children && typeCtx->currentFunction->type != TYPE_STRUCT) {
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {

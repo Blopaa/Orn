@@ -808,6 +808,9 @@ const char* getTypeName(DataType type) {
         case TYPE_STRING: return "string";
         case TYPE_BOOL: return "bool";
         case TYPE_VOID: return "void";
+        case TYPE_POINTER: return "pointer";
+        case TYPE_STRUCT: return "struct";
+        case TYPE_NULL: return "null";
         default: return "unknown";
     }
 }
@@ -1275,7 +1278,9 @@ int validateFunctionDef(ASTNode node, TypeCheckContext context) {
         freeParamList(parameters);
         return 0;
     }
-
+    if(returnType == TYPE_STRUCT) {
+        funcSymbol->structType = lookupSymbol(context->current, returnTypeNode->children->start, returnTypeNode->children->length)->structType;
+    }
     funcSymbol->returnsPointer = (returnPointerLevel > 0);
     funcSymbol->returnPointerLevel = returnPointerLevel;
     if (returnPointerLevel > 0) {
@@ -1365,8 +1370,6 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         return 1;
     }
 
-    printf("is a memberaccess? %d\n", node->children->nodeType == MEMBER_ACCESS);
-
     // Get actual return type
     DataType returnType = getExpressionType(node->children, context);
     if (returnType == TYPE_UNKNOWN) {
@@ -1414,8 +1417,6 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
                 }
             }
         }
-        
-        return 1;
     }
     
     // For non-pointer types, standard compatibility check
@@ -1425,6 +1426,7 @@ int validateReturnStatement(ASTNode node, TypeCheckContext context) {
         return 0;
     }
 
+    funcSym->returnedVar = lookupSymbol(context->current, node->children->start, node->children->length);
     printf("return type is %s, expected %s\n", getTypeName(returnType), getTypeName(expectedType));
 
     return 1;

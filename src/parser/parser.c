@@ -823,7 +823,9 @@ ASTNode parseStruct(TokenList *list, size_t *pos) {
 	}
 
 	EXPECT_AND_ADVANCE(list, pos, TK_RBRACE, ERROR_EXPECTED_CLOSING_BRACE, "Expected '}' to close struct");
-	EXPECT_AND_ADVANCE(list, pos, TK_SEMI, ERROR_EXPECTED_SEMICOLON, "Expected ';' after struct definition");
+	if(list->tokens[*pos].type == TK_SEMI){
+		ADVANCE_TOKEN(list, pos);
+	}
 	structNode->children = fieldList;
 	return structNode;
 }
@@ -1051,8 +1053,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 		
 		ASTNode initExpr, valueWrap;
 		CREATE_NODE_OR_FAIL(valueWrap, NULL, VALUE, list, pos);
-		PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), 
-		                mutWrapNode, varDefNode);
+		PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), mutWrapNode, varDefNode);
 		valueWrap->children = initExpr;
 		
 		// Attach value to appropriate node
