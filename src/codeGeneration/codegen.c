@@ -501,27 +501,27 @@ void genAllocStruct(CodeGenContext *ctx, IrInstruction *inst) {
     
     const char *name = inst->result.value.var.name;
     size_t nameLen = inst->result.value.var.nameLen;
-    int32_t structSize = inst->ar1.value.constant.intVal;
+    // int32_t structSize = inst->ar1.value.constant.intVal;
     
-    int32_t alignedSize = (structSize + 7) & ~7;
+    // int32_t alignedSize = (structSize + 7) & ~7;
     
     addLocalVar(ctx, name, nameLen, IR_TYPE_POINTER);
     
-    if (ctx->inFn && ctx->currentFn) {
-        ctx->currentFn->stackSize += alignedSize;
-        int32_t structBaseOffset = -ctx->currentFn->stackSize;
+    // if (ctx->inFn && ctx->currentFn) {
+    //     ctx->currentFn->stackSize += alignedSize;
+    //     int32_t structBaseOffset = -ctx->currentFn->stackSize;
         
-        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
-        int32_t varOff = getVarOffset(ctx, name, nameLen);
-        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
-    } else {
-        ctx->globalStackOff -= alignedSize;
-        int32_t structBaseOffset = ctx->globalStackOff;
+    //     emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+    //     int32_t varOff = getVarOffset(ctx, name, nameLen);
+    //     emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    // } else {
+    //     ctx->globalStackOff -= alignedSize;
+    //     int32_t structBaseOffset = ctx->globalStackOff;
         
-        emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
-        int32_t varOff = getVarOffset(ctx, name, nameLen);
-        emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
-    }
+    //     emitInstruction(ctx, "leaq %d(%%rbp), %%rax", structBaseOffset);
+    //     int32_t varOff = getVarOffset(ctx, name, nameLen);
+    //     emitInstruction(ctx, "movq %%rax, %d(%%rbp)", varOff);
+    // }
 }
 
 void genMemberLoad(CodeGenContext *ctx, IrInstruction *inst) {
