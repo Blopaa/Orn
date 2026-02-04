@@ -1053,9 +1053,7 @@ ASTNode parseDeclaration(TokenList* list, size_t* pos) {
 		
 		ASTNode initExpr, valueWrap;
 		CREATE_NODE_OR_FAIL(valueWrap, NULL, VALUE, list, pos);
-		printf("im here\n");
 		PARSE_OR_CLEANUP(initExpr, parseExpression(list, pos, PREC_NONE), mutWrapNode, varDefNode);
-		printf("blows up here\n");
 		valueWrap->children = initExpr;
 		
 		// Attach value to appropriate node

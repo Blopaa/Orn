@@ -99,7 +99,7 @@ void addGlobalVar(CodeGenContext *ctx, const char *name, size_t len, IrDataType 
     var->stackOffset = ctx->globalStackOff;
     var->type = type;
     var->next = ctx->globalVars;
-    var->isArray = 0;
+    var->isAddresable = 0;
     var->arraySize = 0;
     ctx->globalVars = var;
 }
@@ -133,7 +133,7 @@ void addLocalVar(CodeGenContext *ctx, const char *name, size_t len, IrDataType t
     var->stackOffset = -ctx->currentFn->stackSize;
     var->type = type;
     var->next = ctx->currentFn->locs;
-    var->isArray = 0;
+    var->isAddresable = 0;
     var->arraySize = 0;
     ctx->currentFn->locs = var;
 }
@@ -160,11 +160,11 @@ VarLoc *findVar(CodeGenContext *ctx, const char *name, size_t len) {
     return NULL;
 }
 
-void markVarAsArray(CodeGenContext *ctx, const char *name, size_t len, int arraySize) {
+void markVarAsAddresable(CodeGenContext *ctx, const char *name, size_t len, int arraySize) {
     VarLoc *var = findVar(ctx, name, len);
     if (!var) return;
     
-    var->isArray = 1;
+    var->isAddresable = 1;
     var->arraySize = arraySize;
     
     int elemSize = getTypeSize(var->type);

@@ -11,7 +11,7 @@ typedef struct VarLoc {
     int stackOffset;
     IrDataType type;
     struct VarLoc *next;
-    int isArray;
+    int isAddresable;
     int arraySize;
 } VarLoc;
 
@@ -38,6 +38,6 @@ int isFloatingPoint(IrDataType type);
 void freeVarList(VarLoc *list);
 void freeTempList(TempLoc *list);
 const char *getParamIntReg(int index, IrDataType type);
-void markVarAsArray(CodeGenContext *ctx, const char *name, size_t len, int arraySize);
+void markVarAsAddresable(CodeGenContext *ctx, const char *name, size_t len, int arraySize);
 
 #endif // VARIABLE_HANDLING_H

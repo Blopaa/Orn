@@ -672,7 +672,6 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
         int paramCount = 0;
         if(funcSymbol && funcSymbol->returnedVar->type == TYPE_STRUCT){
             ++paramCount;
-            emitBinary(ctx, IR_PARAM, createVar("__hidden_ptr", 13, IR_TYPE_POINTER), createNone(), createIntConst(0));
         }
         ASTNode argList = node->children;
         if (argList && argList->nodeType == ARGUMENT_LIST) {
@@ -686,7 +685,7 @@ IrOperand generateExpressionIr(IrContext *ctx, ASTNode node, TypeCheckContext ty
             }
         }
 
-        IrDataType retType = funcSymbol ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
+        IrDataType retType = funcSymbol && funcSymbol->type != TYPE_STRUCT ? symbolTypeToIrType(funcSymbol->type) : IR_TYPE_VOID;
         
         IrOperand result = (retType == IR_TYPE_VOID) ? createNone() : createTemp(ctx, retType);
         emitCall(ctx, result, node->start, node->length, paramCount);
@@ -840,7 +839,9 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                     }else{
                         emitAllocStruct(ctx, var, totalSize);
                         if(varDef->children->brothers->children->nodeType == FUNCTION_CALL){
-                            emitUnary(ctx, IR_ADDROF, createTemp(ctx, IR_TYPE_POINTER), var);
+                            IrOperand temp = createTemp(ctx, IR_TYPE_POINTER);
+                            emitUnary(ctx, IR_ADDROF, temp, var);
+                            emitBinary(ctx, IR_PARAM, createNone(), temp, createNone());
                         }
                     }
                     
@@ -848,12 +849,14 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
                         ASTNode initValue = varDef->children->brothers->children;
                         IrOperand srcOp = generateExpressionIr(ctx, initValue, typeCtx);
                         
-                        StructField field = sym->structType->fields;
-                        while (field) {
-                            IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
-                            emitMemberLoad(ctx, temp, srcOp, field->offset);
-                            emitMemberStore(ctx, var, field->offset, temp);
-                            field = field->next;
+                        if(varDef->children->brothers->children->nodeType != FUNCTION_CALL){
+                            StructField field = sym->structType->fields;
+                            while (field) {
+                                IrOperand temp = createTemp(ctx, symbolTypeToIrType(field->type));
+                                emitMemberLoad(ctx, temp, srcOp, field->offset);
+                                emitMemberStore(ctx, var, field->offset, temp);
+                                field = field->next;
+                            }
                         }
                     }
                 }else{
@@ -957,7 +960,7 @@ void generateStatementIr(IrContext *ctx, ASTNode node, TypeCheckContext typeCtx)
         }
 
         case RETURN_STATEMENT: {
-            if (node->children && !typeCtx->currentFunction->type == TYPE_STRUCT) {
+            if (node->children && typeCtx->currentFunction->type != TYPE_STRUCT) {
                 IrOperand retVal = generateExpressionIr(ctx, node->children, typeCtx);
                 emitReturn(ctx, retVal);
             } else {
